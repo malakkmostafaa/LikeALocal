@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:like_a_local/screens/main_navigation.dart';
 import '../../services/auth_service.dart';
 import 'signup_screen.dart';
 
@@ -28,11 +29,20 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       await _authService.login(
-        email: emailController.text,
-        password: passwordController.text,
+        email: emailController.text.trim(),
+        password: passwordController.text.trim(),
+      );
+
+      // ✅ CORRECT CHECK
+      if (!mounted) return;
+
+      // 🔥 NAVIGATE AFTER LOGIN
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const MainNavigation()),
       );
     } catch (e) {
-      showMessage('Login failed. Please check your email and password.');
+      showMessage(e.toString());
     }
 
     if (mounted) {
@@ -157,7 +167,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       const Text("Don't have an account? "),
                       GestureDetector(
                         onTap: () {
-                          Navigator.push(
+                          Navigator.pushReplacement(
                             context,
                             MaterialPageRoute(
                               builder: (_) => const SignupScreen(),

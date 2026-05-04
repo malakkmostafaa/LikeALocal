@@ -13,6 +13,7 @@ class AuthService {
     required String name,
     required String email,
     required String password,
+    required List<String> interests, // 👈 ADD THIS
   }) async {
     final credential = await _auth.createUserWithEmailAndPassword(
       email: email.trim(),
@@ -26,7 +27,10 @@ class AuthService {
       'name': name.trim(),
       'email': email.trim(),
       'createdAt': FieldValue.serverTimestamp(),
-      'preferences': [],
+
+      // 🔥 THIS IS THE IMPORTANT CHANGE
+      'preferences': interests,
+
       'isSuperUser': false,
       'pinsCount': 0,
       'chatEnabled': true,
