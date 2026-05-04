@@ -28,11 +28,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       await _authService.login(
-        email: emailController.text,
-        password: passwordController.text,
+        email: emailController.text.trim(),
+        password: passwordController.text.trim(),
       );
     } catch (e) {
-      showMessage('Login failed. Please check your email and password.');
+      showMessage(e.toString());
     }
 
     if (mounted) {
@@ -157,7 +157,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       const Text("Don't have an account? "),
                       GestureDetector(
                         onTap: () {
-                          Navigator.push(
+                          Navigator.pushReplacement(
                             context,
                             MaterialPageRoute(
                               builder: (_) => const SignupScreen(),

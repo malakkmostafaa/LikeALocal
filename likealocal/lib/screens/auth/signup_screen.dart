@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../screens/main_navigation.dart';
 import '../../services/auth_service.dart';
 
 class SignupScreen extends StatefulWidget {
@@ -38,7 +39,10 @@ class _SignupScreenState extends State<SignupScreen> {
       showMessage('Please fill all fields');
       return;
     }
-
+    if (selectedInterests.isEmpty) {
+      showMessage('Please select at least one interest');
+      return;
+    }
     if (passwordController.text.length < 6) {
       showMessage('Password must be at least 6 characters');
       return;
@@ -49,15 +53,18 @@ class _SignupScreenState extends State<SignupScreen> {
     try {
       await _authService.signUp(
         name: nameController.text,
-        email: emailController.text,
-        password: passwordController.text,
+        email: emailController.text.trim(),
+        password: passwordController.text.trim(),
+        interests: selectedInterests.toList(),
       );
 
-      if (mounted) {
-        Navigator.pop(context);
-      }
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const MainNavigation()),
+      );
     } catch (e) {
-      showMessage('Signup failed. Email may already be used.');
+      showMessage(e.toString());
     }
 
     if (mounted) {
@@ -160,7 +167,7 @@ class _SignupScreenState extends State<SignupScreen> {
                     return ChoiceChip(
                       label: Text(interest),
                       selected: selected,
-                      selectedColor: mainColor.withOpacity(0.2),
+                      selectedColor: const Color.fromRGBO(212, 90, 56, 0.2),
                       onSelected: (_) {
                         setState(() {
                           selected
