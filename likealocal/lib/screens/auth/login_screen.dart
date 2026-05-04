@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:like_a_local/screens/main_navigation.dart';
 import '../../services/auth_service.dart';
 import 'signup_screen.dart';
 
@@ -30,6 +31,15 @@ class _LoginScreenState extends State<LoginScreen> {
       await _authService.login(
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
+      );
+
+      // ✅ CORRECT CHECK
+      if (!mounted) return;
+
+      // 🔥 NAVIGATE AFTER LOGIN
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const MainNavigation()),
       );
     } catch (e) {
       showMessage(e.toString());
