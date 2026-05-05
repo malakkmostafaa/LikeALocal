@@ -5,6 +5,8 @@ class AppUser {
   final List<String> preferences;
   final int pinsCount;
   final bool isSuperUser;
+  final double maxDistance; 
+  final int priceRange;
 
   AppUser({
     required this.uid,
@@ -13,6 +15,8 @@ class AppUser {
     required this.preferences,
     required this.pinsCount,
     required this.isSuperUser,
+    required this.maxDistance,
+    required this.priceRange,
   });
 
   factory AppUser.fromMap(Map<String, dynamic> map) {
@@ -23,6 +27,19 @@ class AppUser {
       preferences: List<String>.from(map['preferences'] ?? []),
       pinsCount: map['pinsCount'] ?? 0,
       isSuperUser: map['isSuperUser'] ?? false,
+      maxDistance: (map['maxDistance'] ?? 10.0).toDouble(),
+      priceRange: map['priceRange'] ?? 1,
     );
   }
+
+Map<String, dynamic> toMap() {
+  return {
+    'uid': uid,
+    'name': name,
+    'email': email,
+    'preferences': preferences,
+    'pinsCount': pinsCount,
+    'isSuperUser': isSuperUser,
+  };
+}
 }
