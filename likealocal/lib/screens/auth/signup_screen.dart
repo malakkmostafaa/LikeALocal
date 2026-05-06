@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:like_a_local/screens/main_navigation.dart';
 import '../../services/auth_service.dart';
 
 class SignupScreen extends StatefulWidget {
@@ -58,8 +59,12 @@ class _SignupScreenState extends State<SignupScreen> {
       );
 
       if (!mounted) return;
-      Navigator.of(context)
-          .pop(); // Pop back to allow StreamBuilder to navigate
+      // Navigator.of(context)
+      //     .pop(); // Pop back to allow StreamBuilder to navigate
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const MainNavigation()),
+      );
     } catch (e) {
       showMessage(e.toString());
     }

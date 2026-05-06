@@ -33,10 +33,8 @@ class _LoginScreenState extends State<LoginScreen> {
         password: passwordController.text.trim(),
       );
 
-      // ✅ CORRECT CHECK
       if (!mounted) return;
 
-      // 🔥 NAVIGATE AFTER LOGIN
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const MainNavigation()),
