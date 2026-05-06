@@ -5,14 +5,20 @@ import '../../models/user_model.dart';
 import '../auth/login_screen.dart';
 
 const List<String> kAvailableCategories = [
-  'Culture', 'Food', 'Nature', 'Shopping', 'Adventure', 'Nightlife'
+  'Culture',
+  'Food',
+  'Nature',
+  'Shopping',
+  'Adventure',
+  'Nightlife'
 ];
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
   // --- THEMED EDIT DIALOG ---
-  void _showEditProfileDialog(BuildContext context, AppUser user, UserService userService) {
+  void _showEditProfileDialog(
+      BuildContext context, AppUser user, UserService userService) {
     final nameController = TextEditingController(text: user.name);
     double localDistance = user.maxDistance;
     int localPrice = user.priceRange;
@@ -23,12 +29,15 @@ class ProfileScreen extends StatelessWidget {
       builder: (context) => StatefulBuilder(
         builder: (context, setPopupState) => Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.fromSeed(seedColor: Colors.orange, primary: Colors.orange.shade400),
+            colorScheme: ColorScheme.fromSeed(
+                seedColor: Colors.orange, primary: Colors.orange.shade400),
           ),
           child: AlertDialog(
             backgroundColor: const Color(0xFFF9F7F4),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-            title: const Text("Edit Profile & Preferences", style: TextStyle(fontWeight: FontWeight.bold)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+            title: const Text("Edit Profile & Preferences",
+                style: TextStyle(fontWeight: FontWeight.bold)),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -39,47 +48,68 @@ class ProfileScreen extends StatelessWidget {
                       labelText: "Full Name",
                       filled: true,
                       fillColor: Colors.white,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none),
                     ),
                   ),
                   const SizedBox(height: 20),
-                  const Align(alignment: Alignment.centerLeft, child: Text("Interests", style: TextStyle(fontWeight: FontWeight.bold))),
+                  const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text("Interests",
+                          style: TextStyle(fontWeight: FontWeight.bold))),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
                     children: kAvailableCategories.map((category) {
                       final isSelected = localPrefs.contains(category);
                       return FilterChip(
-                        label: Text(category, style: const TextStyle(fontSize: 12)),
+                        label: Text(category,
+                            style: const TextStyle(fontSize: 12)),
                         selected: isSelected,
-                        onSelected: (selected) => setPopupState(() => selected ? localPrefs.add(category) : localPrefs.remove(category)),
+                        onSelected: (selected) => setPopupState(() => selected
+                            ? localPrefs.add(category)
+                            : localPrefs.remove(category)),
                       );
                     }).toList(),
                   ),
                   const Divider(height: 40),
-                  Text("Search Radius: ${localDistance.toInt()} km", style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text("Search Radius: ${localDistance.toInt()} km",
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
                   Slider(
                     value: localDistance,
-                    min: 1, max: 50,
-                    onChanged: (val) => setPopupState(() => localDistance = val),
+                    min: 1,
+                    max: 50,
+                    onChanged: (val) =>
+                        setPopupState(() => localDistance = val),
                   ),
                   const SizedBox(height: 10),
-                  const Text("Price Level", style: TextStyle(fontWeight: FontWeight.bold)),
+                  const Text("Price Level",
+                      style: TextStyle(fontWeight: FontWeight.bold)),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: [1, 2, 3].map((level) => ChoiceChip(
-                      label: Text("\$" * level),
-                      selected: localPrice == level,
-                      onSelected: (s) => setPopupState(() => localPrice = level),
-                    )).toList(),
+                    children: [1, 2, 3]
+                        .map((level) => ChoiceChip(
+                              label: Text("\$" * level),
+                              selected: localPrice == level,
+                              onSelected: (s) =>
+                                  setPopupState(() => localPrice = level),
+                            ))
+                        .toList(),
                   ),
                 ],
               ),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel", style: TextStyle(color: Colors.grey))),
+              TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("Cancel",
+                      style: TextStyle(color: Colors.grey))),
               ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black, shape: StadiumBorder()),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.black,
+                    shape: StadiumBorder()),
                 onPressed: () async {
                   await userService.updateUser(user.uid, {
                     'name': nameController.text.trim(),
@@ -107,7 +137,8 @@ class ProfileScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text("Profile", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+        title: const Text("Profile",
+            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
         actions: [
           StreamBuilder<AppUser?>(
             stream: userService.getCurrentUser(),
@@ -115,7 +146,8 @@ class ProfileScreen extends StatelessWidget {
               if (!snapshot.hasData) return const SizedBox();
               return IconButton(
                 icon: const Icon(Icons.edit_outlined, color: Colors.black),
-                onPressed: () => _showEditProfileDialog(context, snapshot.data!, userService),
+                onPressed: () => _showEditProfileDialog(
+                    context, snapshot.data!, userService),
               );
             },
           ),
@@ -124,7 +156,8 @@ class ProfileScreen extends StatelessWidget {
       body: StreamBuilder<AppUser?>(
         stream: userService.getCurrentUser(),
         builder: (context, snapshot) {
-          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+          if (!snapshot.hasData)
+            return const Center(child: CircularProgressIndicator());
           final user = snapshot.data!;
 
           return SingleChildScrollView(
@@ -139,12 +172,20 @@ class ProfileScreen extends StatelessWidget {
                       CircleAvatar(
                         radius: 50,
                         backgroundColor: Colors.orange.shade100,
-                        child: Text(user.name.isNotEmpty ? user.name[0].toUpperCase() : "👤", 
-                          style: TextStyle(fontSize: 40, color: Colors.orange.shade800)),
+                        child: Text(
+                            user.name.isNotEmpty
+                                ? user.name[0].toUpperCase()
+                                : "👤",
+                            style: TextStyle(
+                                fontSize: 40, color: Colors.orange.shade800)),
                       ),
                       const SizedBox(height: 16),
-                      Text(user.name, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
-                      Text(user.email, style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+                      Text(user.name,
+                          style: const TextStyle(
+                              fontSize: 26, fontWeight: FontWeight.bold)),
+                      Text(user.email,
+                          style: TextStyle(
+                              color: Colors.grey.shade600, fontSize: 14)),
                     ],
                   ),
                 ),
@@ -153,18 +194,29 @@ class ProfileScreen extends StatelessWidget {
                 const SizedBox(height: 24),
 
                 // Interests Section
-                const Align(alignment: Alignment.centerLeft, child: Text("My Interests:", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+                const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text("My Interests:",
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold))),
                 const SizedBox(height: 12),
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: user.preferences.map((pref) => Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.black12)),
-                      child: Text(pref, style: const TextStyle(fontSize: 14)),
-                    )).toList(),
+                    children: user.preferences
+                        .map((pref) => Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 8),
+                              decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: Colors.black12)),
+                              child: Text(pref,
+                                  style: const TextStyle(fontSize: 14)),
+                            ))
+                        .toList(),
                   ),
                 ),
                 const SizedBox(height: 32),
@@ -172,12 +224,23 @@ class ProfileScreen extends StatelessWidget {
                 // Settings Summary Card
                 Container(
                   padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10)]),
+                  decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                            color: Colors.black.withOpacity(0.03),
+                            blurRadius: 10)
+                      ]),
                   child: Column(
                     children: [
-                      _buildInfoRow("Radius", "${user.maxDistance.toInt()} km", Icons.map_outlined),
-                      const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1, color: Color(0xFFF9F7F4))),
-                      _buildInfoRow("Price Range", "\$" * user.priceRange, Icons.payments_outlined),
+                      _buildInfoRow("Radius", "${user.maxDistance.toInt()} km",
+                          Icons.map_outlined),
+                      const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 12),
+                          child: Divider(height: 1, color: Color(0xFFF9F7F4))),
+                      _buildInfoRow("Price Range", "\$" * user.priceRange,
+                          Icons.payments_outlined),
                     ],
                   ),
                 ),
@@ -186,9 +249,13 @@ class ProfileScreen extends StatelessWidget {
                 // Status & Stats Row
                 Row(
                   children: [
-                    Expanded(child: _buildStatusCard(user.pinsCount.toString(), "Pins")),
+                    Expanded(
+                        child: _buildStatusCard(
+                            user.pinsCount.toString(), "Pins")),
                     const SizedBox(width: 16),
-                    Expanded(child: _buildStatusCard(user.isSuperUser ? "Super" : "Standard", "Status")),
+                    Expanded(
+                        child: _buildStatusCard(
+                            user.isSuperUser ? "Super" : "Standard", "Status")),
                   ],
                 ),
                 const SizedBox(height: 48),
@@ -197,10 +264,19 @@ class ProfileScreen extends StatelessWidget {
                 TextButton.icon(
                   onPressed: () async {
                     await FirebaseAuth.instance.signOut();
-                    if (context.mounted) Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const LoginScreen()), (r) => false);
+                    if (context.mounted)
+                      Navigator.pushAndRemoveUntil(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const LoginScreen()),
+                          (r) => false);
                   },
-                  icon: const Icon(Icons.logout, color: Colors.redAccent, size: 20),
-                  label: const Text("Logout", style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                  icon: const Icon(Icons.logout,
+                      color: Colors.redAccent, size: 20),
+                  label: const Text("Logout",
+                      style: TextStyle(
+                          color: Colors.redAccent,
+                          fontWeight: FontWeight.bold)),
                 ),
                 const SizedBox(height: 20),
               ],
@@ -226,12 +302,16 @@ class ProfileScreen extends StatelessWidget {
   Widget _buildStatusCard(String value, String label) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 20),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(
+          color: Colors.white, borderRadius: BorderRadius.circular(20)),
       child: Column(
         children: [
-          Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          Text(value,
+              style:
+                  const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),
-          Text(label, style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+          Text(label,
+              style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
         ],
       ),
     );

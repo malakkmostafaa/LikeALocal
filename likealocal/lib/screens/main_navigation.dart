@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'explore/explore_screen.dart';
 import 'map/map_screen.dart';
 import 'add_place/add_place_screen.dart';
-import 'chat/chat_screen.dart';
+import 'chat/chat_list_screen.dart';  // ← changed from chat_screen.dart
 import 'profile/profile_screen.dart';
 
 class MainNavigation extends StatefulWidget {
@@ -20,7 +20,7 @@ class _MainNavigationState extends State<MainNavigation> {
     ExploreScreen(),
     MapScreen(),
     AddPlaceScreen(),
-    ChatScreen(),
+    ChatListScreen(),  
     ProfileScreen(),
   ];
 

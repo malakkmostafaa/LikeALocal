@@ -2,19 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'services/notification_service.dart';  // ← add this
 
 import 'screens/auth/login_screen.dart';
 import 'screens/main_navigation.dart';
 
 void main() async {
-  // Ensure Flutter is initialized
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Initialize Firebase
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-
   runApp(const MyApp());
 }
 
@@ -36,6 +33,8 @@ class MyApp extends StatelessWidget {
           }
 
           if (snapshot.hasData) {
+            // ← Initialize FCM when user is logged in
+            NotificationService().initFCM();
             return const MainNavigation();
           }
 
