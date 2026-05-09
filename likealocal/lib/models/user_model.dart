@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class AppUser {
   final String uid;
   final String name;
@@ -26,6 +28,8 @@ class AppUser {
 
   // Profile
   final String profileImageUrl;
+  final String bio;
+  final DateTime? createdAt;
 
   AppUser({
     required this.uid,
@@ -43,6 +47,8 @@ class AppUser {
     required this.notificationsEnabled,
     required this.badges,
     required this.profileImageUrl,
+    required this.bio,
+    required this.createdAt,
   });
 
   factory AppUser.fromMap(Map<String, dynamic> map) {
@@ -62,6 +68,8 @@ class AppUser {
       notificationsEnabled: map['notificationsEnabled'] ?? true,
       badges: List<String>.from(map['badges'] ?? []),
       profileImageUrl: map['profileImageUrl'] ?? '',
+      bio: map['bio'] ?? '',
+      createdAt: (map['createdAt'] as Timestamp?)?.toDate(),
     );
   }
 
@@ -82,6 +90,8 @@ class AppUser {
       'notificationsEnabled': notificationsEnabled,
       'badges': badges,
       'profileImageUrl': profileImageUrl,
+      'bio': bio,
+      'createdAt': createdAt,
     };
   }
 }
