@@ -1,6 +1,10 @@
+import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../models/user_model.dart';
 import '../../services/user_service.dart';
@@ -35,6 +39,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   ];
 
   late List<String> selectedPreferences;
+  double maxDistance = 10.0;
+  int priceRange = 1;
+
+  File? _imageFile;
+  final ImagePicker _picker = ImagePicker();
 
   @override
   void initState() {
@@ -45,6 +54,32 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     bioController = TextEditingController(text: widget.user.bio);
 
     selectedPreferences = List.from(widget.user.preferences);
+    maxDistance = widget.user.maxDistance;
+    priceRange = widget.user.priceRange;
+  }
+
+  Future<void> _pickImage() async {
+    final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      setState(() {
+        _imageFile = File(pickedFile.path);
+      });
+    }
+  }
+
+  Future<String?> _uploadImage() async {
+    if (_imageFile == null) return widget.user.profileImageUrl;
+    try {
+      final ref = FirebaseStorage.instance
+          .ref()
+          .child('profiles')
+          .child('${widget.user.uid}.jpg');
+      await ref.putFile(_imageFile!);
+      return await ref.getDownloadURL();
+    } catch (e) {
+      print("Error uploading image: $e");
+      return widget.user.profileImageUrl;
+    }
   }
 
   Future<void> saveProfile() async {
@@ -59,10 +94,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         throw Exception("Name cannot be empty");
       }
 
+      final imageUrl = await _uploadImage();
+
       await _userService.updateCurrentUser({
         'name': nameController.text.trim(),
         'bio': bioController.text.trim(),
         'preferences': selectedPreferences,
+        'maxDistance': maxDistance,
+        'priceRange': priceRange,
+        'profileImageUrl': imageUrl ?? '',
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
@@ -117,6 +157,44 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // =====================
+            // PROFILE PICTURE
+            // =====================
+            Center(
+              child: GestureDetector(
+                onTap: _pickImage,
+                child: Stack(
+                  children: [
+                    CircleAvatar(
+                      radius: 50,
+                      backgroundColor: Colors.grey.shade300,
+                      backgroundImage: _imageFile != null
+                          ? FileImage(_imageFile!) as ImageProvider
+                          : (widget.user.profileImageUrl.isNotEmpty
+                              ? CachedNetworkImageProvider(widget.user.profileImageUrl)
+                              : null),
+                      child: _imageFile == null && widget.user.profileImageUrl.isEmpty
+                          ? const Icon(Icons.person, size: 50, color: Colors.white)
+                          : null,
+                    ),
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: const BoxDecoration(
+                          color: primaryColor,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 30),
+
             // =====================
             // NAME
             // =====================
@@ -217,6 +295,53 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   ),
                 );
               }).toList(),
+            ),
+
+            const SizedBox(height: 24),
+
+            // =====================
+            // MAX DISTANCE
+            // =====================
+            Text(
+              "Max Distance: ${maxDistance.toInt()} km",
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Slider(
+              value: maxDistance,
+              min: 1,
+              max: 100,
+              activeColor: primaryColor,
+              onChanged: (val) {
+                setState(() {
+                  maxDistance = val;
+                });
+              },
+            ),
+
+            const SizedBox(height: 14),
+
+            // =====================
+            // PRICE RANGE
+            // =====================
+            Text(
+              "Price Range: ${List.filled(priceRange, '\$').join('')}",
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Slider(
+              value: priceRange.toDouble(),
+              min: 1,
+              max: 4,
+              divisions: 3,
+              activeColor: primaryColor,
+              onChanged: (val) {
+                setState(() {
+                  priceRange = val.toInt();
+                });
+              },
             ),
 
             const SizedBox(height: 40),

@@ -35,10 +35,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const MainNavigation()),
-      );
+      // Rely on StreamBuilder in main.dart to show MainNavigation.
+      // We just need to pop any overlay if LoginScreen wasn't the root.
+      Navigator.popUntil(context, (route) => route.isFirst);
     } catch (e) {
       showMessage(e.toString());
     }
@@ -165,7 +164,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       const Text("Don't have an account? "),
                       GestureDetector(
                         onTap: () {
-                          Navigator.pushReplacement(
+                          Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (_) => const SignupScreen(),
