@@ -1,239 +1,458 @@
-import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../../services/user_service.dart';
-import '../../models/user_model.dart';
-import '../auth/login_screen.dart';
-
-const List<String> kAvailableCategories = [
-  'Culture', 'Food', 'Nature', 'Shopping', 'Adventure', 'Nightlife'
-];
+import 'package:flutter/material.dart';
+import 'package:like_a_local/models/user_model.dart';
+import 'package:like_a_local/screens/profile/edit_profile_screen.dart';
+import 'package:like_a_local/services/auth_service.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
-  // --- THEMED EDIT DIALOG ---
-  void _showEditProfileDialog(BuildContext context, AppUser user, UserService userService) {
-    final nameController = TextEditingController(text: user.name);
-    double localDistance = user.maxDistance;
-    int localPrice = user.priceRange;
-    List<String> localPrefs = List.from(user.preferences);
+  @override
+  Widget build(BuildContext context) {
+    final uid = FirebaseAuth.instance.currentUser!.uid;
 
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setPopupState) => Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.fromSeed(seedColor: Colors.orange, primary: Colors.orange.shade400),
-          ),
-          child: AlertDialog(
-            backgroundColor: const Color(0xFFF9F7F4),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-            title: const Text("Edit Profile & Preferences", style: TextStyle(fontWeight: FontWeight.bold)),
-            content: SingleChildScrollView(
+    const primaryColor = Color(0xFFD96B41);
+    const backgroundColor = Color(0xFFF8F6F3);
+
+    return Scaffold(
+      backgroundColor: backgroundColor,
+      body: SafeArea(
+        child: StreamBuilder<DocumentSnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('users')
+              .doc(uid)
+              .snapshots(),
+          builder: (context, snapshot) {
+            // LOADING
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: CircularProgressIndicator(),
+              );
+            }
+
+            // NO USER
+            if (!snapshot.hasData || !snapshot.data!.exists) {
+              return const Center(
+                child: Text("User not found"),
+              );
+            }
+
+            final userData = snapshot.data!.data() as Map<String, dynamic>;
+
+            final user = AppUser.fromMap(userData);
+
+            String joinedText = "Joined recently";
+
+            if (user.createdAt != null) {
+              joinedText =
+                  "Joined ${_monthName(user.createdAt!.month)} ${user.createdAt!.year}";
+            }
+
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
               child: Column(
-                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  TextField(
-                    controller: nameController,
-                    decoration: InputDecoration(
-                      labelText: "Full Name",
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                  // =========================
+                  // TOP BAR
+                  // =========================
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        "Profile",
+                        style: TextStyle(
+                          fontSize: 30,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: const Icon(
+                          Icons.settings_outlined,
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 28),
+
+                  // =========================
+                  // USER SECTION
+                  // =========================
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // PROFILE IMAGE
+                      CircleAvatar(
+                        radius: 46,
+                        backgroundColor: primaryColor.withOpacity(0.12),
+                        backgroundImage: user.profileImageUrl.isNotEmpty
+                            ? NetworkImage(
+                                user.profileImageUrl,
+                              )
+                            : null,
+                        child: user.profileImageUrl.isEmpty
+                            ? const Icon(
+                                Icons.person,
+                                size: 46,
+                                color: primaryColor,
+                              )
+                            : null,
+                      ),
+
+                      const SizedBox(width: 18),
+
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // NAME + BADGE
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    user.name,
+                                    style: const TextStyle(
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                if (user.isSuperUser)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFFF1D6),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: const Row(
+                                      children: [
+                                        Icon(
+                                          Icons.workspace_premium,
+                                          size: 16,
+                                          color: Color(0xFFE5A11A),
+                                        ),
+                                        SizedBox(width: 4),
+                                        Text(
+                                          "Super User",
+                                          style: TextStyle(
+                                            color: Color(0xFFE5A11A),
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                              ],
+                            ),
+
+                            const SizedBox(height: 8),
+
+                            // BIO
+                            Text(
+                              user.bio,
+                              style: TextStyle(
+                                fontSize: 15,
+                                height: 1.4,
+                                color: Colors.grey.shade700,
+                              ),
+                            ),
+
+                            const SizedBox(height: 12),
+
+                            // JOINED
+                            Text(
+                              joinedText,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey.shade500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 30),
+
+                  // =========================
+                  // STATS
+                  // =========================
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildStatCard(
+                          icon: Icons.place_outlined,
+                          value: user.placesAdded.toString(),
+                          label: "Places",
+                          color: primaryColor,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildStatCard(
+                          icon: Icons.star_outline,
+                          value: user.reviewsCount.toString(),
+                          label: "Reviews",
+                          color: primaryColor,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildStatCard(
+                          icon: Icons.bookmark_border,
+                          value: user.pinsCount.toString(),
+                          label: "Pins",
+                          color: primaryColor,
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 26),
+
+                  // =========================
+                  // EDIT PROFILE BUTTON
+                  // =========================
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => EditProfileScreen(user: user),
+                          ),
+                        );
+                      },
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 18,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(28),
+                        ),
+                        side: BorderSide(
+                          color: Colors.grey.shade300,
+                        ),
+                      ),
+                      icon: const Icon(
+                        Icons.edit_outlined,
+                        color: primaryColor,
+                      ),
+                      label: const Text(
+                        "Edit Profile",
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 20),
-                  const Align(alignment: Alignment.centerLeft, child: Text("Interests", style: TextStyle(fontWeight: FontWeight.bold))),
-                  const SizedBox(height: 8),
+
+                  const SizedBox(height: 26),
+
+                  // =========================
+                  // PREFERENCES
+                  // =========================
+                  const Text(
+                    "Preferences",
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
                   Wrap(
-                    spacing: 8,
-                    children: kAvailableCategories.map((category) {
-                      final isSelected = localPrefs.contains(category);
-                      return FilterChip(
-                        label: Text(category, style: const TextStyle(fontSize: 12)),
-                        selected: isSelected,
-                        onSelected: (selected) => setPopupState(() => selected ? localPrefs.add(category) : localPrefs.remove(category)),
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: user.preferences.map((pref) {
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: primaryColor.withOpacity(0.10),
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        child: Text(
+                          pref,
+                          style: const TextStyle(
+                            color: primaryColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       );
                     }).toList(),
                   ),
-                  const Divider(height: 40),
-                  Text("Search Radius: ${localDistance.toInt()} km", style: const TextStyle(fontWeight: FontWeight.bold)),
-                  Slider(
-                    value: localDistance,
-                    min: 1, max: 50,
-                    onChanged: (val) => setPopupState(() => localDistance = val),
+
+                  const SizedBox(height: 28),
+
+                  // =========================
+                  // BADGES
+                  // =========================
+                  const Text(
+                    "Badges",
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                  const SizedBox(height: 10),
-                  const Text("Price Level", style: TextStyle(fontWeight: FontWeight.bold)),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [1, 2, 3].map((level) => ChoiceChip(
-                      label: Text("\$" * level),
-                      selected: localPrice == level,
-                      onSelected: (s) => setPopupState(() => localPrice = level),
-                    )).toList(),
+
+                  const SizedBox(height: 16),
+
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: user.badges.map((badge) {
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFF1D6),
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        child: Text(
+                          badge,
+                          style: const TextStyle(
+                            color: Color(0xFFE5A11A),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      );
+                    }).toList(),
                   ),
+
+                  const SizedBox(height: 40),
+
+                  // =========================
+                  // LOGOUT BUTTON
+                  // =========================
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        await AuthService().logout();
+                      },
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 18,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(28),
+                        ),
+                        side: BorderSide(
+                          color: Colors.red.shade400,
+                        ),
+                      ),
+                      icon: Icon(
+                        Icons.logout,
+                        color: Colors.red.shade400,
+                      ),
+                      label: Text(
+                        "Logout",
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.red.shade400,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 40),
                 ],
               ),
-            ),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel", style: TextStyle(color: Colors.grey))),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black, shape: StadiumBorder()),
-                onPressed: () async {
-                  await userService.updateUser(user.uid, {
-                    'name': nameController.text.trim(),
-                    'preferences': localPrefs,
-                    'maxDistance': localDistance,
-                    'priceRange': localPrice,
-                  });
-                  if (context.mounted) Navigator.pop(context);
-                },
-                child: const Text("Save Changes"),
-              ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final userService = UserService();
-
-    return Scaffold(
-      backgroundColor: const Color(0xFFF9F7F4), // Main Theme Background
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: const Text("Profile", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-        actions: [
-          StreamBuilder<AppUser?>(
-            stream: userService.getCurrentUser(),
-            builder: (context, snapshot) {
-              if (!snapshot.hasData) return const SizedBox();
-              return IconButton(
-                icon: const Icon(Icons.edit_outlined, color: Colors.black),
-                onPressed: () => _showEditProfileDialog(context, snapshot.data!, userService),
-              );
-            },
+  // =========================
+  // STAT CARD
+  // =========================
+  Widget _buildStatCard({
+    required IconData icon,
+    required String value,
+    required String label,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      body: StreamBuilder<AppUser?>(
-        stream: userService.getCurrentUser(),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-          final user = snapshot.data!;
-
-          return SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Column(
-              children: [
-                const SizedBox(height: 20),
-                // Identity Section
-                Center(
-                  child: Column(
-                    children: [
-                      CircleAvatar(
-                        radius: 50,
-                        backgroundColor: Colors.orange.shade100,
-                        child: Text(user.name.isNotEmpty ? user.name[0].toUpperCase() : "👤", 
-                          style: TextStyle(fontSize: 40, color: Colors.orange.shade800)),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(user.name, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
-                      Text(user.email, style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 32),
-                const Divider(color: Colors.black12),
-                const SizedBox(height: 24),
-
-                // Interests Section
-                const Align(alignment: Alignment.centerLeft, child: Text("My Interests:", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
-                const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: user.preferences.map((pref) => Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.black12)),
-                      child: Text(pref, style: const TextStyle(fontSize: 14)),
-                    )).toList(),
-                  ),
-                ),
-                const SizedBox(height: 32),
-
-                // Settings Summary Card
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10)]),
-                  child: Column(
-                    children: [
-                      _buildInfoRow("Radius", "${user.maxDistance.toInt()} km", Icons.map_outlined),
-                      const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1, color: Color(0xFFF9F7F4))),
-                      _buildInfoRow("Price Range", "\$" * user.priceRange, Icons.payments_outlined),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 32),
-
-                // Status & Stats Row
-                Row(
-                  children: [
-                    Expanded(child: _buildStatusCard(user.pinsCount.toString(), "Pins")),
-                    const SizedBox(width: 16),
-                    Expanded(child: _buildStatusCard(user.isSuperUser ? "Super" : "Standard", "Status")),
-                  ],
-                ),
-                const SizedBox(height: 48),
-
-                // Logout
-                TextButton.icon(
-                  onPressed: () async {
-                    await FirebaseAuth.instance.signOut();
-                    if (context.mounted) Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const LoginScreen()), (r) => false);
-                  },
-                  icon: const Icon(Icons.logout, color: Colors.redAccent, size: 20),
-                  label: const Text("Logout", style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
-                ),
-                const SizedBox(height: 20),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(String label, String value, IconData icon) {
-    return Row(
-      children: [
-        Icon(icon, size: 20, color: Colors.orange.shade300),
-        const SizedBox(width: 12),
-        Text(label, style: const TextStyle(color: Colors.grey)),
-        const Spacer(),
-        Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
-      ],
-    );
-  }
-
-  Widget _buildStatusCard(String value, String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 20),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
       child: Column(
         children: [
-          Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          Icon(icon, color: color),
+          const SizedBox(height: 10),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           const SizedBox(height: 4),
-          Text(label, style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.grey.shade600,
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  // =========================
+  // MONTH NAME
+  // =========================
+  static String _monthName(int month) {
+    const months = [
+      '',
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+
+    return months[month];
   }
 }
