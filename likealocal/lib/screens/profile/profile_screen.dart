@@ -3,14 +3,26 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:like_a_local/models/user_model.dart';
 import 'package:like_a_local/screens/profile/edit_profile_screen.dart';
-import 'package:like_a_local/services/auth_service.dart';
+import 'package:like_a_local/screens/profile/settings_screen.dart';
+import 'package:like_a_local/screens/profile/super_user_screen.dart';
+import 'package:like_a_local/screens/profile/subscription_plans_screen.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final uid = FirebaseAuth.instance.currentUser!.uid;
+    final currentUser = FirebaseAuth.instance.currentUser;
+    // Prevent crash during logout when user becomes null momentarily before navigation
+    if (currentUser == null) {
+      return const Scaffold(
+        backgroundColor: Color(0xFFF8F6F3),
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    
+    final uid = currentUser.uid;
 
     const primaryColor = Color(0xFFD96B41);
     const backgroundColor = Color(0xFFF8F6F3);
@@ -22,7 +34,7 @@ class ProfileScreen extends StatelessWidget {
           stream: FirebaseFirestore.instance
               .collection('users')
               .doc(uid)
-              .snapshots(),
+              .snapshots(includeMetadataChanges: true),
           builder: (context, snapshot) {
             // LOADING
             if (snapshot.connectionState == ConnectionState.waiting) {
@@ -67,14 +79,24 @@ class ProfileScreen extends StatelessWidget {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                        child: const Icon(
-                          Icons.settings_outlined,
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => SettingsScreen(user: user),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          child: const Icon(
+                            Icons.settings_outlined,
+                          ),
                         ),
                       ),
                     ],
@@ -85,102 +107,135 @@ class ProfileScreen extends StatelessWidget {
                   // =========================
                   // USER SECTION
                   // =========================
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // PROFILE IMAGE
-                      CircleAvatar(
-                        radius: 46,
-                        backgroundColor: primaryColor.withOpacity(0.12),
-                        backgroundImage: user.profileImageUrl.isNotEmpty
-                            ? NetworkImage(
-                                user.profileImageUrl,
-                              )
-                            : null,
-                        child: user.profileImageUrl.isEmpty
-                            ? const Icon(
-                                Icons.person,
-                                size: 46,
-                                color: primaryColor,
-                              )
-                            : null,
-                      ),
-
-                      const SizedBox(width: 18),
-
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(32),
+                      boxShadow: [
+                        BoxShadow(
+                          color: primaryColor.withOpacity(0.08),
+                          blurRadius: 24,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        // PROFILE IMAGE
+                        Stack(
+                          alignment: Alignment.center,
+                          clipBehavior: Clip.none,
                           children: [
-                            // NAME + BADGE
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    user.name,
-                                    style: const TextStyle(
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                            Container(
+                              padding: const EdgeInsets.all(3),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.white,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: primaryColor.withOpacity(0.3),
+                                    blurRadius: 12,
+                                    offset: const Offset(0, 6),
+                                  ),
+                                ],
+                              ),
+                              child: CircleAvatar(
+                                radius: 46,
+                                backgroundColor: primaryColor.withOpacity(0.12),
+                                backgroundImage: user.profileImageUrl.isNotEmpty
+                                    ? CachedNetworkImageProvider(user.profileImageUrl)
+                                    : null,
+                                child: user.profileImageUrl.isEmpty
+                                    ? const Icon(
+                                        Icons.person,
+                                        size: 46,
+                                        color: primaryColor,
+                                      )
+                                    : null,
+                              ),
+                            ),
+                            if (user.isSuperUser)
+                              Positioned(
+                                bottom: -2,
+                                right: -2,
+                                child: Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: primaryColor.withOpacity(0.2),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  child: const Icon(
+                                    Icons.workspace_premium,
+                                    size: 18,
+                                    color: Color(0xFFE5A11A),
                                   ),
                                 ),
-                                if (user.isSuperUser)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFFFF1D6),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: const Row(
-                                      children: [
-                                        Icon(
-                                          Icons.workspace_premium,
-                                          size: 16,
-                                          color: Color(0xFFE5A11A),
-                                        ),
-                                        SizedBox(width: 4),
-                                        Text(
-                                          "Super User",
-                                          style: TextStyle(
-                                            color: Color(0xFFE5A11A),
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                              ],
-                            ),
-
-                            const SizedBox(height: 8),
-
-                            // BIO
-                            Text(
-                              user.bio,
-                              style: TextStyle(
-                                fontSize: 15,
-                                height: 1.4,
-                                color: Colors.grey.shade700,
                               ),
-                            ),
-
-                            const SizedBox(height: 12),
-
-                            // JOINED
-                            Text(
-                              joinedText,
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey.shade500,
-                              ),
-                            ),
                           ],
                         ),
-                      ),
-                    ],
+
+                        const SizedBox(width: 20),
+
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              // NAME
+                              Text(
+                                user.name,
+                                style: const TextStyle(
+                                  fontSize: 26,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: -0.5,
+                                ),
+                              ),
+
+                              if (user.bio.isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                // BIO
+                                Text(
+                                  user.bio,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    height: 1.4,
+                                    color: Colors.grey.shade700,
+                                  ),
+                                ),
+                              ],
+
+                              const SizedBox(height: 12),
+
+                              // JOINED
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade100,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  joinedText,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
 
                   const SizedBox(height: 30),
@@ -224,9 +279,24 @@ class ProfileScreen extends StatelessWidget {
                   // =========================
                   // EDIT PROFILE BUTTON
                   // =========================
-                  SizedBox(
+                  Container(
                     width: double.infinity,
-                    child: OutlinedButton.icon(
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFD96B41), Color(0xFFE88A66)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(28),
+                      boxShadow: [
+                        BoxShadow(
+                          color: primaryColor.withOpacity(0.3),
+                          blurRadius: 16,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: ElevatedButton.icon(
                       onPressed: () {
                         Navigator.push(
                           context,
@@ -235,28 +305,27 @@ class ProfileScreen extends StatelessWidget {
                           ),
                         );
                       },
-                      style: OutlinedButton.styleFrom(
-                        backgroundColor: Colors.white,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
                         padding: const EdgeInsets.symmetric(
                           vertical: 18,
                         ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(28),
                         ),
-                        side: BorderSide(
-                          color: Colors.grey.shade300,
-                        ),
                       ),
                       icon: const Icon(
-                        Icons.edit_outlined,
-                        color: primaryColor,
+                        Icons.edit_rounded,
+                        color: Colors.white,
                       ),
                       label: const Text(
                         "Edit Profile",
                         style: TextStyle(
                           fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          letterSpacing: 0.5,
                         ),
                       ),
                     ),
@@ -304,81 +373,152 @@ class ProfileScreen extends StatelessWidget {
                   const SizedBox(height: 28),
 
                   // =========================
-                  // BADGES
+                  // SUPER USER SECTION
                   // =========================
-                  const Text(
-                    "Badges",
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: user.badges.map((badge) {
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFF1D6),
-                          borderRadius: BorderRadius.circular(24),
-                        ),
-                        child: Text(
-                          badge,
-                          style: const TextStyle(
-                            color: Color(0xFFE5A11A),
-                            fontWeight: FontWeight.w600,
-                          ),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => SuperUserScreen(user: user),
                         ),
                       );
-                    }).toList(),
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFAEBE1), // Minimal light sandy orange
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: primaryColor.withOpacity(0.2)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: primaryColor.withOpacity(0.05),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: primaryColor.withOpacity(0.15),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.workspace_premium, color: primaryColor),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  user.isSuperUser ? "Super User Status" : "Super User Progress",
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  user.isSuperUser ? "You have unlocked all perks!" : "View badges and requirements",
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.grey.shade700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.arrow_forward_ios, size: 16, color: primaryColor),
+                        ],
+                      ),
+                    ),
                   ),
 
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 20),
 
                   // =========================
-                  // LOGOUT BUTTON
+                  // PREMIUM SUBSCRIPTION SECTION
                   // =========================
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () async {
-                        await AuthService().logout();
-                      },
-                      style: OutlinedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 18,
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => SubscriptionPlansScreen(user: user),
                         ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(28),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                          color: user.isPremium ? primaryColor.withOpacity(0.5) : Colors.grey.shade300,
+                          width: user.isPremium ? 2 : 1,
                         ),
-                        side: BorderSide(
-                          color: Colors.red.shade400,
-                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.02),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
-                      icon: Icon(
-                        Icons.logout,
-                        color: Colors.red.shade400,
-                      ),
-                      label: Text(
-                        "Logout",
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.red.shade400,
-                        ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: user.isPremium ? primaryColor.withOpacity(0.15) : Colors.grey.shade100,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.star_rounded, 
+                              color: user.isPremium ? primaryColor : Colors.grey.shade600,
+                              size: 24,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  user.isPremium ? "Premium Active" : "Upgrade to Premium Plus",
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: user.isPremium ? primaryColor : Colors.black87,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  user.isPremium ? "You have unlimited pins" : "Unlock unlimited pins & features",
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            Icons.arrow_forward_ios, 
+                            size: 16, 
+                            color: user.isPremium ? primaryColor : Colors.grey.shade400,
+                          ),
+                        ],
                       ),
                     ),
                   ),
 
                   const SizedBox(height: 40),
+
                 ],
               ),
             );
