@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'categories.dart';
 
 Future<void> seedEverything() async {
   final firestore = FirebaseFirestore.instance;
@@ -21,7 +22,7 @@ Future<void> seedEverything() async {
     'uid': uid,
     'name': user.displayName ?? "Test User",
     'email': user.email,
-    'preferences': ['Cafe', 'Food'],
+    'preferences': [Categories.cafe, Categories.food],
     'pinsCount': 0,
     'placesAdded': 0,
     'reviewsCount': 0,
@@ -40,28 +41,71 @@ Future<void> seedEverything() async {
   final place1 = await firestore.collection('places').add({
     'name': 'Hidden Cafe',
     'description': 'Cozy local cafe',
-    'category': 'Cafe',
-    'imageUrl': '',
+    'category': Categories.cafe,
+    'images': [],
     'location': const GeoPoint(30.0444, 31.2357),
     'createdBy': uid,
-    'tips': 'Try iced latte',
-    'recommendedDishes': ['Latte', 'Cake'],
+    'tips': [
+      {
+        'text': 'Try iced latte',
+        'authorId': uid,
+        'createdAt': FieldValue.serverTimestamp(),
+      }
+    ],
     'rating': 4.5,
-    'reviewsCount': 0,
+    'reviewCount': 0,
+    'createdAt': FieldValue.serverTimestamp(),
+  });
+
+  // add dishes as subcollection for food places
+  await firestore.collection('places').doc(place1.id).collection('dishes').add({
+    'name': 'Latte',
+    'description': 'Creamy and smooth',
+    'authorId': uid,
+    'upvotes': 0,
+    'createdAt': FieldValue.serverTimestamp(),
+  });
+
+  await firestore.collection('places').doc(place1.id).collection('dishes').add({
+    'name': 'Cake',
+    'description': 'Homemade slices',
+    'authorId': uid,
+    'upvotes': 0,
     'createdAt': FieldValue.serverTimestamp(),
   });
 
   final place2 = await firestore.collection('places').add({
     'name': 'Street Food Spot',
     'description': 'Best koshary in town',
-    'category': 'Food',
-    'imageUrl': '',
+    'category': Categories.food,
+    'images': [],
     'location': const GeoPoint(30.0500, 31.2400),
     'createdBy': uid,
-    'tips': 'Try koshary',
-    'recommendedDishes': ['Koshary', 'Foul'],
+    'tips': [
+      {
+        'text': 'Try koshary',
+        'authorId': uid,
+        'createdAt': FieldValue.serverTimestamp(),
+      }
+    ],
     'rating': 4.0,
-    'reviewsCount': 0,
+    'reviewCount': 0,
+    'createdAt': FieldValue.serverTimestamp(),
+  });
+
+  await firestore.collection('places').doc(place2.id).collection('dishes').add({
+    'name': 'Koshary',
+    'description': 'Street-style mix',
+    'authorId': uid,
+    'upvotes': 0,
+    'createdAt': FieldValue.serverTimestamp(),
+  });
+
+  await firestore.collection('places').doc(place2.id).collection('dishes').add({
+    'name': 'Foul',
+    'description': 'Hearty fava beans',
+    'authorId': uid,
+    'upvotes': 0,
     'createdAt': FieldValue.serverTimestamp(),
   });
 
