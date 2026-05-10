@@ -1,0 +1,68 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Places collection: public reads, restricted writes
+    match /places/{placeId} {
+      // Anyone can read place documents
+      allow get, list: if true;
+
+      // Only authenticated users can create, and must set createdBy to their uid
+      allow create: if request.auth != null
+        && request.resource.data.createdBy == request.auth.uid;
+
+      // Only owner (createdBy) or admin can update or delete
+      allow update, delete: if isOwnerOrAdmin();
+
+      // Reviews subcollection: anyone can read; only the review author can create/update/delete (admins allowed)
+      match /reviews/{reviewId} {
+        allow read: if true;
+        allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+        allow update, delete: if request.auth != null && (
+          resource.data.userId == request.auth.uid
+          || request.auth.token.admin == true
+          || request.auth.token.isAdmin == true
+        );
+      }
+
+      // Dishes subcollection: anyone can read; only the place owner or admins can create/update/delete
+      match /dishes/{dishId} {
+        allow read: if true;
+        allow create: if request.auth != null && (
+          // check parent place owner
+          get(/databases/$(database)/documents/places/$(placeId)).data.createdBy == request.auth.uid
+          || request.auth.token.admin == true
+          || request.auth.token.isAdmin == true
+        );
+        allow update, delete: if request.auth != null && (
+          get(/databases/$(database)/documents/places/$(placeId)).data.createdBy == request.auth.uid
+          || request.auth.token.admin == true
+          || request.auth.token.isAdmin == true
+        );
+      }
+    }
+
+    // Users: allow users to manage their own profile document
+    match /users/{userId} {
+      allow read: if true;
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update, delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Default: deny all other writes and reads (be explicit for safety)
+    match /{document=**} {
+      allow read: if false;
+      allow write: if false;
+    }
+
+    function isOwnerOrAdmin() {
+      return request.auth != null && (
+        // owner
+        resource.data.createdBy == request.auth.uid
+        // OR admin custom claim (common names: admin or isAdmin)
+        || request.auth.token.admin == true
+        || request.auth.token.isAdmin == true
+      );
+    }
+  }
+}
