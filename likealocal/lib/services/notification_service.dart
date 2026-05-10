@@ -62,6 +62,16 @@ class NotificationService {
         .update({'read': true});
   }
 
+  // Delete notification
+  Future<void> deleteNotification(String notifId) async {
+    await _firestore
+        .collection('notifications')
+        .doc(currentUid)
+        .collection('userNotifications')
+        .doc(notifId)
+        .delete();
+  }
+
   // Simulate a "near place" notification
   Future<void> simulateNearbyNotification(String placeName) async {
     await sendNotification(

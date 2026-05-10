@@ -8,19 +8,27 @@ class NotificationScreen extends StatelessWidget {
 
   IconData _iconForType(String type) {
     switch (type) {
-      case 'message': return Icons.chat_bubble_rounded;
-      case 'nearby': return Icons.location_on_rounded;
-      case 'badge': return Icons.star_rounded;
-      default: return Icons.notifications_rounded;
+      case 'message':
+        return Icons.chat_bubble_rounded;
+      case 'nearby':
+        return Icons.location_on_rounded;
+      case 'badge':
+        return Icons.star_rounded;
+      default:
+        return Icons.notifications_rounded;
     }
   }
 
   Color _colorForType(String type) {
     switch (type) {
-      case 'message': return const Color(0xFFD85A30);
-      case 'nearby': return Colors.teal;
-      case 'badge': return Colors.amber;
-      default: return Colors.grey;
+      case 'message':
+        return const Color(0xFFD85A30);
+      case 'nearby':
+        return Colors.teal;
+      case 'badge':
+        return Colors.amber;
+      default:
+        return Colors.grey;
     }
   }
 
@@ -42,8 +50,8 @@ class NotificationScreen extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.add_location),
-            onPressed: () => NotificationService()
-                .simulateNearbyNotification('Café Riche'),
+            onPressed: () =>
+                NotificationService().simulateNearbyNotification('Café Riche'),
           ),
         ],
       ),
@@ -67,28 +75,69 @@ class NotificationScreen extends StatelessWidget {
                 Divider(height: 1, color: Colors.grey.shade100),
             itemBuilder: (context, i) {
               final notif = notifs[i];
-              return ListTile(
-                onTap: () => service.markAsRead(notif.id),
-                tileColor: notif.read ? Colors.white : const Color(0xFFFAECE7),
-                leading: CircleAvatar(
-                  backgroundColor:
-                      _colorForType(notif.type).withOpacity(0.15),
-                  child: Icon(_iconForType(notif.type),
-                      color: _colorForType(notif.type), size: 20),
+              return Dismissible(
+                key: Key(notif.id),
+                direction: DismissDirection.endToStart,
+                background: Container(
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.only(right: 20),
+                  color: Colors.red,
+                  child: const Icon(
+                    Icons.delete,
+                    color: Colors.white,
+                  ),
                 ),
-                title: Text(notif.title,
-                    style: TextStyle(
-                        fontWeight: notif.read
-                            ? FontWeight.normal
-                            : FontWeight.w600,
-                        fontSize: 14)),
-                subtitle: Text(notif.body,
-                    style: TextStyle(
-                        color: Colors.grey.shade600, fontSize: 13)),
-                trailing: Text(
-                  DateFormat('h:mm a').format(notif.timestamp),
-                  style:
-                      const TextStyle(fontSize: 11, color: Colors.grey),
+                confirmDismiss: (direction) async {
+                  return await showDialog(
+                    context: context,
+                    builder: (BuildContext context) {
+                      return AlertDialog(
+                        title: const Text('Delete Notification'),
+                        content: const Text(
+                            'Are you sure you want to delete this notification?'),
+                        actions: <Widget>[
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(false),
+                            child: const Text('Cancel'),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(true),
+                            child: const Text('Delete',
+                                style: TextStyle(color: Colors.red)),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                },
+                onDismissed: (direction) {
+                  service.deleteNotification(notif.id);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Notification deleted')),
+                  );
+                },
+                child: ListTile(
+                  onTap: () => service.markAsRead(notif.id),
+                  tileColor:
+                      notif.read ? Colors.white : const Color(0xFFFAECE7),
+                  leading: CircleAvatar(
+                    backgroundColor:
+                        _colorForType(notif.type).withOpacity(0.15),
+                    child: Icon(_iconForType(notif.type),
+                        color: _colorForType(notif.type), size: 20),
+                  ),
+                  title: Text(notif.title,
+                      style: TextStyle(
+                          fontWeight:
+                              notif.read ? FontWeight.normal : FontWeight.w600,
+                          fontSize: 14)),
+                  subtitle: Text(notif.body,
+                      style:
+                          TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                  trailing: Text(
+                    DateFormat('h:mm a').format(notif.timestamp),
+                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                  ),
                 ),
               );
             },

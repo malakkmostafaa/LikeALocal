@@ -18,10 +18,13 @@ class ChatService {
 
   // Check if receiver allows chats
   Future<bool> canChat(String receiverUid) async {
+    // Allow test user for development
+    if (receiverUid == 'test_user_123') return true;
+
     final doc = await _firestore.collection('users').doc(receiverUid).get();
     final data = doc.data();
     if (data == null) return true;
-    return data['allowChats'] ?? true;
+    return data['chatEnabled'] ?? true; // ← matches settings screen
   }
 
   // Open or create a chat between current user and another user
@@ -47,11 +50,10 @@ class ChatService {
   }
 
   // Send a message
-  Future<void> sendMessage(String chatId, String text, String receiverUid) async {
-    final messagesRef = _firestore
-        .collection('chats')
-        .doc(chatId)
-        .collection('messages');
+  Future<void> sendMessage(
+      String chatId, String text, String receiverUid) async {
+    final messagesRef =
+        _firestore.collection('chats').doc(chatId).collection('messages');
 
     await messagesRef.add({
       'senderId': currentUid,
@@ -64,16 +66,20 @@ class ChatService {
       'lastMessageTime': FieldValue.serverTimestamp(),
     });
 
-    // Send notification to receiver
-    final senderDoc = await _firestore.collection('users').doc(currentUid).get();
-    final senderName = senderDoc.data()?['name'] ?? 'Someone';
-    await NotificationService().sendNotification(
-      toUid: receiverUid,
-      title: 'New message from $senderName',
-      body: text,
-      type: 'message',
-    );
+    // Send notification to receiver (skip for test user)
+    if (receiverUid != 'test_user_123') {
+      final senderDoc =
+          await _firestore.collection('users').doc(currentUid).get();
+      final senderName = senderDoc.data()?['name'] ?? 'Someone';
+      await NotificationService().sendNotification(
+        toUid: receiverUid,
+        title: 'New message from $senderName',
+        body: text,
+        type: 'message',
+      );
+    }
   }
+
   // Stream messages for a chat (real-time)
   Stream<List<MessageModel>> getMessages(String chatId) {
     return _firestore
@@ -97,6 +103,9 @@ class ChatService {
 
   // Get other participant's name
   Future<String> getOtherUserName(String otherUid) async {
+    // Handle test user
+    if (otherUid == 'test_user_123') return 'Test User';
+
     final doc = await _firestore.collection('users').doc(otherUid).get();
     final data = doc.data();
     return data?['name'] ?? 'User';

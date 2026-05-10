@@ -41,7 +41,10 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _init() async {
     final allowed = await _chatService.canChat(widget.otherUid);
     if (!allowed) {
-      setState(() { _canChat = false; _loading = false; });
+      setState(() {
+        _canChat = false;
+        _loading = false;
+      });
       return;
     }
     final chatId = await _chatService.getOrCreateChat(
@@ -49,7 +52,10 @@ class _ChatScreenState extends State<ChatScreen> {
       placeId: widget.placeId,
       placeName: widget.placeName,
     );
-    setState(() { _chatId = chatId; _loading = false; });
+    setState(() {
+      _chatId = chatId;
+      _loading = false;
+    });
   }
 
   void _sendMessage() async {
@@ -57,7 +63,54 @@ class _ChatScreenState extends State<ChatScreen> {
     if (text.isEmpty || _chatId == null) return;
     _controller.clear();
     await _chatService.sendMessage(_chatId!, text, widget.otherUid);
+
+    // Auto-response for test user
+    if (widget.otherUid == 'test_user_123') {
+      _sendAutoResponse(text);
+    }
+
     _scrollToBottom();
+  }
+
+  void _sendAutoResponse(String userMessage) async {
+    // Simulate typing delay
+    await Future.delayed(const Duration(seconds: 1, milliseconds: 500));
+
+    final responses = [
+      'Thanks for your message! How can I help you?',
+      'That sounds interesting! Tell me more.',
+      'I\'m here to chat about local places and recommendations.',
+      'What kind of places are you looking for?',
+      'Have you tried any local spots recently?',
+      'I can help you discover great local experiences!',
+      'That\'s a great question! Let me think about that.',
+      'I love talking about local food and culture!',
+      'Thanks for reaching out. What brings you here?',
+      'I\'m always happy to share local recommendations!',
+    ];
+
+    // Simple keyword-based responses
+    String response;
+    final lowerMessage = userMessage.toLowerCase();
+
+    if (lowerMessage.contains('hello') || lowerMessage.contains('hi')) {
+      response = 'Hello! Nice to meet you!';
+    } else if (lowerMessage.contains('food') || lowerMessage.contains('eat')) {
+      response =
+          'Food is amazing here! What type of cuisine are you interested in?';
+    } else if (lowerMessage.contains('place') ||
+        lowerMessage.contains('location')) {
+      response = 'I know some great local spots! What are you looking for?';
+    } else if (lowerMessage.contains('thanks') ||
+        lowerMessage.contains('thank')) {
+      response = 'You\'re welcome! Happy to help!';
+    } else {
+      // Random response
+      response =
+          responses[DateTime.now().millisecondsSinceEpoch % responses.length];
+    }
+
+    await _chatService.sendMessage(_chatId!, response, _currentUid);
   }
 
   void _scrollToBottom() {
@@ -152,8 +205,8 @@ class _ChatScreenState extends State<ChatScreen> {
                 hintStyle: TextStyle(color: Colors.grey.shade400),
                 filled: true,
                 fillColor: Colors.grey.shade100,
-                contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 10),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(24),
                   borderSide: BorderSide.none,
@@ -171,8 +224,8 @@ class _ChatScreenState extends State<ChatScreen> {
                 color: Color(0xFFD85A30),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.send_rounded,
-                  color: Colors.white, size: 20),
+              child:
+                  const Icon(Icons.send_rounded, color: Colors.white, size: 20),
             ),
           ),
         ],

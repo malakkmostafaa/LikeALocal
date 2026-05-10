@@ -8,6 +8,33 @@ import 'chat_screen.dart';
 class ChatListScreen extends StatelessWidget {
   const ChatListScreen({super.key});
 
+  // Test user for development
+  static const String _testUserId = 'test_user_123';
+  static const String _testUserName = 'Test User';
+
+  Future<void> _startTestChat(BuildContext context) async {
+    final chatService = ChatService();
+    final chatId = await chatService.getOrCreateChat(
+      otherUid: _testUserId,
+      placeId: 'test_place',
+      placeName: 'Test Place',
+    );
+
+    if (context.mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ChatScreen(
+            otherUid: _testUserId,
+            otherName: _testUserName,
+            placeId: 'test_place',
+            placeName: 'Test Place',
+          ),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final chatService = ChatService();
@@ -52,8 +79,8 @@ class ChatListScreen extends StatelessWidget {
                 builder: (context, nameSnapshot) {
                   final name = nameSnapshot.data ?? 'User';
                   return ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 8),
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     leading: CircleAvatar(
                       backgroundColor: const Color(0xFFFAECE7),
                       child: Text(
@@ -78,16 +105,14 @@ class ChatListScreen extends StatelessWidget {
                               const SizedBox(width: 2),
                               Text(chat.placeName,
                                   style: const TextStyle(
-                                      fontSize: 11,
-                                      color: Color(0xFFD85A30))),
+                                      fontSize: 11, color: Color(0xFFD85A30))),
                             ],
                           ),
                       ],
                     ),
                     trailing: Text(
                       DateFormat('h:mm a').format(chat.lastMessageTime),
-                      style: const TextStyle(
-                          fontSize: 11, color: Colors.grey),
+                      style: const TextStyle(fontSize: 11, color: Colors.grey),
                     ),
                     onTap: () => Navigator.push(
                       context,
@@ -106,6 +131,12 @@ class ChatListScreen extends StatelessWidget {
             },
           );
         },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _startTestChat(context),
+        backgroundColor: const Color(0xFFD85A30),
+        child: const Icon(Icons.chat_bubble_outline, color: Colors.white),
+        tooltip: 'Start Test Chat',
       ),
     );
   }
