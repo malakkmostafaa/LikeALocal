@@ -3,6 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../services/user_service.dart';
 import '../../models/user_model.dart';
 import '../auth/login_screen.dart';
+import '../chat/ai_chat_screen.dart';
+import '../explore/place_details_screen.dart';
 
 const List<String> kAvailableCategories = [
   'Culture',
@@ -258,7 +260,64 @@ class ProfileScreen extends StatelessWidget {
                             user.isSuperUser ? "Super" : "Standard", "Status")),
                   ],
                 ),
+                const SizedBox(height: 24),
+
+                // AI Guide Button
+                GestureDetector(
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const AiChatScreen()),
+                  ),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD85A30),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.auto_awesome, color: Colors.white, size: 20),
+                        SizedBox(width: 10),
+                        Text('AI Local Guide',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 16)),
+                      ],
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 48),
+
+                // Temp test button - remove later
+                GestureDetector(
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const PlaceDetailsScreen(
+                        placeId: 'test_place_id',
+                        placeName: 'Café Riche',
+                        category: 'Cafés',
+                        description: 'A legendary spot in downtown Cairo with amazing Turkish coffee and a century of history.',
+                      ),
+                    ),
+                  ),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade200,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Center(
+                      child: Text('Test Place Details',
+                          style: TextStyle(fontWeight: FontWeight.w600)),
+                    ),
+                  ),
+                ),
 
                 // Logout
                 TextButton.icon(
