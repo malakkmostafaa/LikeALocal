@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/place.dart';
@@ -30,43 +31,115 @@ class PlaceService {
     for (final path in filePaths) {
       try {
         final file = File(path);
-        if (!file.existsSync()) continue;
 
-        final ext = path.split('.').last;
+        // Check if file exists
+        if (!await file.exists()) {
+          debugPrint('Image file does not exist: $path');
+          continue;
+        }
+
+        // Validate file size (max 10MB)
+        final fileSize = await file.length();
+        if (fileSize == 0) {
+          debugPrint('Image file is empty: $path');
+          continue;
+        }
+        if (fileSize > 10 * 1024 * 1024) {
+          debugPrint('Image file too large: $path (${fileSize} bytes)');
+          continue;
+        }
+
+        // Determine file extension
+        final ext = _getImageExtension(path);
+        if (ext == null) {
+          debugPrint('Could not determine image extension for: $path');
+          continue;
+        }
+
         final name = _uuid.v4();
-        final ref = _storage.ref().child('places/$placeId/images/$name.$ext');
+        final ref = _storage.ref('mobiledev2026').child('places/$placeId/images/$name.$ext');
 
-        final uploadTask = await ref.putFile(file);
-        final url = await uploadTask.ref.getDownloadURL();
-        urls.add(url);
-      } catch (e) {
-        // continue on error for individual files
+        debugPrint('Starting upload for: $path');
+        debugPrint('Upload path: ${ref.fullPath}');
+
+        // Upload file with minimal metadata
+        try {
+          final uploadTask = ref.putFile(file);
+          
+          // Wait for upload to complete
+          await uploadTask;
+          
+          debugPrint('File uploaded successfully');
+
+          // Get download URL
+          final url = await ref.getDownloadURL();
+          urls.add(url);
+          debugPrint('Download URL obtained: $url');
+        } on FirebaseException catch (e) {
+          debugPrint('Firebase error: Code=${e.code}, Message=${e.message}');
+          debugPrint('Plugin=${e.plugin}');
+          continue;
+        }
+      } catch (e, stackTrace) {
+        debugPrint('Error uploading image: $e');
+        debugPrint('StackTrace: $stackTrace');
         continue;
       }
     }
 
+    debugPrint('Upload complete. Successfully uploaded ${urls.length} of ${filePaths.length} images');
     return urls;
+  }
+
+  /// Determine image extension from file path
+  String? _getImageExtension(String path) {
+    final pathExt = path.split('.').last.toLowerCase();
+
+    // Map common extensions
+    if (pathExt == 'jpg') return 'jpeg';
+    if (['jpeg', 'png', 'gif', 'webp'].contains(pathExt)) {
+      return pathExt;
+    }
+
+    // Default fallback
+    return 'jpeg';
   }
 
   /// Create a new place document; optionally upload images first.
   /// If images are provided, they'll be uploaded and the place document
   /// will include the `images` array of download URLs.
   Future<DocumentReference> addPlace(Place place, {List<String> localImagePaths = const []}) async {
-    // create a map without images (we'll add images after upload)
+    // Validate inputs
+    if (localImagePaths.isNotEmpty) {
+      debugPrint('Starting place creation with ${localImagePaths.length} images to upload');
+    }
+
+    // Create a map without images (we'll add images after upload)
     final data = place.toMap();
     data.remove('images');
 
+    // Add place document first
     final docRef = await _firestore.collection('places').add(data);
+    debugPrint('Place document created with ID: ${docRef.id}');
 
-    try {
-      if (localImagePaths.isNotEmpty) {
+    // Upload images if provided
+    if (localImagePaths.isNotEmpty) {
+      try {
+        debugPrint('Starting image upload for place ${docRef.id}');
         final urls = await uploadPlaceImages(docRef.id, localImagePaths);
+
         if (urls.isNotEmpty) {
           await docRef.update({'images': urls});
+          debugPrint('Successfully updated place ${docRef.id} with ${urls.length} image URLs');
+        } else {
+          debugPrint('No images were successfully uploaded for place ${docRef.id}');
         }
+      } catch (e, stackTrace) {
+        debugPrint('Error during image upload for place ${docRef.id}: $e');
+        debugPrint('Stack trace: $stackTrace');
+        // Don't fail the entire operation if image upload fails
+        // The place document is already created successfully
       }
-    } catch (e) {
-      // swallow upload errors but keep the place created
     }
 
     return docRef;
@@ -106,6 +179,7 @@ class PlaceService {
   }
 
   /// Add a review to a place (writes a document to `places/{placeId}/reviews`).
+  /// Automatically increments reviewCount in place and user's reviewsCount.
   Future<void> addReviewToPlace(String placeId, Map<String, dynamic> review, {String? userId}) async {
     final uid = userId ?? FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) {
@@ -120,7 +194,22 @@ class PlaceService {
     map['userId'] = uid;
     map['createdAt'] = FieldValue.serverTimestamp();
 
-    await _firestore.collection('places').doc(placeId).collection('reviews').add(map);
+    // Use batch write to ensure atomicity
+    final batch = _firestore.batch();
+
+    // Add the review document
+    final reviewRef = _firestore.collection('places').doc(placeId).collection('reviews').doc();
+    batch.set(reviewRef, map);
+
+    // Increment review count in place document
+    final placeRef = _firestore.collection('places').doc(placeId);
+    batch.update(placeRef, {'reviewCount': FieldValue.increment(1)});
+
+    // Increment review count in user document
+    final userRef = _firestore.collection('users').doc(uid);
+    batch.update(userRef, {'reviewsCount': FieldValue.increment(1)});
+
+    await batch.commit();
   }
 
   /// Stream reviews for a place (reads from `places/{placeId}/reviews`).
@@ -131,7 +220,93 @@ class PlaceService {
         .collection('reviews')
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snap) => snap.docs.map((d) => d.data()).toList());
+        .map((snap) => snap.docs.map((d) => {
+          ...d.data(),
+          'id': d.id, // Include the document ID
+        }).toList());
+  }
+
+  /// Edit an existing review (only the review owner can edit).
+  Future<void> editReview(String placeId, String reviewId, Map<String, dynamic> updatedReview, {String? userId}) async {
+    final uid = userId ?? FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      throw FirebaseException(
+        plugin: 'PlaceService',
+        message: 'User must be authenticated to edit a review',
+      );
+    }
+
+    final reviewRef = _firestore.collection('places').doc(placeId).collection('reviews').doc(reviewId);
+
+    // First, check if the user owns this review
+    final reviewDoc = await reviewRef.get();
+    if (!reviewDoc.exists) {
+      throw FirebaseException(
+        plugin: 'PlaceService',
+        message: 'Review not found',
+      );
+    }
+
+    final reviewData = reviewDoc.data()!;
+    if (reviewData['userId'] != uid) {
+      throw FirebaseException(
+        plugin: 'PlaceService',
+        message: 'You can only edit your own reviews',
+      );
+    }
+
+    // Update the review with new data and updatedAt timestamp
+    final map = Map<String, dynamic>.from(updatedReview);
+    map['updatedAt'] = FieldValue.serverTimestamp();
+
+    await reviewRef.update(map);
+  }
+
+  /// Delete a review (only the review owner can delete).
+  /// Automatically decrements reviewCount in place and user's reviewsCount.
+  Future<void> deleteReview(String placeId, String reviewId, {String? userId}) async {
+    final uid = userId ?? FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      throw FirebaseException(
+        plugin: 'PlaceService',
+        message: 'User must be authenticated to delete a review',
+      );
+    }
+
+    final reviewRef = _firestore.collection('places').doc(placeId).collection('reviews').doc(reviewId);
+
+    // First, check if the user owns this review
+    final reviewDoc = await reviewRef.get();
+    if (!reviewDoc.exists) {
+      throw FirebaseException(
+        plugin: 'PlaceService',
+        message: 'Review not found',
+      );
+    }
+
+    final reviewData = reviewDoc.data()!;
+    if (reviewData['userId'] != uid) {
+      throw FirebaseException(
+        plugin: 'PlaceService',
+        message: 'You can only delete your own reviews',
+      );
+    }
+
+    // Use batch write to ensure atomicity
+    final batch = _firestore.batch();
+
+    // Delete the review document
+    batch.delete(reviewRef);
+
+    // Decrement review count in place document
+    final placeRef = _firestore.collection('places').doc(placeId);
+    batch.update(placeRef, {'reviewCount': FieldValue.increment(-1)});
+
+    // Decrement review count in user document
+    final userRef = _firestore.collection('users').doc(uid);
+    batch.update(userRef, {'reviewsCount': FieldValue.increment(-1)});
+
+    await batch.commit();
   }
 
   /// Update basic place fields (name, description, category, location).

@@ -4,8 +4,10 @@ class AppUser {
   final String email;
   final List<String> preferences;
   final int pinsCount;
+  final int placesAdded;
+  final int reviewsCount;
   final bool isSuperUser;
-  final double maxDistance; 
+  final double maxDistance;
   final int priceRange;
 
   AppUser({
@@ -14,6 +16,8 @@ class AppUser {
     required this.email,
     required this.preferences,
     required this.pinsCount,
+    required this.placesAdded,
+    required this.reviewsCount,
     required this.isSuperUser,
     required this.maxDistance,
     required this.priceRange,
@@ -26,6 +30,8 @@ class AppUser {
       email: map['email'] ?? '',
       preferences: List<String>.from(map['preferences'] ?? []),
       pinsCount: map['pinsCount'] ?? 0,
+      placesAdded: map['placesAdded'] ?? 0,
+      reviewsCount: map['reviewsCount'] ?? 0,
       isSuperUser: map['isSuperUser'] ?? false,
       maxDistance: (map['maxDistance'] ?? 10.0).toDouble(),
       priceRange: map['priceRange'] ?? 1,
@@ -39,6 +45,8 @@ Map<String, dynamic> toMap() {
     'email': email,
     'preferences': preferences,
     'pinsCount': pinsCount,
+    'placesAdded': placesAdded,
+    'reviewsCount': reviewsCount,
     'isSuperUser': isSuperUser,
   };
 }
