@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:like_a_local/screens/main_navigation.dart';
+import 'package:like_a_local/screens/auth/onboarding_screen_1.dart';
 import '../../services/auth_service.dart';
 
 class SignupScreen extends StatefulWidget {
@@ -19,28 +19,11 @@ class _SignupScreenState extends State<SignupScreen> {
   bool isLoading = false;
   bool hidePassword = true;
 
-  final List<String> interests = [
-    'Food',
-    'Cafés',
-    'Hidden Gems',
-    'Art',
-    'Nature',
-    'Nightlife',
-    'Shopping',
-    'History',
-  ];
-
-  final Set<String> selectedInterests = {};
-
   Future<void> signUp() async {
     if (nameController.text.isEmpty ||
         emailController.text.isEmpty ||
         passwordController.text.isEmpty) {
       showMessage('Please fill all fields');
-      return;
-    }
-    if (selectedInterests.isEmpty) {
-      showMessage('Please select at least one interest');
       return;
     }
     if (passwordController.text.length < 6) {
@@ -55,15 +38,14 @@ class _SignupScreenState extends State<SignupScreen> {
         name: nameController.text,
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
-        interests: selectedInterests.toList(),
       );
 
       if (!mounted) return;
-      // Navigator.of(context)
-      //     .pop(); // Pop back to allow StreamBuilder to navigate
-      Navigator.pushReplacement(
+      
+      Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (_) => const MainNavigation()),
+        MaterialPageRoute(builder: (_) => const OnboardingScreen1()),
+        (route) => route.isFirst,
       );
     } catch (e) {
       showMessage(e.toString());
@@ -155,31 +137,7 @@ class _SignupScreenState extends State<SignupScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                const Text(
-                  'Your Interests',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: interests.map((interest) {
-                    final selected = selectedInterests.contains(interest);
 
-                    return ChoiceChip(
-                      label: Text(interest),
-                      selected: selected,
-                      selectedColor: const Color.fromRGBO(212, 90, 56, 0.2),
-                      onSelected: (_) {
-                        setState(() {
-                          selected
-                              ? selectedInterests.remove(interest)
-                              : selectedInterests.add(interest);
-                        });
-                      },
-                    );
-                  }).toList(),
-                ),
                 const SizedBox(height: 28),
                 SizedBox(
                   width: double.infinity,

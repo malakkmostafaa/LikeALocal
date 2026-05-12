@@ -7,7 +7,6 @@ import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/place.dart';
-import '../models/tip.dart';
 import '../models/dish.dart';
 
 class PlaceService {
@@ -57,22 +56,19 @@ class PlaceService {
         }
 
         final name = _uuid.v4();
-        final ref = _storage.ref('mobiledev2026').child('places/$placeId/images/$name.$ext');
+        final ref = _storage.ref().child('places/$placeId/images/$name.$ext');
 
         debugPrint('Starting upload for: $path');
         debugPrint('Upload path: ${ref.fullPath}');
 
         // Upload file with minimal metadata
         try {
-          final uploadTask = ref.putFile(file);
-          
-          // Wait for upload to complete
-          await uploadTask;
-          
-          debugPrint('File uploaded successfully');
+          final snapshot = await ref.putFile(file);
 
-          // Get download URL
-          final url = await ref.getDownloadURL();
+          debugPrint('File uploaded successfully with state: ${snapshot.state}');
+
+          // Get download URL from the completed upload snapshot.
+          final url = await snapshot.ref.getDownloadURL();
           urls.add(url);
           debugPrint('Download URL obtained: $url');
         } on FirebaseException catch (e) {

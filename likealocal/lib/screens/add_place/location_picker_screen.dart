@@ -25,7 +25,6 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
 
   final List<Marker> _markers = [];
   bool _isLoadingLocation = true;
-  double _currentZoom = 15;
 
   @override
   void initState() {
@@ -239,11 +238,6 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
               initialCenter: initialPosition,
               initialZoom: 15,
               onTap: _onMapTap,
-              onPositionChanged: (MapPosition position, bool hasGesture) {
-                if (position.zoom != null) {
-                  _currentZoom = position.zoom!;
-                }
-              },
             ),
             children: [
               TileLayer(

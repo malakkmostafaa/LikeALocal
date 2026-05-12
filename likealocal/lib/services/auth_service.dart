@@ -13,7 +13,7 @@ class AuthService {
     required String name,
     required String email,
     required String password,
-    required List<String> interests, // 👈 ADD THIS
+    List<String> interests = const [],
   }) async {
     final credential = await _auth.createUserWithEmailAndPassword(
       email: email.trim(),
@@ -28,7 +28,7 @@ class AuthService {
       'email': email.trim(),
       'createdAt': FieldValue.serverTimestamp(),
 
-      // 🔥 THIS IS THE IMPORTANT CHANGE
+      // Store interests as preferences (maintains backward compatibility)
       'preferences': interests,
 
       'isSuperUser': false,

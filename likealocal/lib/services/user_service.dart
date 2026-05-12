@@ -18,12 +18,42 @@ class UserService {
     });
   }
 
-  Future<void> updateUser(String uid, Map<String, dynamic> data) async {
+  Future<void> updateCurrentUser(Map<String, dynamic> data) async {
+    final uid = _auth.currentUser?.uid;
+
+    if (uid == null) {
+      throw Exception("No logged-in user found");
+    }
+
+    debugPrint("🔥 Updating Firestore user doc:");
+    debugPrint("uid = $uid");
+    debugPrint("data = $data");
+
     try {
-      // NOTE: If the collection name is different, change 'users' here as well.
       await _firestore.collection('users').doc(uid).update(data);
+      debugPrint("✅ Firestore user updated successfully");
     } catch (e) {
-      debugPrint("Error updating profile: $e");
+      debugPrint("❌ Error updating Firestore user: $e");
+      rethrow;
+    }
+  }
+
+  /// Update a user document by UID. Allows updating any user, not just the current one.
+  /// Use [updateCurrentUser] for simpler updates to the authenticated user.
+  Future<void> updateUser(String uid, Map<String, dynamic> data) async {
+    if (uid.isEmpty) {
+      throw Exception("UID cannot be empty");
+    }
+
+    debugPrint("🔥 Updating Firestore user doc:");
+    debugPrint("uid = $uid");
+    debugPrint("data = $data");
+
+    try {
+      await _firestore.collection('users').doc(uid).update(data);
+      debugPrint("✅ Firestore user updated successfully");
+    } catch (e) {
+      debugPrint("❌ Error updating Firestore user: $e");
       rethrow;
     }
   }

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:like_a_local/screens/main_navigation.dart';
 import '../../services/auth_service.dart';
 import 'signup_screen.dart';
 
@@ -35,10 +34,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const MainNavigation()),
-      );
+      // Rely on StreamBuilder in main.dart to show MainNavigation.
+      // We just need to pop any overlay if LoginScreen wasn't the root.
+      Navigator.popUntil(context, (route) => route.isFirst);
     } catch (e) {
       showMessage(e.toString());
     }
