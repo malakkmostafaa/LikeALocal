@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'dish.dart';
 import 'tip.dart';
 
@@ -34,37 +35,68 @@ class Place {
   double get lat => location.latitude;
   double get lng => location.longitude;
 
+  /// Safely parse a dynamic value into List<String>.
+  /// Handles null, List, String, and unexpected types.
+  static List<String> _parseStringList(dynamic value) {
+    if (value == null) return [];
+
+    if (value is List) {
+      return value.map((e) => e.toString()).toList();
+    }
+
+    if (value is String) {
+      if (value.trim().isEmpty) return [];
+      return [value];
+    }
+
+    return [];
+  }
+
   factory Place.fromMap(Map<String, dynamic> map, String id) {
-    final geo = map['location'] as GeoPoint?;
+    debugPrint('Parsing place: $id => $map');
 
-    final images = (map['images'] as List<dynamic>?)
-            ?.map((e) => e as String)
-            .toList() ??
-        [];
+    // Safe GeoPoint parsing
+    GeoPoint? geo;
+    if (map['location'] is GeoPoint) {
+      geo = map['location'] as GeoPoint;
+    }
 
-    final tips = (map['tips'] as List<dynamic>?)
-            ?.map((e) => Tip.fromMap(Map<String, dynamic>.from(e)))
-            .toList() ??
-        [];
+    // Safe image parsing — supports both 'images' (List) and 'imageUrl' (String)
+    final parsedImages = _parseStringList(map['images'] ?? map['imageUrl']);
 
-    final dishes = (map['recommendedDishes'] as List<dynamic>?)
-            ?.map((e) => Dish.fromMap(Map<String, dynamic>.from(e)))
-            .toList() ??
-        [];
+    // Safe tips parsing — handle String, List<Map>, or anything else
+    List<Tip> parsedTips = [];
+    if (map['tips'] is List) {
+      parsedTips = (map['tips'] as List)
+          .whereType<Map>()
+          .map((e) => Tip.fromMap(Map<String, dynamic>.from(e)))
+          .toList();
+    }
+
+    // Safe dishes parsing — handle String, List<Map>, or anything else
+    List<Dish> parsedDishes = [];
+    if (map['recommendedDishes'] is List) {
+      parsedDishes = (map['recommendedDishes'] as List)
+          .whereType<Map>()
+          .map((e) => Dish.fromMap(Map<String, dynamic>.from(e)))
+          .toList();
+    }
 
     return Place(
       id: id,
-      name: map['name'] ?? '',
-      description: map['description'] ?? '',
-      category: map['category'] ?? '',
-      images: images,
-      location: geo ?? GeoPoint(0, 0),
-      createdBy: map['createdBy'],
-      createdAt: (map['createdAt'] as Timestamp?)?.toDate(),
-      tips: tips,
-      recommendedDishes: dishes,
-      rating: (map['rating'] as num?)?.toDouble() ?? 0.0,
-      reviewCount: (map['reviewCount'] as num?)?.toInt() ?? 0,
+      name: map['name']?.toString() ?? 'Unknown',
+      description: map['description']?.toString() ?? '',
+      category: map['category']?.toString() ?? 'Other',
+      images: parsedImages,
+      location: geo ?? const GeoPoint(0, 0),
+      createdBy: map['createdBy']?.toString(),
+      createdAt: (map['createdAt'] is Timestamp)
+          ? (map['createdAt'] as Timestamp).toDate()
+          : null,
+      tips: parsedTips,
+      recommendedDishes: parsedDishes,
+      rating: (map['rating'] is num) ? (map['rating'] as num).toDouble() : 0.0,
+      reviewCount: (map['reviewCount'] is num) ? (map['reviewCount'] as num).toInt() : 0,
     );
   }
 

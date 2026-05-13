@@ -27,6 +27,8 @@ dependencies:
   # Location
   geolocator: ^14.0.2
   geocoding: ^4.0.0
+  flutter_map: ^6.0.0
+  latlong2: ^0.9.0
   google_maps_flutter: ^2.17.0
 
   # Image Handling
