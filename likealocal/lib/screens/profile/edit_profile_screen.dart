@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -77,15 +77,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       await ref.putFile(_imageFile!);
       return await ref.getDownloadURL();
     } catch (e) {
-      print("Error uploading image: $e");
+      debugPrint("Error uploading image: $e");
       return widget.user.profileImageUrl;
     }
   }
 
   Future<void> saveProfile() async {
     try {
-      print("🔥 SAVE STARTED");
-
       setState(() {
         isLoading = true;
       });
@@ -106,8 +104,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      print("✅ FIRESTORE UPDATE FINISHED");
-
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -118,8 +114,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         Navigator.pop(context);
       }
     } catch (e) {
-      print("❌ ERROR:");
-      print(e);
+      debugPrint("Error saving profile: $e");
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

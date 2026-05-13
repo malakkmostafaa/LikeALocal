@@ -37,4 +37,24 @@ class UserService {
       rethrow;
     }
   }
+
+  /// Update a user document by UID. Allows updating any user, not just the current one.
+  /// Use [updateCurrentUser] for simpler updates to the authenticated user.
+  Future<void> updateUser(String uid, Map<String, dynamic> data) async {
+    if (uid.isEmpty) {
+      throw Exception("UID cannot be empty");
+    }
+
+    debugPrint("🔥 Updating Firestore user doc:");
+    debugPrint("uid = $uid");
+    debugPrint("data = $data");
+
+    try {
+      await _firestore.collection('users').doc(uid).update(data);
+      debugPrint("✅ Firestore user updated successfully");
+    } catch (e) {
+      debugPrint("❌ Error updating Firestore user: $e");
+      rethrow;
+    }
+  }
 }

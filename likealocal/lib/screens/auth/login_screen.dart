@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:like_a_local/screens/main_navigation.dart';
 import '../../services/auth_service.dart';
 import 'signup_screen.dart';
 
@@ -164,7 +163,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       const Text("Don't have an account? "),
                       GestureDetector(
                         onTap: () {
-                          Navigator.push(
+                          Navigator.pushReplacement(
                             context,
                             MaterialPageRoute(
                               builder: (_) => const SignupScreen(),

@@ -6,7 +6,6 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/place.dart';
-import '../models/tip.dart';
 import '../models/dish.dart';
 
 class PlaceService {
@@ -36,11 +35,35 @@ class PlaceService {
         final name = _uuid.v4();
         final ref = _storage.ref().child('places/$placeId/images/$name.$ext');
 
+
         final uploadTask = await ref.putFile(file);
         final url = await uploadTask.ref.getDownloadURL();
         urls.add(url);
       } catch (e) {
         // continue on error for individual files
+
+        debugPrint('Starting upload for: $path');
+        debugPrint('Upload path: ${ref.fullPath}');
+
+        // Upload file with minimal metadata
+        try {
+          final snapshot = await ref.putFile(file);
+
+          debugPrint('File uploaded successfully with state: ${snapshot.state}');
+
+          // Get download URL from the completed upload snapshot.
+          final url = await snapshot.ref.getDownloadURL();
+          urls.add(url);
+          debugPrint('Download URL obtained: $url');
+        } on FirebaseException catch (e) {
+          debugPrint('Firebase error: Code=${e.code}, Message=${e.message}');
+          debugPrint('Plugin=${e.plugin}');
+          continue;
+        }
+      } catch (e, stackTrace) {
+        debugPrint('Error uploading image: $e');
+        debugPrint('StackTrace: $stackTrace');
+
         continue;
       }
     }
