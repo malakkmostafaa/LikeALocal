@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../models/place.dart';
-import 'place_card.dart';
+import 'trending_story_item.dart';
 
 class TrendingSection extends StatelessWidget {
   final List<Place> trendingPlaces;
@@ -29,20 +29,18 @@ class TrendingSection extends StatelessWidget {
           ),
         ),
         SizedBox(
-          height: 280,
+          height: 110,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 8),
             itemCount: trendingPlaces.length,
             itemBuilder: (context, index) {
               final place = trendingPlaces[index];
-              return Container(
-                width: 260,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: PlaceCard(
-                  place: place,
-                  distanceInMeters: getDistance(place),
-                ),
+              return TrendingStoryItem(
+                place: place,
+                onTap: () {
+                  // Scrolling to place will be implemented later
+                },
               );
             },
           ),
