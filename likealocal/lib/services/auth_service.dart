@@ -1,12 +1,12 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'notification_service.dart'; // ← add
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   User? get currentUser => _auth.currentUser;
-
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
   Future<void> signUp({
@@ -26,14 +26,14 @@ class AuthService {
       'name': name.trim(),
       'email': email.trim(),
       'createdAt': FieldValue.serverTimestamp(),
-
-      // 🔥 THIS IS THE IMPORTANT CHANGE
       'preferences': [],
-
       'isSuperUser': false,
       'pinsCount': 0,
       'chatEnabled': true,
+      'fcmToken': '', // ← add this field so it exists from the start
     });
+
+    await NotificationService().initFCM(); // ← add
   }
 
   Future<void> login({
@@ -44,6 +44,8 @@ class AuthService {
       email: email.trim(),
       password: password.trim(),
     );
+
+    await NotificationService().initFCM(); // ← add
   }
 
   Future<void> logout() async {

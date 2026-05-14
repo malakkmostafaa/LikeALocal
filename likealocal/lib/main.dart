@@ -2,16 +2,27 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'services/notification_service.dart';  // ← add this
+import 'package:firebase_messaging/firebase_messaging.dart'; // ← add
+import 'services/notification_service.dart';
 
 import 'screens/auth/login_screen.dart';
 import 'screens/main_navigation.dart';
+
+// ← Add this top-level function (must be outside any class)
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  
+  // ← Register background handler before runApp
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  
   runApp(const MyApp());
 }
 
@@ -33,7 +44,6 @@ class MyApp extends StatelessWidget {
           }
 
           if (snapshot.hasData) {
-            // ← Initialize FCM when user is logged in
             NotificationService().initFCM();
             return const MainNavigation();
           }
