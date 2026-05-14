@@ -25,6 +25,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
   final LocationService _locationService = LocationService();
   final TextEditingController _searchController = TextEditingController();
 
+  late final Stream<List<Place>> _placesStream;
+
   String _searchQuery = '';
   String? _selectedCategory;
   bool _sortByNearMe = false;
@@ -44,6 +46,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
   @override
   void initState() {
     super.initState();
+
+    _placesStream = _placeService.getPlaces();
 
     _userService.getCurrentUser().listen((user) {
       if (!mounted) return;
@@ -71,13 +75,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
     if (pos == null) {
       if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Location permission denied or disabled.'),
-        ),
+        const SnackBar(content: Text('Location permission denied or disabled.')),
       );
-
       return;
     }
 
@@ -102,14 +102,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
     final query = _searchQuery.trim().toLowerCase();
 
     final filtered = places.where((place) {
-      final name = place.name.toLowerCase();
-      final description = place.description.toLowerCase();
-      final category = place.category.toLowerCase();
-
       final matchesSearch = query.isEmpty ||
-          name.contains(query) ||
-          description.contains(query) ||
-          category.contains(query);
+          place.name.toLowerCase().contains(query) ||
+          place.description.toLowerCase().contains(query) ||
+          place.category.toLowerCase().contains(query);
 
       final matchesCategory =
           _selectedCategory == null || place.category == _selectedCategory;
@@ -156,29 +152,33 @@ class _ExploreScreenState extends State<ExploreScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFDF7FF),
+      backgroundColor: const Color(0xFFFAF7F2),
       appBar: AppBar(
-        title: const Text('Explore'),
+        backgroundColor: const Color(0xFFFAF7F2),
+        elevation: 0,
+        title: const Text(
+          'Explore',
+          style: TextStyle(
+            color: Color(0xFF1F1F28),
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         centerTitle: true,
         actions: [
           IconButton(
             icon: Icon(
               Icons.my_location,
-              color: _sortByNearMe
-                  ? Theme.of(context).primaryColor
-                  : Colors.grey,
+              color: _sortByNearMe ? const Color(0xFFE26D45) : Colors.grey,
             ),
             onPressed: _toggleNearMe,
           ),
         ],
       ),
       body: StreamBuilder<List<Place>>(
-        stream: _placeService.getPlaces(),
+        stream: _placesStream,
         builder: (context, snapshot) {
           if (snapshot.hasError) {
-            return Center(
-              child: Text('Firestore error: ${snapshot.error}'),
-            );
+            return Center(child: Text('Firestore error: ${snapshot.error}'));
           }
 
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -195,6 +195,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
           final trendingPlaces = _getTrending(allPlaces);
 
           return CustomScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             slivers: [
               SliverToBoxAdapter(
                 child: SearchBarWidget(
@@ -223,9 +224,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   },
                 ),
               ),
-              if (_searchQuery.isEmpty &&
-                  _selectedCategory == null &&
-                  !_sortByNearMe)
+              if (_searchQuery.isEmpty && _selectedCategory == null && !_sortByNearMe)
                 SliverToBoxAdapter(
                   child: TrendingSection(
                     trendingPlaces: trendingPlaces,
@@ -234,9 +233,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 ),
               if (displayPlaces.isEmpty)
                 const SliverFillRemaining(
-                  child: Center(
-                    child: Text('No places matching your search.'),
-                  ),
+                  child: Center(child: Text('No places matching your search.')),
                 )
               else
                 SliverPadding(

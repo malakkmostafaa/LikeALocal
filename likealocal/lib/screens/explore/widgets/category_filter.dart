@@ -14,32 +14,67 @@ class CategoryFilter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const primaryColor = Color(0xFFE26D45);
+    const lightPrimary = Color(0xFFFBE8DF);
+
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
-          FilterChip(
-            label: const Text('All'),
-            selected: selectedCategory == null,
-            onSelected: (val) {
-              if (val) onCategorySelected(null);
-            },
+          _buildChip(
+            label: 'All',
+            isSelected: selectedCategory == null,
+            onTap: () => onCategorySelected(null),
+            primaryColor: primaryColor,
+            lightPrimary: lightPrimary,
           ),
-          const SizedBox(width: 8),
           ...categories.map((cat) {
-            return Padding(
-              padding: const EdgeInsets.only(right: 8.0),
-              child: FilterChip(
-                label: Text(cat),
-                selected: selectedCategory == cat,
-                onSelected: (val) {
-                  onCategorySelected(val ? cat : null);
-                },
-              ),
+            return _buildChip(
+              label: cat,
+              isSelected: selectedCategory == cat,
+              onTap: () => onCategorySelected(selectedCategory == cat ? null : cat),
+              primaryColor: primaryColor,
+              lightPrimary: lightPrimary,
             );
           }).toList(),
         ],
+      ),
+    );
+  }
+
+  Widget _buildChip({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+    required Color primaryColor,
+    required Color lightPrimary,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(right: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? primaryColor : lightPrimary,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: primaryColor.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : null,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? Colors.white : primaryColor,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
       ),
     );
   }
