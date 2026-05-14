@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../models/place.dart';
-import '../../services/place_service.dart';
+import '../../providers/place_provider.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -14,8 +15,6 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> {
-  final PlaceService _placeService = PlaceService();
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -34,16 +33,12 @@ class _MapScreenState extends State<MapScreen> {
             ),
           ),
           Expanded(
-            child: StreamBuilder<List<Place>>(
-              stream: _placeService.getPlaces(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
+            child: Consumer<PlaceProvider>(
+              builder: (context, placeProvider, child) {
+                if (placeProvider.isLoading) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                if (snapshot.hasError) {
-                  return Center(child: Text('Map error: ${snapshot.error}'));
-                }
-                final places = snapshot.data ?? [];
+                final places = placeProvider.places;
                 // Filter valid places with non-zero coordinates
                 final validPlaces = places.where((p) => p.lat != 0 && p.lng != 0).toList();
                 if (validPlaces.isEmpty) {

@@ -21,7 +21,7 @@ class ProfileScreen extends StatelessWidget {
         body: Center(child: CircularProgressIndicator()),
       );
     }
-    
+
     final uid = currentUser.uid;
 
     const primaryColor = Color(0xFFD96B41);
@@ -45,11 +45,38 @@ class ProfileScreen extends StatelessWidget {
 
             // NO USER
             if (!snapshot.hasData || !snapshot.data!.exists) {
-              return const Center(
-                child: Text("User not found"),
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.person_off_outlined,
+                        size: 56,
+                        color: Colors.grey,
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Profile is being created...',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'If this stays for more than a few seconds, log out and sign up again.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               );
             }
-
             final userData = snapshot.data!.data() as Map<String, dynamic>;
 
             final user = AppUser.fromMap(userData);
@@ -145,7 +172,8 @@ class ProfileScreen extends StatelessWidget {
                                 radius: 46,
                                 backgroundColor: primaryColor.withOpacity(0.12),
                                 backgroundImage: user.profileImageUrl.isNotEmpty
-                                    ? CachedNetworkImageProvider(user.profileImageUrl)
+                                    ? CachedNetworkImageProvider(
+                                        user.profileImageUrl)
                                     : null,
                                 child: user.profileImageUrl.isEmpty
                                     ? const Icon(
@@ -217,7 +245,8 @@ class ProfileScreen extends StatelessWidget {
 
                               // JOINED
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 6),
                                 decoration: BoxDecoration(
                                   color: Colors.grey.shade100,
                                   borderRadius: BorderRadius.circular(12),
@@ -385,11 +414,14 @@ class ProfileScreen extends StatelessWidget {
                       );
                     },
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 18),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFAEBE1), // Minimal light sandy orange
+                        color: const Color(
+                            0xFFFAEBE1), // Minimal light sandy orange
                         borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: primaryColor.withOpacity(0.2)),
+                        border:
+                            Border.all(color: primaryColor.withOpacity(0.2)),
                         boxShadow: [
                           BoxShadow(
                             color: primaryColor.withOpacity(0.05),
@@ -406,7 +438,8 @@ class ProfileScreen extends StatelessWidget {
                               color: primaryColor.withOpacity(0.15),
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.workspace_premium, color: primaryColor),
+                            child: const Icon(Icons.workspace_premium,
+                                color: primaryColor),
                           ),
                           const SizedBox(width: 16),
                           Expanded(
@@ -414,7 +447,9 @@ class ProfileScreen extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  user.isSuperUser ? "Super User Status" : "Super User Progress",
+                                  user.isSuperUser
+                                      ? "Super User Status"
+                                      : "Super User Progress",
                                   style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
@@ -423,7 +458,9 @@ class ProfileScreen extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  user.isSuperUser ? "You have unlocked all perks!" : "View badges and requirements",
+                                  user.isSuperUser
+                                      ? "You have unlocked all perks!"
+                                      : "View badges and requirements",
                                   style: TextStyle(
                                     fontSize: 13,
                                     color: Colors.grey.shade700,
@@ -432,7 +469,8 @@ class ProfileScreen extends StatelessWidget {
                               ],
                             ),
                           ),
-                          const Icon(Icons.arrow_forward_ios, size: 16, color: primaryColor),
+                          const Icon(Icons.arrow_forward_ios,
+                              size: 16, color: primaryColor),
                         ],
                       ),
                     ),
@@ -453,12 +491,15 @@ class ProfileScreen extends StatelessWidget {
                       );
                     },
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 18),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(24),
                         border: Border.all(
-                          color: user.isPremium ? primaryColor.withOpacity(0.5) : Colors.grey.shade300,
+                          color: user.isPremium
+                              ? primaryColor.withOpacity(0.5)
+                              : Colors.grey.shade300,
                           width: user.isPremium ? 2 : 1,
                         ),
                         boxShadow: [
@@ -474,12 +515,16 @@ class ProfileScreen extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: user.isPremium ? primaryColor.withOpacity(0.15) : Colors.grey.shade100,
+                              color: user.isPremium
+                                  ? primaryColor.withOpacity(0.15)
+                                  : Colors.grey.shade100,
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
-                              Icons.star_rounded, 
-                              color: user.isPremium ? primaryColor : Colors.grey.shade600,
+                              Icons.star_rounded,
+                              color: user.isPremium
+                                  ? primaryColor
+                                  : Colors.grey.shade600,
                               size: 24,
                             ),
                           ),
@@ -489,16 +534,22 @@ class ProfileScreen extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  user.isPremium ? "Premium Active" : "Upgrade to Premium Plus",
+                                  user.isPremium
+                                      ? "Premium Active"
+                                      : "Upgrade to Premium Plus",
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
-                                    color: user.isPremium ? primaryColor : Colors.black87,
+                                    color: user.isPremium
+                                        ? primaryColor
+                                        : Colors.black87,
                                   ),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  user.isPremium ? "You have unlimited pins" : "Unlock unlimited pins & features",
+                                  user.isPremium
+                                      ? "You have unlimited pins"
+                                      : "Unlock unlimited pins & features",
                                   style: TextStyle(
                                     fontSize: 13,
                                     color: Colors.grey.shade600,
@@ -508,9 +559,11 @@ class ProfileScreen extends StatelessWidget {
                             ),
                           ),
                           Icon(
-                            Icons.arrow_forward_ios, 
-                            size: 16, 
-                            color: user.isPremium ? primaryColor : Colors.grey.shade400,
+                            Icons.arrow_forward_ios,
+                            size: 16,
+                            color: user.isPremium
+                                ? primaryColor
+                                : Colors.grey.shade400,
                           ),
                         ],
                       ),
@@ -518,7 +571,6 @@ class ProfileScreen extends StatelessWidget {
                   ),
 
                   const SizedBox(height: 40),
-
                 ],
               ),
             );
