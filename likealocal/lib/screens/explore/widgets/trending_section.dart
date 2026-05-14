@@ -23,17 +23,22 @@ class TrendingSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          padding: EdgeInsets.fromLTRB(20, 24, 20, 16),
           child: Text(
             'Trending Places',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF1F1F28),
+              letterSpacing: -0.5,
+            ),
           ),
         ),
         SizedBox(
-          height: 110,
+          height: 125,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             itemCount: trendingPlaces.length,
             itemBuilder: (context, index) {
               final place = trendingPlaces[index];
@@ -55,10 +60,15 @@ class TrendingSection extends StatelessWidget {
           ),
         ),
         const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
+          padding: EdgeInsets.fromLTRB(20, 24, 20, 16),
           child: Text(
-            'All Places',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            'Explore Feed',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF1F1F28),
+              letterSpacing: -0.5,
+            ),
           ),
         ),
       ],

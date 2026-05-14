@@ -152,15 +152,23 @@ class _ExploreScreenState extends State<ExploreScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFDF7FF),
+      backgroundColor: const Color(0xFFFAF7F2),
       appBar: AppBar(
-        title: const Text('Explore'),
+        backgroundColor: const Color(0xFFFAF7F2),
+        elevation: 0,
+        title: const Text(
+          'Explore',
+          style: TextStyle(
+            color: Color(0xFF1F1F28),
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         centerTitle: true,
         actions: [
           IconButton(
             icon: Icon(
               Icons.my_location,
-              color: _sortByNearMe ? Theme.of(context).primaryColor : Colors.grey,
+              color: _sortByNearMe ? const Color(0xFFE26D45) : Colors.grey,
             ),
             onPressed: _toggleNearMe,
           ),

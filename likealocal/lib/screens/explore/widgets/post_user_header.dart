@@ -72,15 +72,17 @@ class PostUserHeader extends StatelessWidget {
   }
 
   Widget _buildHeader(BuildContext context, AppUser? user) {
+    const primaryColor = Color(0xFFE26D45);
+    const lightPrimary = Color(0xFFFBE8DF);
     final name = user?.name.isNotEmpty == true ? user!.name : 'Local Explorer';
     final isSuperUser = user?.isSuperUser ?? false;
 
     return Padding(
-      padding: const EdgeInsets.all(8.0),
+      padding: const EdgeInsets.all(12.0),
       child: Row(
         children: [
-          UserAvatar(user: user, radius: 20),
-          const SizedBox(width: 8),
+          UserAvatar(user: user, radius: 22),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -91,19 +93,49 @@ class PostUserHeader extends StatelessWidget {
                     Flexible(
                       child: Text(
                         name,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                          color: Color(0xFF1F1F28),
+                        ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     if (isSuperUser) ...[
-                      const SizedBox(width: 4),
-                      const Icon(Icons.stars, size: 16, color: Colors.amber),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: lightPrimary,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.workspace_premium, size: 12, color: primaryColor),
+                            SizedBox(width: 4),
+                            Text(
+                              'Super',
+                              style: TextStyle(
+                                color: primaryColor,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ]
                   ],
                 ),
+                const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF777777),
+                    fontWeight: FontWeight.w500,
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
@@ -111,7 +143,7 @@ class PostUserHeader extends StatelessWidget {
           ),
           if (onMorePressed != null)
             IconButton(
-              icon: const Icon(Icons.more_vert),
+              icon: const Icon(Icons.more_horiz, color: Color(0xFF777777)),
               onPressed: onMorePressed,
             ),
         ],
