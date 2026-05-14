@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../services/place_service.dart';
 
 class ReviewForm extends StatefulWidget {
@@ -21,7 +22,6 @@ class _ReviewFormState extends State<ReviewForm> {
 
   int _rating = 5;
   bool _isLoading = false;
-  String? _errorMessage;
 
   @override
   void dispose() {
@@ -30,34 +30,40 @@ class _ReviewFormState extends State<ReviewForm> {
   }
 
   Future<void> _submitReview() async {
-    if (_commentController.text.trim().isEmpty) {
-      setState(() => _errorMessage = 'Please write a comment');
+    final text = _commentController.text.trim();
+
+    if (text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please write a review first')),
+      );
       return;
     }
 
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+    setState(() => _isLoading = true);
 
     try {
       await _placeService.addReviewToPlace(widget.placeId, {
-        'text': _commentController.text.trim(),
+        'text': text,
         'rating': _rating,
       });
 
       _commentController.clear();
+
       setState(() => _rating = 5);
 
       widget.onReviewAdded?.call();
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Review added successfully!')),
-        );
-      }
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Review added successfully')),
+      );
     } catch (e) {
-      setState(() => _errorMessage = 'Failed to add review: ${e.toString()}');
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to add review: $e')),
+      );
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -67,71 +73,92 @@ class _ReviewFormState extends State<ReviewForm> {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Write a Review',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+    const primaryColor = Color(0xFFE26D45);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFAF7F2),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey.shade100),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Write a review',
+            style: TextStyle(
+              fontWeight: FontWeight.w900,
+              fontSize: 16,
             ),
-            const SizedBox(height: 16),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: List.generate(5, (index) {
+              final selected = index < _rating;
 
-            // Rating selector
-            const Text('Rating:'),
-            Row(
-              children: List.generate(5, (index) {
-                return IconButton(
-                  onPressed: () => setState(() => _rating = index + 1),
-                  icon: Icon(
-                    index < _rating ? Icons.star : Icons.star_border,
-                    color: Colors.amber,
-                  ),
-                );
-              }),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Comment field
-            TextField(
-              controller: _commentController,
-              decoration: const InputDecoration(
-                labelText: 'Your review',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 3,
-            ),
-
-            const SizedBox(height: 16),
-
-            // Error message
-            if (_errorMessage != null) ...[
-              Text(
-                _errorMessage!,
-                style: const TextStyle(color: Colors.red),
-              ),
-              const SizedBox(height: 8),
-            ],
-
-            // Submit button
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _submitReview,
-                child: _isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Submit Review'),
+              return IconButton(
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                onPressed: _isLoading
+                    ? null
+                    : () {
+                        setState(() {
+                          _rating = index + 1;
+                        });
+                      },
+                icon: Icon(
+                  selected ? Icons.star_rounded : Icons.star_border_rounded,
+                  color: const Color(0xFFE5A11A),
+                  size: 28,
+                ),
+              );
+            }),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _commentController,
+            enabled: !_isLoading,
+            maxLines: 3,
+            decoration: InputDecoration(
+              hintText: 'Share your experience...',
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(18),
+                borderSide: BorderSide.none,
               ),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _isLoading ? null : _submitReview,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+              ),
+              child: _isLoading
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text(
+                      'Submit Review',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+            ),
+          ),
+        ],
       ),
     );
   }
