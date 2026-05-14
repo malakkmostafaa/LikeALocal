@@ -1,40 +1,66 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/user_model.dart';
-import 'package:flutter/foundation.dart';
 
 class UserService {
-  final _firestore = FirebaseFirestore.instance;
-  final _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  Stream<AppUser?> getCurrentUser() {
-    final uid = _auth.currentUser?.uid;
+  Stream<AppUser?> currentUserStream() {
+    return _auth.authStateChanges().asyncExpand((firebaseUser) {
+      if (firebaseUser == null) {
+        return Stream<AppUser?>.value(null);
+      }
 
-    if (uid == null) return const Stream.empty();
+      return _firestore
+          .collection('users')
+          .doc(firebaseUser.uid)
+          .snapshots()
+          .map((doc) {
+        if (!doc.exists || doc.data() == null) {
+          return null;
+        }
 
-    return _firestore.collection('users').doc(uid).snapshots().map((doc) {
-      if (!doc.exists) return null;
-      return AppUser.fromMap(doc.data()!);
+        return AppUser.fromMap(doc.data()!);
+      });
     });
   }
 
+  Future<AppUser?> getCurrentUserOnce() async {
+    final user = _auth.currentUser;
+
+    if (user == null) return null;
+
+    final doc = await _firestore.collection('users').doc(user.uid).get();
+
+    if (!doc.exists || doc.data() == null) {
+      return null;
+    }
+
+    return AppUser.fromMap(doc.data()!);
+  }
+
   Future<void> updateCurrentUser(Map<String, dynamic> data) async {
-    final uid = _auth.currentUser?.uid;
+    final user = _auth.currentUser;
 
-    if (uid == null) {
-      throw Exception("No logged-in user found");
+    if (user == null) {
+      throw Exception('No logged-in user found.');
     }
 
-    debugPrint("🔥 Updating Firestore user doc:");
-    debugPrint("uid = $uid");
-    debugPrint("data = $data");
+    await _firestore.collection('users').doc(user.uid).set({
+      ...data,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
 
-    try {
-      await _firestore.collection('users').doc(uid).update(data);
-      debugPrint("✅ Firestore user updated successfully");
-    } catch (e) {
-      debugPrint("❌ Error updating Firestore user: $e");
-      rethrow;
+  Future<void> updateUser(String uid, Map<String, dynamic> data) async {
+    if (uid.trim().isEmpty) {
+      throw Exception('UID cannot be empty.');
     }
+
+    await _firestore.collection('users').doc(uid).set({
+      ...data,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
   }
 }

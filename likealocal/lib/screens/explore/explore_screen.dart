@@ -1,39 +1,241 @@
 import 'package:flutter/material.dart';
-import '../../services/place_service.dart';
-import '../../models/place.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:provider/provider.dart';
 
-class ExploreScreen extends StatelessWidget {
+import '../../models/place.dart';
+import '../../models/user_model.dart';
+import '../../providers/location_provider.dart';
+import '../../providers/place_provider.dart';
+import '../../providers/user_provider.dart';
+
+import 'widgets/category_filter.dart';
+import 'widgets/search_bar_widget.dart';
+import 'widgets/social_place_card.dart';
+import 'widgets/trending_section.dart';
+
+class ExploreScreen extends StatefulWidget {
   const ExploreScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final service = PlaceService();
+  State<ExploreScreen> createState() => _ExploreScreenState();
+}
 
+class _ExploreScreenState extends State<ExploreScreen> {
+  final TextEditingController _searchController = TextEditingController();
+
+  String _searchQuery = '';
+  String? _selectedCategory;
+  bool _sortByNearMe = false;
+  Position? _currentPosition;
+  AppUser? _currentUser;
+
+  final List<String> _categories = [
+    'Restaurant',
+    'Cafe',
+    'Park',
+    'Museum',
+    'Shopping',
+    'Nightlife',
+    'Other',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _toggleNearMe() async {
+    if (_sortByNearMe) {
+      setState(() {
+        _sortByNearMe = false;
+      });
+      return;
+    }
+
+    final locationProvider = context.read<LocationProvider>();
+    await locationProvider.fetchLocation();
+    final pos = locationProvider.currentPosition;
+
+    if (pos == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Location permission denied or disabled.')),
+      );
+      return;
+    }
+
+    setState(() {
+      _currentPosition = pos;
+      _sortByNearMe = true;
+    });
+  }
+
+  double? _getDistance(Place place) {
+    if (_currentPosition == null) return null;
+
+    return context.read<LocationProvider>().calculateDistance(
+      place.lat,
+      place.lng,
+    );
+  }
+
+  List<Place> _filterAndSortPlaces(List<Place> places) {
+    final query = _searchQuery.trim().toLowerCase();
+
+    final filtered = places.where((place) {
+      final matchesSearch = query.isEmpty ||
+          place.name.toLowerCase().contains(query) ||
+          place.description.toLowerCase().contains(query) ||
+          place.category.toLowerCase().contains(query);
+
+      final matchesCategory =
+          _selectedCategory == null || place.category == _selectedCategory;
+
+      return matchesSearch && matchesCategory;
+    }).toList();
+
+    filtered.sort((a, b) {
+      final aPref = _currentUser?.preferences.contains(a.category) ?? false;
+      final bPref = _currentUser?.preferences.contains(b.category) ?? false;
+
+      if (aPref && !bPref) return -1;
+      if (!aPref && bPref) return 1;
+
+      if (_sortByNearMe && _currentPosition != null) {
+        final distA = _getDistance(a) ?? double.infinity;
+        final distB = _getDistance(b) ?? double.infinity;
+        return distA.compareTo(distB);
+      }
+
+      return b.rating.compareTo(a.rating);
+    });
+
+    return filtered;
+  }
+
+  List<Place> _getTrending(List<Place> places) {
+    final trending = List<Place>.from(places);
+
+    trending.sort((a, b) {
+      if (b.rating != a.rating) {
+        return b.rating.compareTo(a.rating);
+      }
+
+      final aTime = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final bTime = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+
+      return bTime.compareTo(aTime);
+    });
+
+    return trending.take(8).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Explore")),
-      body: StreamBuilder<List<Place>>(
-        stream: service.getPlaces(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+      backgroundColor: const Color(0xFFFAF7F2),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFFFAF7F2),
+        elevation: 0,
+        title: const Text(
+          'Explore',
+          style: TextStyle(
+            color: Color(0xFF1F1F28),
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: Icon(
+              Icons.my_location,
+              color: _sortByNearMe ? const Color(0xFFE26D45) : Colors.grey,
+            ),
+            onPressed: _toggleNearMe,
+          ),
+        ],
+      ),
+      body: Consumer2<PlaceProvider, UserProvider>(
+        builder: (context, placeProvider, userProvider, child) {
+          if (placeProvider.isLoading) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(child: Text("No places yet"));
+          _currentUser = userProvider.user;
+          final allPlaces = placeProvider.places;
+
+          if (allPlaces.isEmpty) {
+            return const Center(child: Text('No places found'));
           }
 
-          final places = snapshot.data!;
+          final displayPlaces = _filterAndSortPlaces(allPlaces);
+          final trendingPlaces = _getTrending(allPlaces);
 
-          return ListView.builder(
-            itemCount: places.length,
-            itemBuilder: (context, index) {
-              final place = places[index];
+          return CustomScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            slivers: [
+              SliverToBoxAdapter(
+                child: SearchBarWidget(
+                  controller: _searchController,
+                  onChanged: (value) {
+                    setState(() {
+                      _searchQuery = value.trim().toLowerCase();
+                    });
+                  },
+                  onClear: () {
+                    _searchController.clear();
+                    setState(() {
+                      _searchQuery = '';
+                    });
+                  },
+                ),
+              ),
+              SliverToBoxAdapter(
+                child: CategoryFilter(
+                  selectedCategory: _selectedCategory,
+                  categories: _categories,
+                  onCategorySelected: (value) {
+                    setState(() {
+                      _selectedCategory = value;
+                    });
+                  },
+                ),
+              ),
+              if (_searchQuery.isEmpty && _selectedCategory == null && !_sortByNearMe)
+                SliverToBoxAdapter(
+                  child: TrendingSection(
+                    trendingPlaces: trendingPlaces,
+                    getDistance: _getDistance,
+                  ),
+                ),
+              if (displayPlaces.isEmpty)
+                const SliverFillRemaining(
+                  child: Center(child: Text('No places matching your search.')),
+                )
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final place = displayPlaces[index];
 
-              return ListTile(
-                title: Text(place.name),
-                subtitle: Text(place.category),
-              );
-            },
+                        return SocialPlaceCard(
+                          place: place,
+                          distanceInMeters: _getDistance(place),
+                        );
+                      },
+                      childCount: displayPlaces.length,
+                    ),
+                  ),
+                ),
+            ],
           );
         },
       ),

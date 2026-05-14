@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:like_a_local/screens/main_navigation.dart';
 import '../../services/auth_service.dart';
 import 'signup_screen.dart';
 
