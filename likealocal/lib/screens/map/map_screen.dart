@@ -5,7 +5,9 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 class MapScreen extends StatefulWidget {
-  const MapScreen({super.key});
+  final Place? initialPlace;
+
+  const MapScreen({super.key, this.initialPlace});
 
   @override
   State<MapScreen> createState() => _MapScreenState();
@@ -49,8 +51,10 @@ class _MapScreenState extends State<MapScreen> {
                 }
                 return FlutterMap(
                   options: MapOptions(
-                    center: LatLng(validPlaces.first.lat, validPlaces.first.lng),
-                    zoom: 13.0,
+                    initialCenter: widget.initialPlace != null
+                        ? LatLng(widget.initialPlace!.lat, widget.initialPlace!.lng)
+                        : LatLng(validPlaces.first.lat, validPlaces.first.lng),
+                    initialZoom: 13.0,
                   ),
                   children: [
                     TileLayer(

@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/place.dart';
 import '../explore/widgets/post_user_header.dart';
+import '../map/map_screen.dart';
 
 class PlaceDetailsScreen extends StatefulWidget {
   final Place place;
@@ -505,8 +506,19 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
                 ),
                 child: ElevatedButton.icon(
                   onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Opening map...')),
+                    if (place.lat == 0 && place.lng == 0) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('This place has no valid location')),
+                      );
+                      return;
+                    }
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => MapScreen(
+                          initialPlace: place,
+                        ),
+                      ),
                     );
                   },
                   icon: const Icon(Icons.map, color: Colors.white),
