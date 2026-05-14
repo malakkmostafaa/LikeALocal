@@ -3,6 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../../../models/place.dart';
+import '../../place/place_details_screen.dart';
 import 'post_user_header.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -319,7 +320,17 @@ class _SocialPlaceCardState extends State<SocialPlaceCard> {
       margin: const EdgeInsets.symmetric(vertical: 12),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: widget.onTap,
+        onTap: widget.onTap ?? () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => PlaceDetailsScreen(
+                place: widget.place,
+                distanceInMeters: widget.distanceInMeters,
+              ),
+            ),
+          );
+        },
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
@@ -334,11 +345,14 @@ class _SocialPlaceCardState extends State<SocialPlaceCard> {
             SizedBox(
               height: 260,
               child: widget.place.images.isNotEmpty && widget.place.images.first.isNotEmpty
-                  ? CachedNetworkImage(
-                      imageUrl: widget.place.images.first,
-                      fit: BoxFit.cover,
-                      placeholder: (c, u) => const Center(child: CircularProgressIndicator()),
-                      errorWidget: (c, u, e) => const Icon(Icons.broken_image, size: 80),
+                  ? Hero(
+                      tag: 'place_image_${widget.place.id}',
+                      child: CachedNetworkImage(
+                        imageUrl: widget.place.images.first,
+                        fit: BoxFit.cover,
+                        placeholder: (c, u) => const Center(child: CircularProgressIndicator()),
+                        errorWidget: (c, u, e) => const Icon(Icons.broken_image, size: 80),
+                      ),
                     )
                   : validLocation
                       ? IgnorePointer(

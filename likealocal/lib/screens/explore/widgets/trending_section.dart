@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../models/place.dart';
+import '../../place/place_details_screen.dart';
 import 'trending_story_item.dart';
 
 class TrendingSection extends StatelessWidget {
@@ -39,7 +40,15 @@ class TrendingSection extends StatelessWidget {
               return TrendingStoryItem(
                 place: place,
                 onTap: () {
-                  // Scrolling to place will be implemented later
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => PlaceDetailsScreen(
+                        place: place,
+                        distanceInMeters: getDistance(place),
+                      ),
+                    ),
+                  );
                 },
               );
             },

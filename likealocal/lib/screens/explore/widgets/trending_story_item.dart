@@ -29,11 +29,14 @@ class TrendingStoryItem extends StatelessWidget {
             ),
             child: ClipOval(
               child: imageUrl != null
-                  ? CachedNetworkImage(
-                      imageUrl: imageUrl,
-                      fit: BoxFit.cover,
-                      placeholder: (ctx, url) => Container(color: Colors.grey[200]),
-                      errorWidget: (ctx, url, err) => const Icon(Icons.image, size: 40, color: Colors.grey),
+                  ? Hero(
+                      tag: 'place_image_${place.id}',
+                      child: CachedNetworkImage(
+                        imageUrl: imageUrl,
+                        fit: BoxFit.cover,
+                        placeholder: (ctx, url) => Container(color: Colors.grey[200]),
+                        errorWidget: (ctx, url, err) => const Icon(Icons.image, size: 40, color: Colors.grey),
+                      ),
                     )
                   : const Icon(Icons.location_on, size: 40, color: Colors.grey),
             ),
