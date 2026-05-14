@@ -31,10 +31,12 @@ class PlaceProvider extends ChangeNotifier {
         final List<dynamic> listData = json.decode(placesData);
         _places = listData.map((data) {
           if (data['location'] != null) {
-            data['location'] = GeoPoint(data['location']['lat'], data['location']['lng']);
+            data['location'] =
+                GeoPoint(data['location']['lat'], data['location']['lng']);
           }
           if (data['createdAt'] != null) {
-            data['createdAt'] = Timestamp.fromDate(DateTime.parse(data['createdAt']));
+            data['createdAt'] =
+                Timestamp.fromDate(DateTime.parse(data['createdAt']));
           }
           return Place.fromMap(data, data['id']);
         }).toList();
@@ -58,14 +60,11 @@ class PlaceProvider extends ChangeNotifier {
         };
       }
       if (map['createdAt'] != null) {
-        map['createdAt'] = (map['createdAt'] as Timestamp).toDate().toIso8601String();
+        map['createdAt'] =
+            (map['createdAt'] as Timestamp).toDate().toIso8601String();
       }
       return map;
     }).toList();
     prefs.setString('cached_places', json.encode(listData));
-  }
-
-  Future<void> seedTestPlaces() async {
-    await _placeService.seedTestPlaces();
   }
 }

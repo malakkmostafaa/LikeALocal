@@ -1,8 +1,6 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class LocationPickerScreen extends StatefulWidget {
   final double? initialLat;
@@ -19,300 +17,306 @@ class LocationPickerScreen extends StatefulWidget {
 }
 
 class _LocationPickerScreenState extends State<LocationPickerScreen> {
-  late MapController _mapController;
+  GoogleMapController? _mapController;
+
   LatLng? _selectedLocation;
   LatLng? _currentLocation;
 
-  final List<Marker> _markers = [];
   bool _isLoadingLocation = true;
+
+  static const LatLng _defaultLocation = LatLng(30.0444, 31.2357);
 
   @override
   void initState() {
     super.initState();
-    _mapController = MapController();
-    _getCurrentLocation();
+    _initLocation();
   }
 
   @override
   void dispose() {
-    _mapController.dispose();
+    _mapController?.dispose();
     super.dispose();
   }
 
-  Future<void> _getCurrentLocation() async {
-    try {
-      setState(() => _isLoadingLocation = true);
+  Future<void> _initLocation() async {
+    setState(() => _isLoadingLocation = true);
 
-      // Check if location services are enabled
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        _showLocationError('Location services are disabled. Please enable them in settings.');
-        _setDefaultLocation();
-        return;
-      }
+    if (widget.initialLat != null && widget.initialLng != null) {
+      final initial = LatLng(widget.initialLat!, widget.initialLng!);
 
-      // Check permissions
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          _showLocationError('Location permissions are denied.');
-          _setDefaultLocation();
-          return;
-        }
-      }
-
-      if (permission == LocationPermission.deniedForever) {
-        _showLocationError('Location permissions are permanently denied.');
-        _setDefaultLocation();
-        return;
-      }
-
-      // Get current position
-      Position position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 10),
-        ),
-      );
-
-      if (mounted) {
-        setState(() {
-          _currentLocation = LatLng(position.latitude, position.longitude);
-          _selectedLocation = widget.initialLat != null && widget.initialLng != null
-              ? LatLng(widget.initialLat!, widget.initialLng!)
-              : _currentLocation;
-          _isLoadingLocation = false;
-        });
-
-        // Move camera to location after a brief delay to ensure map is ready
-        Future.delayed(const Duration(milliseconds: 500), () {
-          if (mounted && _selectedLocation != null) {
-            _mapController.move(_selectedLocation!, 15);
-          }
-          _updateMarkers();
-        });
-      }
-    } catch (e) {
-      debugPrint('Error getting location: $e');
-      _showLocationError('Unable to get current location. Using default location.');
-      _setDefaultLocation();
-    }
-  }
-
-  void _setDefaultLocation() {
-    if (mounted) {
       setState(() {
-        _currentLocation = const LatLng(30.0444, 31.2357); // Cairo, Egypt
-        _selectedLocation = widget.initialLat != null && widget.initialLng != null
-            ? LatLng(widget.initialLat!, widget.initialLng!)
-            : _currentLocation;
+        _selectedLocation = initial;
+        _currentLocation = initial;
         _isLoadingLocation = false;
       });
 
-      _updateMarkers();
+      return;
+    }
+
+    try {
+      final position = await _getCurrentPositionOrNull();
+
+      final current = position == null
+          ? _defaultLocation
+          : LatLng(position.latitude, position.longitude);
+
+      setState(() {
+        _currentLocation = current;
+        _selectedLocation = current;
+        _isLoadingLocation = false;
+      });
+    } catch (_) {
+      setState(() {
+        _currentLocation = _defaultLocation;
+        _selectedLocation = _defaultLocation;
+        _isLoadingLocation = false;
+      });
     }
   }
 
-  void _showLocationError(String message) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          duration: const Duration(seconds: 5),
-        ),
+  Future<Position?> _getCurrentPositionOrNull() async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+
+    if (!serviceEnabled) {
+      _showMessage('Location services are disabled. Using Cairo as default.');
+      return null;
+    }
+
+    LocationPermission permission = await Geolocator.checkPermission();
+
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+
+      if (permission == LocationPermission.denied) {
+        _showMessage('Location permission denied. Using Cairo as default.');
+        return null;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      _showMessage(
+        'Location permission is permanently denied. Using Cairo as default.',
       );
+      return null;
     }
+
+    return Geolocator.getCurrentPosition(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        timeLimit: Duration(seconds: 10),
+      ),
+    );
   }
 
-  void _updateMarkers() {
-    _markers.clear();
+  Set<Marker> _markers() {
+    final markers = <Marker>{};
 
-    // Add marker for selected location
     if (_selectedLocation != null) {
-      _markers.add(
+      markers.add(
         Marker(
-          point: _selectedLocation!,
-          width: 80,
-          height: 80,
-          alignment: Alignment.topCenter,
-          child: GestureDetector(
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Selected: ${_selectedLocation!.latitude.toStringAsFixed(6)}, ${_selectedLocation!.longitude.toStringAsFixed(6)}'),
-                  duration: const Duration(seconds: 2),
-                ),
-              );
-            },
-            child: const Icon(
-              Icons.location_on,
-              color: Colors.red,
-              size: 40,
-            ),
+          markerId: const MarkerId('selected_location'),
+          position: _selectedLocation!,
+          infoWindow: const InfoWindow(title: 'Selected location'),
+        ),
+      );
+    }
+
+    if (_currentLocation != null &&
+        _currentLocation!.latitude != _selectedLocation?.latitude &&
+        _currentLocation!.longitude != _selectedLocation?.longitude) {
+      markers.add(
+        Marker(
+          markerId: const MarkerId('current_location'),
+          position: _currentLocation!,
+          infoWindow: const InfoWindow(title: 'Current location'),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueAzure,
           ),
         ),
       );
     }
 
-    // Add marker for current location
-    if (_currentLocation != null && _selectedLocation != _currentLocation) {
-      _markers.add(
-        Marker(
-          point: _currentLocation!,
-          width: 80,
-          height: 80,
-          alignment: Alignment.topCenter,
-          child: const Icon(
-            Icons.my_location,
-            color: Colors.blue,
-            size: 40,
-          ),
-        ),
-      );
-    }
-
-    setState(() {});
+    return markers;
   }
 
-  void _onMapTap(TapPosition tapPosition, LatLng point) {
+  Future<void> _moveCamera(LatLng location, {double zoom = 16}) async {
+    final controller = _mapController;
+
+    if (controller == null) return;
+
+    await controller.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(
+          target: location,
+          zoom: zoom,
+        ),
+      ),
+    );
+  }
+
+  void _onMapTap(LatLng point) {
     setState(() {
       _selectedLocation = point;
     });
-    _updateMarkers();
+
+    _showMessage(
+      'Selected: ${point.latitude.toStringAsFixed(6)}, ${point.longitude.toStringAsFixed(6)}',
+    );
+  }
+
+  void _useCurrentLocation() {
+    final current = _currentLocation;
+
+    if (current == null) return;
+
+    setState(() {
+      _selectedLocation = current;
+    });
+
+    _moveCamera(current);
+  }
+
+  void _confirmLocation() {
+    final selected = _selectedLocation;
+
+    if (selected == null) return;
+
+    Navigator.of(context).pop({
+      'lat': selected.latitude,
+      'lng': selected.longitude,
+    });
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Selected: ${point.latitude.toStringAsFixed(6)}, ${point.longitude.toStringAsFixed(6)}'),
+        content: Text(message),
         duration: const Duration(seconds: 2),
       ),
     );
   }
 
-  void _confirmLocation() {
-    if (_selectedLocation != null) {
-      Navigator.of(context).pop({
-        'lat': _selectedLocation!.latitude,
-        'lng': _selectedLocation!.longitude,
-      });
-    }
-  }
-
-  void _useCurrentLocation() {
-    if (_currentLocation != null) {
-      setState(() {
-        _selectedLocation = _currentLocation;
-      });
-      _updateMarkers();
-
-      _mapController.move(_selectedLocation!, 15);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final initialPosition = _selectedLocation ??
-        (widget.initialLat != null && widget.initialLng != null
-            ? LatLng(widget.initialLat!, widget.initialLng!)
-            : const LatLng(30.0444, 31.2357)); // Default to Cairo
+    const primaryColor = Color(0xFFD96B41);
+    const bgColor = Color(0xFFF7F4EF);
+
+    final initialCamera = CameraPosition(
+      target: _selectedLocation ?? _defaultLocation,
+      zoom: 15,
+    );
 
     return Scaffold(
+      backgroundColor: bgColor,
       appBar: AppBar(
-        title: const Text('Pick Location'),
+        backgroundColor: bgColor,
+        elevation: 0,
+        foregroundColor: Colors.black,
+        title: const Text(
+          'Pick Location',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         actions: [
-          if (_currentLocation != null)
-            TextButton(
-              onPressed: _useCurrentLocation,
-              child: const Text(
-                'Use Current',
-                style: TextStyle(color: Colors.white),
+          TextButton(
+            onPressed: _isLoadingLocation ? null : _useCurrentLocation,
+            child: const Text(
+              'Use Current',
+              style: TextStyle(
+                color: primaryColor,
+                fontWeight: FontWeight.bold,
               ),
             ),
+          ),
         ],
       ),
       body: Stack(
         children: [
-          FlutterMap(
-            mapController: _mapController,
-            options: MapOptions(
-              initialCenter: initialPosition,
-              initialZoom: 15,
-              onTap: _onMapTap,
-            ),
-            children: [
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.example.likealocal',
-                maxZoom: 19,
-              ),
-              MarkerLayer(
-                markers: _markers,
-              ),
-            ],
-          ),
+          GoogleMap(
+            initialCameraPosition: initialCamera,
+            markers: _markers(),
+            onMapCreated: (controller) {
+              _mapController = controller;
 
-          // Loading overlay
+              final selected = _selectedLocation;
+              if (selected != null) {
+                _moveCamera(selected);
+              }
+            },
+            onTap: _onMapTap,
+            myLocationButtonEnabled: false,
+            myLocationEnabled: false,
+            zoomControlsEnabled: false,
+            compassEnabled: true,
+            mapToolbarEnabled: true,
+          ),
           if (_isLoadingLocation)
             Container(
-              color: Colors.white.withOpacity(0.8),
+              color: Colors.white.withOpacity(0.85),
               child: const Center(
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 16),
+                    CircularProgressIndicator(color: primaryColor),
+                    SizedBox(height: 14),
                     Text('Getting your location...'),
                   ],
                 ),
               ),
             ),
-
-          // Instructions overlay
           Positioned(
             top: 16,
             left: 16,
             right: 16,
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Tap on the map to select a location',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.10),
+                    blurRadius: 12,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.touch_app_rounded, color: primaryColor),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      _selectedLocation == null
+                          ? 'Tap the map to select a place location.'
+                          : 'Selected: ${_selectedLocation!.latitude.toStringAsFixed(5)}, ${_selectedLocation!.longitude.toStringAsFixed(5)}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _selectedLocation != null
-                          ? 'Selected: ${_selectedLocation!.latitude.toStringAsFixed(6)}, ${_selectedLocation!.longitude.toStringAsFixed(6)}'
-                          : 'No location selected',
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
-
-          // Confirm button
           Positioned(
+            left: 20,
+            right: 20,
             bottom: 24,
-            left: 24,
-            right: 24,
-            child: ElevatedButton(
-              onPressed: _selectedLocation != null ? _confirmLocation : null,
+            child: ElevatedButton.icon(
+              onPressed: _selectedLocation == null || _isLoadingLocation
+                  ? null
+                  : _confirmLocation,
+              icon: const Icon(Icons.check_circle_rounded),
+              label: const Text('Confirm Location'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFD45A38),
+                backgroundColor: primaryColor,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(22),
                 ),
-              ),
-              child: const Text(
-                'Confirm Location',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ),
           ),

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
+
 import '../../../models/place.dart';
 import '../../place/place_details_screen.dart';
 import 'post_user_header.dart';
@@ -43,7 +42,7 @@ class _SocialPlaceCardState extends State<SocialPlaceCard> {
       if (mounted) setState(() => _isLoadingSaved = false);
       return;
     }
-    
+
     try {
       final doc = await FirebaseFirestore.instance
           .collection('users')
@@ -51,7 +50,7 @@ class _SocialPlaceCardState extends State<SocialPlaceCard> {
           .collection('pins')
           .doc(widget.place.id)
           .get();
-          
+
       if (mounted) {
         setState(() {
           _isSaved = doc.exists;
@@ -76,7 +75,7 @@ class _SocialPlaceCardState extends State<SocialPlaceCard> {
       _isLiked = !_isLiked;
       _likeCount += _isLiked ? 1 : -1;
     });
-    
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(_isLiked ? 'Liked' : 'Unliked'),
@@ -113,14 +112,17 @@ class _SocialPlaceCardState extends State<SocialPlaceCard> {
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Saved to pins'), duration: Duration(seconds: 1)),
+            const SnackBar(
+                content: Text('Saved to pins'), duration: Duration(seconds: 1)),
           );
         }
       } else {
         await docRef.delete();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Removed from pins'), duration: Duration(seconds: 1)),
+            const SnackBar(
+                content: Text('Removed from pins'),
+                duration: Duration(seconds: 1)),
           );
         }
       }
@@ -163,7 +165,8 @@ class _SocialPlaceCardState extends State<SocialPlaceCard> {
             children: [
               Text(
                 widget.place.name,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style:
+                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
               const Text('Reviews/comments will be connected by Member 2'),
@@ -235,14 +238,19 @@ class _SocialPlaceCardState extends State<SocialPlaceCard> {
                               )
                             : Container(
                                 color: Colors.grey[200],
-                                child: const Icon(Icons.image, size: 80, color: Colors.grey),
+                                child: const Icon(Icons.image,
+                                    size: 80, color: Colors.grey),
                               ),
                       ),
                       Positioned(
                         top: 8,
                         right: 8,
                         child: IconButton(
-                          icon: const Icon(Icons.close, color: Colors.white, shadows: [Shadow(color: Colors.black54, blurRadius: 4)]),
+                          icon: const Icon(Icons.close,
+                              color: Colors.white,
+                              shadows: [
+                                Shadow(color: Colors.black54, blurRadius: 4)
+                              ]),
                           onPressed: () => Navigator.pop(context),
                         ),
                       ),
@@ -255,29 +263,36 @@ class _SocialPlaceCardState extends State<SocialPlaceCard> {
                       children: [
                         Text(
                           widget.place.name,
-                          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                              fontSize: 24, fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 8),
                         Row(
                           children: [
                             Chip(
-                              label: Text(widget.place.category, style: const TextStyle(fontSize: 12)),
-                              backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
+                              label: Text(widget.place.category,
+                                  style: const TextStyle(fontSize: 12)),
+                              backgroundColor: Theme.of(context)
+                                  .primaryColor
+                                  .withOpacity(0.1),
                               padding: EdgeInsets.zero,
                             ),
                             const Spacer(),
-                            const Icon(Icons.star, color: Colors.amber, size: 20),
+                            const Icon(Icons.star,
+                                color: Colors.amber, size: 20),
                             const SizedBox(width: 4),
                             Text(
                               widget.place.rating.toStringAsFixed(1),
-                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.bold),
                             ),
                           ],
                         ),
                         const SizedBox(height: 16),
                         const Text(
                           'Description',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.w600),
                         ),
                         const SizedBox(height: 8),
                         Text(
@@ -292,7 +307,8 @@ class _SocialPlaceCardState extends State<SocialPlaceCard> {
                               const SizedBox(width: 8),
                               Text(
                                 '${_formatDistance(widget.distanceInMeters!)} away',
-                                style: const TextStyle(color: Colors.grey, fontSize: 16),
+                                style: const TextStyle(
+                                    color: Colors.grey, fontSize: 16),
                               ),
                             ],
                           ),
@@ -318,7 +334,7 @@ class _SocialPlaceCardState extends State<SocialPlaceCard> {
     const mutedText = Color(0xFF777777);
 
     final validLocation = widget.place.lat != 0 && widget.place.lng != 0;
-    
+
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 16),
       decoration: BoxDecoration(
@@ -334,17 +350,18 @@ class _SocialPlaceCardState extends State<SocialPlaceCard> {
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(32),
-        onTap: widget.onTap ?? () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => PlaceDetailsScreen(
-                place: widget.place,
-                distanceInMeters: widget.distanceInMeters,
-              ),
-            ),
-          );
-        },
+        onTap: widget.onTap ??
+            () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => PlaceDetailsScreen(
+                    place: widget.place,
+                    distanceInMeters: widget.distanceInMeters,
+                  ),
+                ),
+              );
+            },
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
@@ -352,10 +369,12 @@ class _SocialPlaceCardState extends State<SocialPlaceCard> {
             // Header with avatar and name
             PostUserHeader(
               userId: widget.place.createdBy,
-              subtitle: widget.place.category.isNotEmpty ? widget.place.category : 'General',
+              subtitle: widget.place.category.isNotEmpty
+                  ? widget.place.category
+                  : 'General',
               onMorePressed: _showMoreMenu,
             ),
-            
+
             // Main image
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -363,7 +382,8 @@ class _SocialPlaceCardState extends State<SocialPlaceCard> {
                 borderRadius: BorderRadius.circular(24),
                 child: SizedBox(
                   height: 280,
-                  child: widget.place.images.isNotEmpty && widget.place.images.first.isNotEmpty
+                  child: widget.place.images.isNotEmpty &&
+                          widget.place.images.first.isNotEmpty
                       ? Hero(
                           tag: 'place_image_${widget.place.id}',
                           child: CachedNetworkImage(
@@ -371,47 +391,42 @@ class _SocialPlaceCardState extends State<SocialPlaceCard> {
                             fit: BoxFit.cover,
                             placeholder: (c, u) => Container(
                               color: lightPrimary,
-                              child: const Center(child: CircularProgressIndicator(color: primaryColor)),
+                              child: const Center(
+                                  child: CircularProgressIndicator(
+                                      color: primaryColor)),
                             ),
                             errorWidget: (c, u, e) => Container(
                               color: lightPrimary,
-                              child: const Icon(Icons.broken_image, size: 80, color: primaryColor),
+                              child: const Icon(Icons.broken_image,
+                                  size: 80, color: primaryColor),
                             ),
                           ),
                         )
-                      : validLocation
-                          ? IgnorePointer(
-                              child: FlutterMap(
-                                options: MapOptions(
-                                  initialCenter: LatLng(widget.place.lat, widget.place.lng),
-                                  initialZoom: 13,
-                                ),
-                                children: [
-                                  TileLayer(
-                                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                                    userAgentPackageName: 'com.example.likealocal',
-                                  ),
-                                  MarkerLayer(
-                                    markers: [
-                                      Marker(
-                                        point: LatLng(widget.place.lat, widget.place.lng),
-                                        width: 40,
-                                        height: 40,
-                                        child: const Icon(Icons.location_on, color: primaryColor, size: 36),
-                                      ),
-                                    ],
-                                  ),
-                                ],
+                      : Container(
+                          color: lightPrimary,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: const [
+                              Icon(
+                                Icons.image_rounded,
+                                size: 70,
+                                color: primaryColor,
                               ),
-                            )
-                          : Container(
-                              color: lightPrimary,
-                              child: const Icon(Icons.image, size: 80, color: primaryColor),
-                            ),
+                              SizedBox(height: 8),
+                              Text(
+                                'No image available',
+                                style: TextStyle(
+                                  color: primaryColor,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                 ),
               ),
             ),
-            
+
             // Action bar
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -425,13 +440,18 @@ class _SocialPlaceCardState extends State<SocialPlaceCard> {
                     onPressed: _handleLike,
                   ),
                   IconButton(
-                    icon: const Icon(Icons.chat_bubble_outline, color: textColor),
+                    icon:
+                        const Icon(Icons.chat_bubble_outline, color: textColor),
                     onPressed: _handleCommentTap,
                   ),
                   if (_isLoadingSaved)
                     const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 12.0),
-                      child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: primaryColor)),
+                      child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: primaryColor)),
                     )
                   else
                     IconButton(
@@ -447,7 +467,8 @@ class _SocialPlaceCardState extends State<SocialPlaceCard> {
                   ),
                   const Spacer(),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: lightPrimary,
                       borderRadius: BorderRadius.circular(12),
@@ -458,7 +479,8 @@ class _SocialPlaceCardState extends State<SocialPlaceCard> {
                         const SizedBox(width: 4),
                         Text(
                           widget.place.rating.toStringAsFixed(1),
-                          style: const TextStyle(fontWeight: FontWeight.bold, color: primaryColor),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, color: primaryColor),
                         ),
                       ],
                     ),
@@ -466,7 +488,7 @@ class _SocialPlaceCardState extends State<SocialPlaceCard> {
                 ],
               ),
             ),
-            
+
             // Post content (Caption)
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
@@ -500,7 +522,8 @@ class _SocialPlaceCardState extends State<SocialPlaceCard> {
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
                           color: lightPrimary,
                           borderRadius: BorderRadius.circular(20),
@@ -518,7 +541,8 @@ class _SocialPlaceCardState extends State<SocialPlaceCard> {
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.location_on, size: 14, color: mutedText),
+                            const Icon(Icons.location_on,
+                                size: 14, color: mutedText),
                             const SizedBox(width: 2),
                             Text(
                               _formatDistance(widget.distanceInMeters!),
