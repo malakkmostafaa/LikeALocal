@@ -5,31 +5,26 @@ class AppUser {
   final String name;
   final String email;
 
-  // Preferences & Personalization
   final List<String> preferences;
   final double maxDistance;
   final int priceRange;
 
-  // Activity Tracking
   final int pinsCount;
   final int placesAdded;
   final int reviewsCount;
 
-  // User Status
   final bool isSuperUser;
   final bool isPremium;
 
-  // Settings
   final bool chatEnabled;
   final bool notificationsEnabled;
 
-  // Gamification
   final List<String> badges;
 
-  // Profile
   final String profileImageUrl;
   final String bio;
   final DateTime? createdAt;
+  final DateTime? updatedAt;
 
   AppUser({
     required this.uid,
@@ -49,7 +44,35 @@ class AppUser {
     required this.profileImageUrl,
     required this.bio,
     required this.createdAt,
+    required this.updatedAt,
   });
+
+  factory AppUser.empty({
+    required String uid,
+    required String email,
+    String name = '',
+  }) {
+    return AppUser(
+      uid: uid,
+      name: name,
+      email: email,
+      preferences: const [],
+      maxDistance: 10.0,
+      priceRange: 1,
+      pinsCount: 0,
+      placesAdded: 0,
+      reviewsCount: 0,
+      isSuperUser: false,
+      isPremium: false,
+      chatEnabled: true,
+      notificationsEnabled: true,
+      badges: const [],
+      profileImageUrl: '',
+      bio: '',
+      createdAt: null,
+      updatedAt: null,
+    );
+  }
 
   factory AppUser.fromMap(Map<String, dynamic> map) {
     return AppUser(
@@ -57,7 +80,7 @@ class AppUser {
       name: map['name'] ?? '',
       email: map['email'] ?? '',
       preferences: List<String>.from(map['preferences'] ?? []),
-      maxDistance: (map['maxDistance'] ?? 10.0).toDouble(),
+      maxDistance: ((map['maxDistance'] ?? 10.0) as num).toDouble(),
       priceRange: map['priceRange'] ?? 1,
       pinsCount: map['pinsCount'] ?? 0,
       placesAdded: map['placesAdded'] ?? 0,
@@ -69,8 +92,27 @@ class AppUser {
       badges: List<String>.from(map['badges'] ?? []),
       profileImageUrl: map['profileImageUrl'] ?? '',
       bio: map['bio'] ?? '',
-      createdAt: (map['createdAt'] as Timestamp?)?.toDate(),
+      createdAt: _dateFromValue(map['createdAt']),
+      updatedAt: _dateFromValue(map['updatedAt']),
     );
+  }
+
+  static DateTime? _dateFromValue(dynamic value) {
+    if (value == null) return null;
+
+    if (value is Timestamp) {
+      return value.toDate();
+    }
+
+    if (value is DateTime) {
+      return value;
+    }
+
+    if (value is String) {
+      return DateTime.tryParse(value);
+    }
+
+    return null;
   }
 
   Map<String, dynamic> toMap() {
@@ -92,6 +134,53 @@ class AppUser {
       'profileImageUrl': profileImageUrl,
       'bio': bio,
       'createdAt': createdAt,
+      'updatedAt': updatedAt,
+    };
+  }
+
+  Map<String, dynamic> toFirestoreMap() {
+    return {
+      'uid': uid,
+      'name': name,
+      'email': email,
+      'preferences': preferences,
+      'maxDistance': maxDistance,
+      'priceRange': priceRange,
+      'pinsCount': pinsCount,
+      'placesAdded': placesAdded,
+      'reviewsCount': reviewsCount,
+      'isSuperUser': isSuperUser,
+      'isPremium': isPremium,
+      'chatEnabled': chatEnabled,
+      'notificationsEnabled': notificationsEnabled,
+      'badges': badges,
+      'profileImageUrl': profileImageUrl,
+      'bio': bio,
+      'createdAt': createdAt ?? FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+  }
+
+  Map<String, dynamic> toCacheMap() {
+    return {
+      'uid': uid,
+      'name': name,
+      'email': email,
+      'preferences': preferences,
+      'maxDistance': maxDistance,
+      'priceRange': priceRange,
+      'pinsCount': pinsCount,
+      'placesAdded': placesAdded,
+      'reviewsCount': reviewsCount,
+      'isSuperUser': isSuperUser,
+      'isPremium': isPremium,
+      'chatEnabled': chatEnabled,
+      'notificationsEnabled': notificationsEnabled,
+      'badges': badges,
+      'profileImageUrl': profileImageUrl,
+      'bio': bio,
+      'createdAt': createdAt?.toIso8601String(),
+      'updatedAt': updatedAt?.toIso8601String(),
     };
   }
 }

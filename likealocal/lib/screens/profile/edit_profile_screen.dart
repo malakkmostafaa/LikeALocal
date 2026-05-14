@@ -1,13 +1,12 @@
 import 'dart:io';
-import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../models/user_model.dart';
 import '../../services/user_service.dart';
+import '../../services/storage_service.dart';
 
 class EditProfileScreen extends StatefulWidget {
   final AppUser user;
@@ -23,6 +22,7 @@ class EditProfileScreen extends StatefulWidget {
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
   final UserService _userService = UserService();
+  final StorageService _storageService = StorageService();
 
   late TextEditingController nameController;
   late TextEditingController bioController;
@@ -30,12 +30,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   bool isLoading = false;
 
   final List<String> allPreferences = [
-    "Food",
-    "Cafe",
-    "Nature",
-    "Shopping",
-    "History",
-    "Nightlife",
+    'Food',
+    'Cafés',
+    'Hidden Gems',
+    'Art',
+    'Nature',
+    'Nightlife',
+    'Shopping',
+    'History',
   ];
 
   late List<String> selectedPreferences;
@@ -50,7 +52,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.initState();
 
     nameController = TextEditingController(text: widget.user.name);
-
     bioController = TextEditingController(text: widget.user.bio);
 
     selectedPreferences = List.from(widget.user.preferences);
@@ -58,41 +59,62 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     priceRange = widget.user.priceRange;
   }
 
+  @override
+  void dispose() {
+    nameController.dispose();
+    bioController.dispose();
+    super.dispose();
+  }
+
   Future<void> _pickImage() async {
-    final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
-    if (pickedFile != null) {
+    try {
+      final pickedFile = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 75,
+        maxWidth: 900,
+      );
+
+      if (pickedFile == null) return;
+
       setState(() {
         _imageFile = File(pickedFile.path);
       });
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not pick image: $e')),
+      );
     }
   }
 
-  Future<String?> _uploadImage() async {
-    if (_imageFile == null) return widget.user.profileImageUrl;
-    try {
-      final ref = FirebaseStorage.instance
-          .ref()
-          .child('profiles')
-          .child('${widget.user.uid}.jpg');
-      await ref.putFile(_imageFile!);
-      return await ref.getDownloadURL();
-    } catch (e) {
-      debugPrint("Error uploading image: $e");
+  Future<String> _getUpdatedProfileImageUrl() async {
+    if (_imageFile == null) {
       return widget.user.profileImageUrl;
     }
+
+    final imageUrl = await _storageService.uploadCurrentUserProfileImage(
+      _imageFile!,
+    );
+
+    return imageUrl;
   }
 
   Future<void> saveProfile() async {
-    try {
-      setState(() {
-        isLoading = true;
-      });
+    setState(() {
+      isLoading = true;
+    });
 
+    try {
       if (nameController.text.trim().isEmpty) {
-        throw Exception("Name cannot be empty");
+        throw Exception('Name cannot be empty');
       }
 
-      final imageUrl = await _uploadImage();
+      if (selectedPreferences.isEmpty) {
+        throw Exception('Please select at least one interest');
+      }
+
+      final imageUrl = await _getUpdatedProfileImageUrl();
 
       await _userService.updateCurrentUser({
         'name': nameController.text.trim(),
@@ -100,21 +122,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         'preferences': selectedPreferences,
         'maxDistance': maxDistance,
         'priceRange': priceRange,
-        'profileImageUrl': imageUrl ?? '',
-        'updatedAt': FieldValue.serverTimestamp(),
+        'profileImageUrl': imageUrl,
       });
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Profile updated"),
-          ),
-        );
+      if (!mounted) return;
 
-        Navigator.pop(context);
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Profile updated successfully'),
+        ),
+      );
+
+      Navigator.pop(context);
     } catch (e) {
-      debugPrint("Error saving profile: $e");
+      if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -140,9 +161,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: const Text(
-          "Edit Profile",
+          'Edit Profile',
           style: TextStyle(
             color: Colors.black,
+            fontWeight: FontWeight.bold,
           ),
         ),
         iconTheme: const IconThemeData(color: Colors.black),
@@ -157,44 +179,89 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             // =====================
             Center(
               child: GestureDetector(
-                onTap: _pickImage,
+                onTap: isLoading ? null : _pickImage,
                 child: Stack(
                   children: [
-                    CircleAvatar(
-                      radius: 50,
-                      backgroundColor: Colors.grey.shade300,
-                      backgroundImage: _imageFile != null
-                          ? FileImage(_imageFile!) as ImageProvider
-                          : (widget.user.profileImageUrl.isNotEmpty
-                              ? CachedNetworkImageProvider(widget.user.profileImageUrl)
-                              : null),
-                      child: _imageFile == null && widget.user.profileImageUrl.isEmpty
-                          ? const Icon(Icons.person, size: 50, color: Colors.white)
-                          : null,
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white,
+                        boxShadow: [
+                          BoxShadow(
+                            color: primaryColor.withOpacity(0.2),
+                            blurRadius: 18,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: CircleAvatar(
+                        radius: 58,
+                        backgroundColor: primaryColor.withOpacity(0.12),
+                        backgroundImage: _imageFile != null
+                            ? FileImage(_imageFile!) as ImageProvider
+                            : widget.user.profileImageUrl.isNotEmpty
+                                ? CachedNetworkImageProvider(
+                                    widget.user.profileImageUrl,
+                                  )
+                                : null,
+                        child: _imageFile == null &&
+                                widget.user.profileImageUrl.isEmpty
+                            ? const Icon(
+                                Icons.person,
+                                size: 56,
+                                color: primaryColor,
+                              )
+                            : null,
+                      ),
                     ),
                     Positioned(
-                      bottom: 0,
-                      right: 0,
+                      bottom: 2,
+                      right: 2,
                       child: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: const BoxDecoration(
+                        padding: const EdgeInsets.all(9),
+                        decoration: BoxDecoration(
                           color: primaryColor,
                           shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white,
+                            width: 3,
+                          ),
                         ),
-                        child: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
+                        child: const Icon(
+                          Icons.camera_alt_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: 30),
+
+            const SizedBox(height: 10),
+
+            Center(
+              child: TextButton(
+                onPressed: isLoading ? null : _pickImage,
+                child: const Text(
+                  'Change profile picture',
+                  style: TextStyle(
+                    color: primaryColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 24),
 
             // =====================
             // NAME
             // =====================
             const Text(
-              "Name",
+              'Name',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
               ),
@@ -204,7 +271,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
             TextField(
               controller: nameController,
+              enabled: !isLoading,
+              textInputAction: TextInputAction.next,
               decoration: InputDecoration(
+                hintText: 'Your name',
                 filled: true,
                 fillColor: Colors.white,
                 border: OutlineInputBorder(
@@ -220,7 +290,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             // BIO
             // =====================
             const Text(
-              "Bio",
+              'Bio',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
               ),
@@ -230,8 +300,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
             TextField(
               controller: bioController,
+              enabled: !isLoading,
               maxLines: 3,
               decoration: InputDecoration(
+                hintText: 'Tell people a little about yourself',
                 filled: true,
                 fillColor: Colors.white,
                 border: OutlineInputBorder(
@@ -247,7 +319,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             // PREFERENCES
             // =====================
             const Text(
-              "Preferences",
+              'Preferences',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
               ),
@@ -262,15 +334,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 final isSelected = selectedPreferences.contains(pref);
 
                 return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      if (isSelected) {
-                        selectedPreferences.remove(pref);
-                      } else {
-                        selectedPreferences.add(pref);
-                      }
-                    });
-                  },
+                  onTap: isLoading
+                      ? null
+                      : () {
+                          setState(() {
+                            if (isSelected) {
+                              selectedPreferences.remove(pref);
+                            } else {
+                              selectedPreferences.add(pref);
+                            }
+                          });
+                        },
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 18,
@@ -279,6 +353,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     decoration: BoxDecoration(
                       color: isSelected ? primaryColor : Colors.white,
                       borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: isSelected ? primaryColor : Colors.grey.shade300,
+                      ),
                     ),
                     child: Text(
                       pref,
@@ -297,46 +374,76 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             // =====================
             // MAX DISTANCE
             // =====================
-            Text(
-              "Max Distance: ${maxDistance.toInt()} km",
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(22),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Max Distance: ${maxDistance.toInt()} km',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Slider(
+                    value: maxDistance,
+                    min: 1,
+                    max: 100,
+                    activeColor: primaryColor,
+                    inactiveColor: primaryColor.withOpacity(0.15),
+                    onChanged: isLoading
+                        ? null
+                        : (val) {
+                            setState(() {
+                              maxDistance = val;
+                            });
+                          },
+                  ),
+                ],
               ),
             ),
-            Slider(
-              value: maxDistance,
-              min: 1,
-              max: 100,
-              activeColor: primaryColor,
-              onChanged: (val) {
-                setState(() {
-                  maxDistance = val;
-                });
-              },
-            ),
 
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
 
             // =====================
             // PRICE RANGE
             // =====================
-            Text(
-              "Price Range: ${List.filled(priceRange, '\$').join('')}",
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(22),
               ),
-            ),
-            Slider(
-              value: priceRange.toDouble(),
-              min: 1,
-              max: 4,
-              divisions: 3,
-              activeColor: primaryColor,
-              onChanged: (val) {
-                setState(() {
-                  priceRange = val.toInt();
-                });
-              },
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Price Range: ${List.filled(priceRange, '\$').join('')}",
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Slider(
+                    value: priceRange.toDouble(),
+                    min: 1,
+                    max: 4,
+                    divisions: 3,
+                    activeColor: primaryColor,
+                    inactiveColor: primaryColor.withOpacity(0.15),
+                    onChanged: isLoading
+                        ? null
+                        : (val) {
+                            setState(() {
+                              priceRange = val.toInt();
+                            });
+                          },
+                  ),
+                ],
+              ),
             ),
 
             const SizedBox(height: 40),
@@ -358,11 +465,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   ),
                 ),
                 child: isLoading
-                    ? const CircularProgressIndicator(
-                        color: Colors.white,
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 3,
+                        ),
                       )
                     : const Text(
-                        "Save Changes",
+                        'Save Changes',
                         style: TextStyle(
                           fontSize: 18,
                           color: Colors.white,
@@ -371,6 +483,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       ),
               ),
             ),
+
+            const SizedBox(height: 20),
           ],
         ),
       ),

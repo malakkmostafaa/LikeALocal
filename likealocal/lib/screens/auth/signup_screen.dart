@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:like_a_local/screens/auth/onboarding_screen_1.dart';
+import 'package:like_a_local/screens/main_navigation.dart';
 import '../../services/auth_service.dart';
 
 class SignupScreen extends StatefulWidget {
@@ -20,13 +21,14 @@ class _SignupScreenState extends State<SignupScreen> {
   bool hidePassword = true;
 
   Future<void> signUp() async {
-    if (nameController.text.isEmpty ||
-        emailController.text.isEmpty ||
-        passwordController.text.isEmpty) {
+    if (nameController.text.trim().isEmpty ||
+        emailController.text.trim().isEmpty ||
+        passwordController.text.trim().isEmpty) {
       showMessage('Please fill all fields');
       return;
     }
-    if (passwordController.text.length < 6) {
+
+    if (passwordController.text.trim().length < 6) {
       showMessage('Password must be at least 6 characters');
       return;
     }
@@ -35,25 +37,48 @@ class _SignupScreenState extends State<SignupScreen> {
 
     try {
       await _authService.signUp(
-        name: nameController.text,
+        name: nameController.text.trim(),
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
       );
 
       if (!mounted) return;
-      
+
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (_) => const OnboardingScreen1()),
-        (route) => route.isFirst,
+        (route) => false,
       );
     } catch (e) {
-      showMessage(e.toString());
+      if (!mounted) return;
+      showMessage(_friendlyAuthError(e));
+    } finally {
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
+    }
+  }
+
+  String _friendlyAuthError(Object error) {
+    final message = error.toString();
+
+    if (message.contains('email-already-in-use')) {
+      return 'This email is already registered.';
     }
 
-    if (mounted) {
-      setState(() => isLoading = false);
+    if (message.contains('invalid-email')) {
+      return 'Please enter a valid email address.';
     }
+
+    if (message.contains('weak-password')) {
+      return 'Password is too weak.';
+    }
+
+    if (message.contains('network-request-failed')) {
+      return 'Network error. Please check your internet connection.';
+    }
+
+    return message;
   }
 
   void showMessage(String message) {
@@ -137,7 +162,6 @@ class _SignupScreenState extends State<SignupScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-
                 const SizedBox(height: 28),
                 SizedBox(
                   width: double.infinity,

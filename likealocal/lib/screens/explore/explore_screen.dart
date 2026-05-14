@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:provider/provider.dart';
 
 import '../../models/place.dart';
 import '../../models/user_model.dart';
-import '../../services/location_service.dart';
-import '../../services/place_service.dart';
-import '../../services/user_service.dart';
+import '../../providers/location_provider.dart';
+import '../../providers/place_provider.dart';
+import '../../providers/user_provider.dart';
 
 import 'widgets/category_filter.dart';
 import 'widgets/search_bar_widget.dart';
@@ -20,12 +21,7 @@ class ExploreScreen extends StatefulWidget {
 }
 
 class _ExploreScreenState extends State<ExploreScreen> {
-  final PlaceService _placeService = PlaceService();
-  final UserService _userService = UserService();
-  final LocationService _locationService = LocationService();
   final TextEditingController _searchController = TextEditingController();
-
-  late final Stream<List<Place>> _placesStream;
 
   String _searchQuery = '';
   String? _selectedCategory;
@@ -46,15 +42,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
   @override
   void initState() {
     super.initState();
-
-    _placesStream = _placeService.getPlaces();
-
-    _userService.getCurrentUser().listen((user) {
-      if (!mounted) return;
-      setState(() {
-        _currentUser = user;
-      });
-    });
   }
 
   @override
@@ -71,7 +58,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
       return;
     }
 
-    final pos = await _locationService.getCurrentLocation();
+    final locationProvider = context.read<LocationProvider>();
+    await locationProvider.fetchLocation();
+    final pos = locationProvider.currentPosition;
 
     if (pos == null) {
       if (!mounted) return;
@@ -90,9 +79,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   double? _getDistance(Place place) {
     if (_currentPosition == null) return null;
 
-    return _locationService.calculateDistance(
-      _currentPosition!.latitude,
-      _currentPosition!.longitude,
+    return context.read<LocationProvider>().calculateDistance(
       place.lat,
       place.lng,
     );
@@ -174,18 +161,14 @@ class _ExploreScreenState extends State<ExploreScreen> {
           ),
         ],
       ),
-      body: StreamBuilder<List<Place>>(
-        stream: _placesStream,
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(child: Text('Firestore error: ${snapshot.error}'));
-          }
-
-          if (snapshot.connectionState == ConnectionState.waiting) {
+      body: Consumer2<PlaceProvider, UserProvider>(
+        builder: (context, placeProvider, userProvider, child) {
+          if (placeProvider.isLoading) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final allPlaces = snapshot.data ?? [];
+          _currentUser = userProvider.user;
+          final allPlaces = placeProvider.places;
 
           if (allPlaces.isEmpty) {
             return const Center(child: Text('No places found'));
