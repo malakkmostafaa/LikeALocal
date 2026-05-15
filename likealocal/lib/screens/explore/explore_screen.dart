@@ -34,6 +34,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   String _searchQuery = '';
   String? _selectedCategory;
   bool _showForYou = false;
+  bool _showNearby = false;
 
   Map<String, AppUser> _creators = {};
   bool _isFetchingCreators = false;
@@ -58,6 +59,25 @@ class _ExploreScreenState extends State<ExploreScreen> {
     _searchController.dispose();
     _searchDebounce?.cancel();
     super.dispose();
+  }
+
+  Future<void> _toggleNearby() async {
+    final locationProvider = context.read<LocationProvider>();
+
+    if (!_showNearby) {
+      await locationProvider.fetchLocation();
+      if (locationProvider.error != null || !locationProvider.hasLocation) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Location permission denied or disabled.')),
+          );
+        }
+        return;
+      }
+      setState(() => _showNearby = true);
+    } else {
+      setState(() => _showNearby = false);
+    }
   }
 
   Future<void> _loadRecommendationProfile() async {
@@ -120,6 +140,20 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
       return matchesSearch && matchesCategory;
     }).toList();
+
+    if (_showNearby) {
+      final locationProvider = context.read<LocationProvider>();
+      final pos = locationProvider.currentPosition;
+
+      if (pos != null) {
+        filtered.sort((a, b) {
+          final distA = Geolocator.distanceBetween(pos.latitude, pos.longitude, a.lat, a.lng);
+          final distB = Geolocator.distanceBetween(pos.latitude, pos.longitude, b.lat, b.lng);
+          return distA.compareTo(distB);
+        });
+        return filtered;
+      }
+    }
 
     if (_showForYou) {
       final likedCategories = List<String>.from(_recommendationProfile?['likedCategories'] ?? []);
@@ -293,6 +327,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
                             if (_showForYou) _loadRecommendationProfile();
                           },
                           icon: Icons.auto_awesome_rounded,
+                        ),
+                        const SizedBox(width: 8),
+                        _FilterChip(
+                          label: 'Nearby',
+                          isSelected: _showNearby,
+                          onTap: _toggleNearby,
+                          icon: Icons.near_me_rounded,
                         ),
                         const SizedBox(width: 8),
                         CategoryFilter(
