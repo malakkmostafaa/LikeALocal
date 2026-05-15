@@ -1,8 +1,11 @@
 import 'dart:io';
+
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:firebase_storage/firebase_storage.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+
+import '../../services/storage_service.dart';
 import '../../services/user_service.dart';
 import '../main_navigation.dart';
 
@@ -15,16 +18,31 @@ class OnboardingScreen2 extends StatefulWidget {
 
 class _OnboardingScreen2State extends State<OnboardingScreen2> {
   final UserService _userService = UserService();
-  File? _imageFile;
+  final StorageService _storageService = StorageService();
   final ImagePicker _picker = ImagePicker();
+
+  File? _imageFile;
   bool isLoading = false;
 
   Future<void> _pickImage() async {
-    final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
-    if (pickedFile != null) {
+    try {
+      final pickedFile = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 75,
+        maxWidth: 900,
+      );
+
+      if (pickedFile == null) return;
+
       setState(() {
         _imageFile = File(pickedFile.path);
       });
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not pick image: $e')),
+      );
     }
   }
 
@@ -34,22 +52,34 @@ class _OnboardingScreen2State extends State<OnboardingScreen2> {
     try {
       if (_imageFile != null) {
         final uid = FirebaseAuth.instance.currentUser?.uid;
-        if (uid != null) {
-          final ref = FirebaseStorage.instance
-              .ref()
-              .child('profiles')
-              .child('$uid.jpg');
-          await ref.putFile(_imageFile!);
-          final url = await ref.getDownloadURL();
-          
-          await _userService.updateCurrentUser({
-            'profileImageUrl': url,
-          });
+
+        if (uid == null) {
+          throw Exception('No logged-in user found');
         }
+
+        final ref = FirebaseStorage.instance
+            .ref()
+            .child('users')
+            .child(uid)
+            .child('profile')
+            .child('profile.jpg');
+
+        await ref.putFile(_imageFile!);
+
+        final url = await ref.getDownloadURL();
+
+        await _userService.updateCurrentUser({
+          'profileImageUrl': url,
+        });
       }
 
       if (!mounted) return;
-      Navigator.popUntil(context, (route) => route.isFirst);
+
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const MainNavigation()),
+        (route) => false,
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -57,12 +87,18 @@ class _OnboardingScreen2State extends State<OnboardingScreen2> {
         );
       }
     } finally {
-      if (mounted) setState(() => isLoading = false);
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
     }
   }
 
   Future<void> _skip() async {
-    Navigator.popUntil(context, (route) => route.isFirst);
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const MainNavigation()),
+      (route) => false,
+    );
   }
 
   @override
@@ -78,10 +114,9 @@ class _OnboardingScreen2State extends State<OnboardingScreen2> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const SizedBox(height: 10),
-              // Progress Bar
               Row(
                 children: [
-                   Expanded(
+                  Expanded(
                     child: Container(
                       height: 6,
                       decoration: BoxDecoration(
@@ -104,9 +139,9 @@ class _OnboardingScreen2State extends State<OnboardingScreen2> {
               ),
               const SizedBox(height: 30),
               const Text(
-                "Add a Profile Picture",
+                'Add a Profile Picture',
                 style: TextStyle(
-                  fontSize: 32, 
+                  fontSize: 32,
                   fontWeight: FontWeight.w900,
                   letterSpacing: -0.5,
                 ),
@@ -114,14 +149,17 @@ class _OnboardingScreen2State extends State<OnboardingScreen2> {
               ),
               const SizedBox(height: 12),
               Text(
-                "Let others know who they are connecting with. You can always change this later.",
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 16, height: 1.4),
+                'Let others know who they are connecting with. You can always change this later.',
+                style: TextStyle(
+                  color: Colors.grey.shade600,
+                  fontSize: 16,
+                  height: 1.4,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 50),
-              
               GestureDetector(
-                onTap: _pickImage,
+                onTap: isLoading ? null : _pickImage,
                 child: Stack(
                   children: [
                     Container(
@@ -140,9 +178,14 @@ class _OnboardingScreen2State extends State<OnboardingScreen2> {
                       child: CircleAvatar(
                         radius: 80,
                         backgroundColor: mainColor.withOpacity(0.1),
-                        backgroundImage: _imageFile != null ? FileImage(_imageFile!) : null,
+                        backgroundImage:
+                            _imageFile != null ? FileImage(_imageFile!) : null,
                         child: _imageFile == null
-                            ? Icon(Icons.person, size: 80, color: mainColor.withOpacity(0.5))
+                            ? Icon(
+                                Icons.person,
+                                size: 80,
+                                color: mainColor.withOpacity(0.5),
+                              )
                             : null,
                       ),
                     ),
@@ -153,7 +196,10 @@ class _OnboardingScreen2State extends State<OnboardingScreen2> {
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
-                            colors: [Color(0xFFD96B41), Color(0xFFE88A66)],
+                            colors: [
+                              Color(0xFFD96B41),
+                              Color(0xFFE88A66),
+                            ],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
@@ -167,20 +213,25 @@ class _OnboardingScreen2State extends State<OnboardingScreen2> {
                             ),
                           ],
                         ),
-                        child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 24),
+                        child: const Icon(
+                          Icons.camera_alt_rounded,
+                          color: Colors.white,
+                          size: 24,
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
-
               const Spacer(),
-              
               Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFFD96B41), Color(0xFFE88A66)],
+                    colors: [
+                      Color(0xFFD96B41),
+                      Color(0xFFE88A66),
+                    ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -203,20 +254,25 @@ class _OnboardingScreen2State extends State<OnboardingScreen2> {
                       borderRadius: BorderRadius.circular(28),
                     ),
                   ),
-                  child: isLoading 
+                  child: isLoading
                       ? const SizedBox(
-                          width: 24, 
-                          height: 24, 
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3)
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 3,
+                          ),
                         )
                       : Text(
-                          _imageFile == null ? "Save & Finish" : "Upload & Finish", 
+                          _imageFile == null
+                              ? 'Save & Finish'
+                              : 'Upload & Finish',
                           style: const TextStyle(
-                            fontSize: 18, 
+                            fontSize: 18,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
                             letterSpacing: 0.5,
-                          )
+                          ),
                         ),
                 ),
               ),
@@ -227,8 +283,12 @@ class _OnboardingScreen2State extends State<OnboardingScreen2> {
                 child: TextButton(
                   onPressed: isLoading ? null : _skip,
                   child: const Text(
-                    "Skip for now",
-                    style: TextStyle(fontSize: 16, color: Colors.grey, fontWeight: FontWeight.w600),
+                    'Skip for now',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),

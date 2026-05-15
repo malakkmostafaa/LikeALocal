@@ -3,127 +3,191 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/place.dart';
-import '../models/tip.dart';
 import '../models/dish.dart';
 
 class PlaceService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
   final Uuid _uuid = const Uuid();
 
   Stream<List<Place>> getPlaces() {
-    return _firestore.collection('places').snapshots().map((snapshot) {
+    return _firestore
+        .collection('places')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) {
       return snapshot.docs.map((doc) {
         return Place.fromMap(doc.data(), doc.id);
       }).toList();
     });
   }
 
-  /// Upload multiple local image file paths to Firebase Storage for a place
-  /// Returns list of download URLs.
-  Future<List<String>> uploadPlaceImages(String placeId, List<String> filePaths) async {
+  Stream<Place?> getPlaceById(String placeId) {
+    return _firestore.collection('places').doc(placeId).snapshots().map((doc) {
+      if (!doc.exists || doc.data() == null) return null;
+      return Place.fromMap(doc.data()!, doc.id);
+    });
+  }
+
+  Future<DocumentReference<Map<String, dynamic>>> addPlace(
+    Place place, {
+    List<String> localImagePaths = const [],
+  }) async {
+    final data = place.toMap();
+    data.remove('images');
+
+    data['rating'] = 0.0;
+    data['reviewCount'] = 0;
+    data['createdAt'] = FieldValue.serverTimestamp();
+    data['updatedAt'] = FieldValue.serverTimestamp();
+
+    final docRef = await _firestore.collection('places').add(data);
+
+    if (localImagePaths.isNotEmpty) {
+      final urls = await uploadPlaceImages(docRef.id, localImagePaths);
+
+      if (urls.isNotEmpty) {
+        await docRef.update({
+          'images': urls,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+    }
+
+    return docRef;
+  }
+
+  Future<List<String>> uploadPlaceImages(
+    String placeId,
+    List<String> filePaths,
+  ) async {
     final List<String> urls = [];
 
-    for (final path in filePaths) {
+    for (final filePath in filePaths) {
       try {
-        final file = File(path);
-        if (!file.existsSync()) continue;
+        final file = File(filePath);
 
-        final ext = path.split('.').last;
-        final name = _uuid.v4();
-        final ref = _storage.ref().child('places/$placeId/images/$name.$ext');
+        if (!await file.exists()) {
+          debugPrint('Image file does not exist: $filePath');
+          continue;
+        }
 
-        final uploadTask = await ref.putFile(file);
-        final url = await uploadTask.ref.getDownloadURL();
+        final fileSize = await file.length();
+
+        if (fileSize == 0) {
+          debugPrint('Image file is empty: $filePath');
+          continue;
+        }
+
+        if (fileSize > 10 * 1024 * 1024) {
+          debugPrint('Image file too large: $filePath');
+          continue;
+        }
+
+        final extension = _getImageExtension(filePath);
+        final fileName = '${_uuid.v4()}.$extension';
+
+        final ref = _storage
+            .ref()
+            .child('places')
+            .child(placeId)
+            .child('images')
+            .child(fileName);
+
+        final metadata = SettableMetadata(
+          contentType: _contentTypeFromExtension(extension),
+          customMetadata: {
+            'placeId': placeId,
+            'type': 'place_image',
+          },
+        );
+
+        final snapshot = await ref.putFile(file, metadata);
+        final url = await snapshot.ref.getDownloadURL();
+
         urls.add(url);
-      } catch (e) {
-        // continue on error for individual files
-        continue;
+      } catch (e, stackTrace) {
+        debugPrint('Error uploading image: $e');
+        debugPrint('StackTrace: $stackTrace');
       }
     }
 
     return urls;
   }
 
-  /// Create a new place document; optionally upload images first.
-  /// If images are provided, they'll be uploaded and the place document
-  /// will include the `images` array of download URLs.
-  Future<DocumentReference> addPlace(Place place, {List<String> localImagePaths = const []}) async {
-    // create a map without images (we'll add images after upload)
-    final data = place.toMap();
-    data.remove('images');
+  String _getImageExtension(String path) {
+    final extension = path.split('.').last.toLowerCase();
 
-    final docRef = await _firestore.collection('places').add(data);
+    if (extension == 'jpg') return 'jpeg';
 
-    try {
-      if (localImagePaths.isNotEmpty) {
-        final urls = await uploadPlaceImages(docRef.id, localImagePaths);
-        if (urls.isNotEmpty) {
-          await docRef.update({'images': urls});
-        }
-      }
-    } catch (e) {
-      // swallow upload errors but keep the place created
+    if (['jpeg', 'png', 'webp'].contains(extension)) {
+      return extension;
     }
 
-    return docRef;
+    return 'jpeg';
   }
 
-  /// Add a tip to an existing place as an array element.
-  Future<void> addTipToPlace(String placeId, {required String text, String? authorId}) async {
+  String _contentTypeFromExtension(String extension) {
+    switch (extension) {
+      case 'png':
+        return 'image/png';
+      case 'webp':
+        return 'image/webp';
+      case 'jpeg':
+      default:
+        return 'image/jpeg';
+    }
+  }
+
+  Future<void> addTipToPlace(
+    String placeId, {
+    required String text,
+    String? authorId,
+  }) async {
+    final uid = authorId ?? _auth.currentUser?.uid;
+
     final map = {
-      'text': text,
-      if (authorId != null) 'authorId': authorId,
-      'createdAt': FieldValue.serverTimestamp(),
+      'text': text.trim(),
+      if (uid != null) 'authorId': uid,
+      'createdAt': Timestamp.now(),
     };
 
     await _firestore.collection('places').doc(placeId).update({
-      'tips': FieldValue.arrayUnion([map])
+      'tips': FieldValue.arrayUnion([map]),
+      'updatedAt': FieldValue.serverTimestamp(),
     });
   }
 
-  /// Add a recommended dish to a place (array field). Use UI guards
-  /// Add a recommended dish to a place as a subcollection document.
-  /// Use UI guards to ensure dishes are only suggested for food-related categories.
   Future<void> addDishToPlace(String placeId, Dish dish) async {
     final map = dish.toMap();
-    // add createdAt server timestamp for consistency
     map['createdAt'] = FieldValue.serverTimestamp();
-    await _firestore.collection('places').doc(placeId).collection('dishes').add(map);
+
+    await _firestore
+        .collection('places')
+        .doc(placeId)
+        .collection('dishes')
+        .add(map);
   }
 
-  /// Stream dishes for a place (reads from `places/{placeId}/dishes`).
   Stream<List<Dish>> getDishes(String placeId) {
     return _firestore
         .collection('places')
         .doc(placeId)
         .collection('dishes')
+        .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snap) => snap.docs.map((d) => Dish.fromMap(d.data())).toList());
+        .map((snapshot) {
+      return snapshot.docs.map((doc) {
+        return Dish.fromMap(doc.data());
+      }).toList();
+    });
   }
 
-  /// Add a review to a place (writes a document to `places/{placeId}/reviews`).
-  Future<void> addReviewToPlace(String placeId, Map<String, dynamic> review, {String? userId}) async {
-    final uid = userId ?? FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) {
-      throw FirebaseException(
-        plugin: 'PlaceService',
-        message: 'User must be authenticated to add a review',
-      );
-    }
-
-    final map = Map<String, dynamic>.from(review);
-    // Ensure the review is associated with the creating user's id (required by rules)
-    map['userId'] = uid;
-    map['createdAt'] = FieldValue.serverTimestamp();
-
-    await _firestore.collection('places').doc(placeId).collection('reviews').add(map);
-  }
-
-  /// Stream reviews for a place (reads from `places/{placeId}/reviews`).
   Stream<List<Map<String, dynamic>>> getReviews(String placeId) {
     return _firestore
         .collection('places')
@@ -131,11 +195,166 @@ class PlaceService {
         .collection('reviews')
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snap) => snap.docs.map((d) => d.data()).toList());
+        .map((snapshot) {
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+
+        return {
+          ...data,
+          'id': doc.id,
+          'createdAt': _dateFromValue(data['createdAt']),
+          'updatedAt': _dateFromValue(data['updatedAt']),
+        };
+      }).toList();
+    });
   }
 
-  /// Update basic place fields (name, description, category, location).
-  /// Optionally upload new local images and/or remove specific image URLs.
+  Future<void> addReviewToPlace(
+    String placeId,
+    Map<String, dynamic> review, {
+    String? userId,
+  }) async {
+    final uid = userId ?? _auth.currentUser?.uid;
+
+    if (uid == null) {
+      throw Exception('User must be authenticated to add a review.');
+    }
+
+    final userDoc = await _firestore.collection('users').doc(uid).get();
+    final userData = userDoc.data();
+
+    final userName = userData?['name'] ??
+        _auth.currentUser?.displayName ??
+        _auth.currentUser?.email ??
+        'Local User';
+
+    final reviewRef = _firestore
+        .collection('places')
+        .doc(placeId)
+        .collection('reviews')
+        .doc();
+
+    await reviewRef.set({
+      'userId': uid,
+      'userName': userName,
+      'text': review['text']?.toString().trim() ?? '',
+      'rating': (review['rating'] as num?)?.toDouble() ?? 5.0,
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+
+    await _firestore.collection('users').doc(uid).set({
+      'reviewsCount': FieldValue.increment(1),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    await recalculatePlaceRating(placeId);
+  }
+
+  Future<void> editReview(
+    String placeId,
+    String reviewId,
+    Map<String, dynamic> updatedReview, {
+    String? userId,
+  }) async {
+    final uid = userId ?? _auth.currentUser?.uid;
+
+    if (uid == null) {
+      throw Exception('User must be authenticated to edit a review.');
+    }
+
+    final reviewRef = _firestore
+        .collection('places')
+        .doc(placeId)
+        .collection('reviews')
+        .doc(reviewId);
+
+    final reviewDoc = await reviewRef.get();
+
+    if (!reviewDoc.exists) {
+      throw Exception('Review not found.');
+    }
+
+    final reviewData = reviewDoc.data()!;
+
+    if (reviewData['userId'] != uid) {
+      throw Exception('You can only edit your own reviews.');
+    }
+
+    await reviewRef.update({
+      'text': updatedReview['text']?.toString().trim() ?? '',
+      'rating': (updatedReview['rating'] as num?)?.toDouble() ?? 5.0,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+
+    await recalculatePlaceRating(placeId);
+  }
+
+  Future<void> deleteReview(
+    String placeId,
+    String reviewId, {
+    String? userId,
+  }) async {
+    final uid = userId ?? _auth.currentUser?.uid;
+
+    if (uid == null) {
+      throw Exception('User must be authenticated to delete a review.');
+    }
+
+    final reviewRef = _firestore
+        .collection('places')
+        .doc(placeId)
+        .collection('reviews')
+        .doc(reviewId);
+
+    final reviewDoc = await reviewRef.get();
+
+    if (!reviewDoc.exists) {
+      throw Exception('Review not found.');
+    }
+
+    final reviewData = reviewDoc.data()!;
+
+    if (reviewData['userId'] != uid) {
+      throw Exception('You can only delete your own reviews.');
+    }
+
+    await reviewRef.delete();
+
+    await _firestore.collection('users').doc(uid).set({
+      'reviewsCount': FieldValue.increment(-1),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    await recalculatePlaceRating(placeId);
+  }
+
+  Future<void> recalculatePlaceRating(String placeId) async {
+    final reviewsSnapshot = await _firestore
+        .collection('places')
+        .doc(placeId)
+        .collection('reviews')
+        .get();
+
+    final reviews = reviewsSnapshot.docs;
+
+    double totalRating = 0;
+
+    for (final doc in reviews) {
+      final data = doc.data();
+      totalRating += (data['rating'] as num?)?.toDouble() ?? 0.0;
+    }
+
+    final count = reviews.length;
+    final average = count == 0 ? 0.0 : totalRating / count;
+
+    await _firestore.collection('places').doc(placeId).update({
+      'rating': double.parse(average.toStringAsFixed(1)),
+      'reviewCount': count,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   Future<void> updatePlace(
     Place place, {
     List<String> newLocalImagePaths = const [],
@@ -143,81 +362,87 @@ class PlaceService {
   }) async {
     final docRef = _firestore.collection('places').doc(place.id);
 
-    // Remove images requested for deletion
     if (removeImageUrls.isNotEmpty) {
       for (final url in removeImageUrls) {
         try {
           final ref = _storage.refFromURL(url);
           await ref.delete();
-        } catch (e) {
-          // ignore delete errors for individual files
-        }
+        } catch (_) {}
       }
 
-      try {
-        await docRef.update({
-          'images': FieldValue.arrayRemove(removeImageUrls),
-        });
-      } catch (e) {
-        // ignore
-      }
+      await docRef.update({
+        'images': FieldValue.arrayRemove(removeImageUrls),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
     }
 
-    // Upload new local images
     if (newLocalImagePaths.isNotEmpty) {
       final uploaded = await uploadPlaceImages(place.id, newLocalImagePaths);
+
       if (uploaded.isNotEmpty) {
-        await docRef.update({'images': FieldValue.arrayUnion(uploaded)});
+        await docRef.update({
+          'images': FieldValue.arrayUnion(uploaded),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
       }
     }
 
-    // Update basic fields only
-    final data = {
+    await docRef.update({
       'name': place.name,
       'description': place.description,
       'category': place.category,
       'location': GeoPoint(place.lat, place.lng),
       'updatedAt': FieldValue.serverTimestamp(),
-    };
-
-    await docRef.update(data);
+    });
   }
 
-  /// Delete a place document and its known subcollections and storage images.
   Future<void> deletePlace(String placeId) async {
     final docRef = _firestore.collection('places').doc(placeId);
 
-    // Delete storage images under places/{placeId}/images
     try {
       final listRef = _storage.ref().child('places/$placeId/images');
       final listResult = await listRef.listAll();
+
       for (final item in listResult.items) {
-        try {
-          await item.delete();
-        } catch (e) {
-          // ignore per-item errors
-        }
+        await item.delete();
       }
-    } catch (e) {
-      // ignore storage listing errors
+    } catch (_) {}
+
+    Future<void> deleteSubcollection(String subcollectionName) async {
+      final snapshot = await docRef.collection(subcollectionName).get();
+
+      if (snapshot.docs.isEmpty) return;
+
+      final batch = _firestore.batch();
+
+      for (final doc in snapshot.docs) {
+        batch.delete(doc.reference);
+      }
+
+      await batch.commit();
     }
 
-     // Delete common subcollections (reviews) if present
-     Future<void> _deleteSubcollection(String path) async {
-       final col = docRef.collection(path);
-       final snap = await col.get();
-       final batch = _firestore.batch();
-       for (final d in snap.docs) {
-         batch.delete(d.reference);
-       }
-       await batch.commit();
-     }
+    await deleteSubcollection('reviews');
+    await deleteSubcollection('dishes');
 
-     try {
-       await _deleteSubcollection('reviews');
-     } catch (_) {}
-
-    // Finally delete the place document
     await docRef.delete();
+  }
+
+  DateTime? _dateFromValue(dynamic value) {
+    if (value == null) return null;
+
+    if (value is Timestamp) {
+      return value.toDate();
+    }
+
+    if (value is DateTime) {
+      return value;
+    }
+
+    if (value is String) {
+      return DateTime.tryParse(value);
+    }
+
+    return null;
   }
 }

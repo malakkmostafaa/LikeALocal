@@ -1,55 +1,116 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_messaging/firebase_messaging.dart'; // ← add
-import 'services/notification_service.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:provider/provider.dart';
+
+import 'firebase_options.dart';
+
+import 'providers/auth_provider.dart' as app_auth;
+import 'providers/user_provider.dart';
+import 'providers/place_provider.dart';
+import 'providers/location_provider.dart';
 
 import 'screens/auth/login_screen.dart';
 import 'screens/main_navigation.dart';
+import 'services/notification_service.dart';
 
-// ← Add this top-level function (must be outside any class)
+/// 🔔 Background FCM handler (must be top-level)
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-}
-
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  
-  // ← Register background handler before runApp
+}
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  // Firestore offline cache settings
+  FirebaseFirestore.instance.settings = const Settings(
+    persistenceEnabled: true,
+    cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+  );
+
+  // Register background notifications handler
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-  
-  runApp(const MyApp());
+
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => app_auth.AuthProvider()),
+        ChangeNotifierProvider(create: (_) => UserProvider()),
+        ChangeNotifierProvider(create: (_) => PlaceProvider()),
+        ChangeNotifierProvider(
+          create: (_) => LocationProvider()..fetchLocation(),
+        ),
+      ],
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
+
+  static const Color primaryColor = Color(0xFFD45A38);
+  static const Color backgroundColor = Color(0xFFF7F4EF);
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'LikeALocal',
       debugShowCheckedModeBanner: false,
-      home: StreamBuilder<User?>(
-        stream: FirebaseAuth.instance.authStateChanges(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            );
-          }
+      theme: ThemeData(
+        useMaterial3: true,
+        scaffoldBackgroundColor: backgroundColor,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: primaryColor,
+          primary: primaryColor,
+        ),
+      ),
+      home: const AuthGate(),
+    );
+  }
+}
 
-          if (snapshot.hasData) {
-            NotificationService().initFCM();
-            return const MainNavigation();
-          }
+class AuthGate extends StatelessWidget {
+  const AuthGate({super.key});
 
-          return const LoginScreen();
-        },
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SplashLoadingScreen();
+        }
+
+        if (snapshot.hasData && snapshot.data != null) {
+          // Optional: initialize notifications after login
+          NotificationService().initFCM();
+          return const MainNavigation();
+        }
+
+        return const LoginScreen();
+      },
+    );
+  }
+}
+
+class SplashLoadingScreen extends StatelessWidget {
+  const SplashLoadingScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: Center(
+        child: CircularProgressIndicator(),
       ),
     );
   }

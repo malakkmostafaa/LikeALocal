@@ -7,6 +7,7 @@ import 'package:like_a_local/screens/profile/settings_screen.dart';
 import 'package:like_a_local/screens/profile/super_user_screen.dart';
 import 'package:like_a_local/screens/profile/subscription_plans_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+
 import '../chat/ai_chat_screen.dart';
 import '../explore/place_details_screen.dart';
 
@@ -16,6 +17,7 @@ class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final currentUser = FirebaseAuth.instance.currentUser;
+
     if (currentUser == null) {
       return const Scaffold(
         backgroundColor: Color(0xFFF8F6F3),
@@ -24,6 +26,7 @@ class ProfileScreen extends StatelessWidget {
     }
 
     final uid = currentUser.uid;
+
     const primaryColor = Color(0xFFD96B41);
     const backgroundColor = Color(0xFFF8F6F3);
 
@@ -39,11 +42,41 @@ class ProfileScreen extends StatelessWidget {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
+
             if (!snapshot.hasData || !snapshot.data!.exists) {
-              return const Center(child: Text("User not found"));
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.person_off_outlined,
+                        size: 56,
+                        color: Colors.grey,
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Profile is being created...',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'If this stays for more than a few seconds, log out and sign up again.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.grey.shade600),
+                      ),
+                    ],
+                  ),
+                ),
+              );
             }
 
-            final userData = snapshot.data!.data() as Map<String, dynamic>;
+            final userData =
+                snapshot.data!.data() as Map<String, dynamic>;
             final user = AppUser.fromMap(userData);
 
             String joinedText = "Joined recently";
@@ -70,7 +103,8 @@ class ProfileScreen extends StatelessWidget {
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
-                              builder: (_) => SettingsScreen(user: user)),
+                            builder: (_) => SettingsScreen(user: user),
+                          ),
                         ),
                         child: Container(
                           padding: const EdgeInsets.all(12),
@@ -101,59 +135,34 @@ class ProfileScreen extends StatelessWidget {
                       ],
                     ),
                     child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Stack(
                           alignment: Alignment.center,
                           clipBehavior: Clip.none,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.all(3),
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Colors.white,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: primaryColor.withOpacity(0.3),
-                                    blurRadius: 12,
-                                    offset: const Offset(0, 6),
-                                  ),
-                                ],
-                              ),
-                              child: CircleAvatar(
-                                radius: 46,
-                                backgroundColor:
-                                    primaryColor.withOpacity(0.12),
-                                backgroundImage:
-                                    user.profileImageUrl.isNotEmpty
-                                        ? CachedNetworkImageProvider(
-                                            user.profileImageUrl)
-                                        : null,
-                                child: user.profileImageUrl.isEmpty
-                                    ? const Icon(Icons.person,
-                                        size: 46, color: primaryColor)
-                                    : null,
-                              ),
+                            CircleAvatar(
+                              radius: 46,
+                              backgroundColor:
+                                  primaryColor.withOpacity(0.12),
+                              backgroundImage:
+                                  user.profileImageUrl.isNotEmpty
+                                      ? CachedNetworkImageProvider(
+                                          user.profileImageUrl,
+                                        )
+                                      : null,
+                              child: user.profileImageUrl.isEmpty
+                                  ? const Icon(Icons.person,
+                                      size: 46, color: primaryColor)
+                                  : null,
                             ),
                             if (user.isSuperUser)
                               Positioned(
                                 bottom: -2,
                                 right: -2,
-                                child: Container(
-                                  padding: const EdgeInsets.all(6),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    shape: BoxShape.circle,
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: primaryColor.withOpacity(0.2),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 4),
-                                      ),
-                                    ],
-                                  ),
-                                  child: const Icon(Icons.workspace_premium,
-                                      size: 18, color: Color(0xFFE5A11A)),
+                                child: const Icon(
+                                  Icons.workspace_premium,
+                                  size: 18,
+                                  color: Color(0xFFE5A11A),
                                 ),
                               ),
                           ],
@@ -163,35 +172,24 @@ class ProfileScreen extends StatelessWidget {
 
                         Expanded(
                           child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment:
+                                CrossAxisAlignment.start,
                             children: [
                               Text(user.name,
                                   style: const TextStyle(
                                       fontSize: 26,
-                                      fontWeight: FontWeight.w900,
-                                      letterSpacing: -0.5)),
+                                      fontWeight: FontWeight.w900)),
                               if (user.bio.isNotEmpty) ...[
                                 const SizedBox(height: 8),
                                 Text(user.bio,
                                     style: TextStyle(
-                                        fontSize: 14,
-                                        height: 1.4,
                                         color: Colors.grey.shade700)),
                               ],
                               const SizedBox(height: 12),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: Colors.grey.shade100,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(joinedText,
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.grey.shade600)),
+                              Text(
+                                joinedText,
+                                style: TextStyle(
+                                    color: Colors.grey.shade600),
                               ),
                             ],
                           ),
@@ -206,69 +204,47 @@ class ProfileScreen extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
-                          child: _buildStatCard(
-                              icon: Icons.place_outlined,
-                              value: user.placesAdded.toString(),
-                              label: "Places",
-                              color: primaryColor)),
+                        child: _buildStatCard(
+                          icon: Icons.place_outlined,
+                          value: user.placesAdded.toString(),
+                          label: "Places",
+                          color: primaryColor,
+                        ),
+                      ),
                       const SizedBox(width: 12),
                       Expanded(
-                          child: _buildStatCard(
-                              icon: Icons.star_outline,
-                              value: user.reviewsCount.toString(),
-                              label: "Reviews",
-                              color: primaryColor)),
+                        child: _buildStatCard(
+                          icon: Icons.star_outline,
+                          value: user.reviewsCount.toString(),
+                          label: "Reviews",
+                          color: primaryColor,
+                        ),
+                      ),
                       const SizedBox(width: 12),
                       Expanded(
-                          child: _buildStatCard(
-                              icon: Icons.bookmark_border,
-                              value: user.pinsCount.toString(),
-                              label: "Pins",
-                              color: primaryColor)),
+                        child: _buildStatCard(
+                          icon: Icons.bookmark_border,
+                          value: user.pinsCount.toString(),
+                          label: "Pins",
+                          color: primaryColor,
+                        ),
+                      ),
                     ],
                   ),
 
                   const SizedBox(height: 26),
 
                   // EDIT PROFILE BUTTON
-                  Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFD96B41), Color(0xFFE88A66)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+                  ElevatedButton.icon(
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            EditProfileScreen(user: user),
                       ),
-                      borderRadius: BorderRadius.circular(28),
-                      boxShadow: [
-                        BoxShadow(
-                          color: primaryColor.withOpacity(0.3),
-                          blurRadius: 16,
-                          offset: const Offset(0, 6),
-                        ),
-                      ],
                     ),
-                    child: ElevatedButton.icon(
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => EditProfileScreen(user: user)),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.transparent,
-                        shadowColor: Colors.transparent,
-                        padding: const EdgeInsets.symmetric(vertical: 18),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(28)),
-                      ),
-                      icon: const Icon(Icons.edit_rounded, color: Colors.white),
-                      label: const Text("Edit Profile",
-                          style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                              letterSpacing: 0.5)),
-                    ),
+                    icon: const Icon(Icons.edit),
+                    label: const Text("Edit Profile"),
                   ),
 
                   const SizedBox(height: 26),
@@ -282,18 +258,7 @@ class ProfileScreen extends StatelessWidget {
                     spacing: 10,
                     runSpacing: 10,
                     children: user.preferences.map((pref) {
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: primaryColor.withOpacity(0.10),
-                          borderRadius: BorderRadius.circular(24),
-                        ),
-                        child: Text(pref,
-                            style: const TextStyle(
-                                color: primaryColor,
-                                fontWeight: FontWeight.w600)),
-                      );
+                      return Chip(label: Text(pref));
                     }).toList(),
                   ),
 
@@ -304,211 +269,52 @@ class ProfileScreen extends StatelessWidget {
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (_) => SuperUserScreen(user: user)),
+                        builder: (_) => SuperUserScreen(user: user),
+                      ),
                     ),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 18),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFAEBE1),
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(
-                            color: primaryColor.withOpacity(0.2)),
-                        boxShadow: [
-                          BoxShadow(
-                              color: primaryColor.withOpacity(0.05),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4))
-                        ],
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: primaryColor.withOpacity(0.15),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(Icons.workspace_premium,
-                                color: primaryColor),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  user.isSuperUser
-                                      ? "Super User Status"
-                                      : "Super User Progress",
-                                  style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.black87),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  user.isSuperUser
-                                      ? "You have unlocked all perks!"
-                                      : "View badges and requirements",
-                                  style: TextStyle(
-                                      fontSize: 13,
-                                      color: Colors.grey.shade700),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const Icon(Icons.arrow_forward_ios,
-                              size: 16, color: primaryColor),
-                        ],
-                      ),
+                    child: _buildCard(
+                      title: user.isSuperUser
+                          ? "Super User Status"
+                          : "Super User Progress",
+                      subtitle: user.isSuperUser
+                          ? "You have unlocked all perks!"
+                          : "View badges and requirements",
                     ),
                   ),
 
                   const SizedBox(height: 20),
 
-                  // PREMIUM SUBSCRIPTION SECTION
+                  // PREMIUM SECTION
                   GestureDetector(
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (_) =>
-                              SubscriptionPlansScreen(user: user)),
+                        builder: (_) =>
+                            SubscriptionPlansScreen(user: user),
+                      ),
                     ),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 18),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(
-                          color: user.isPremium
-                              ? primaryColor.withOpacity(0.5)
-                              : Colors.grey.shade300,
-                          width: user.isPremium ? 2 : 1,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                              color: Colors.black.withOpacity(0.02),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4))
-                        ],
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: user.isPremium
-                                  ? primaryColor.withOpacity(0.15)
-                                  : Colors.grey.shade100,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(Icons.star_rounded,
-                                color: user.isPremium
-                                    ? primaryColor
-                                    : Colors.grey.shade600,
-                                size: 24),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  user.isPremium
-                                      ? "Premium Active"
-                                      : "Upgrade to Premium Plus",
-                                  style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: user.isPremium
-                                          ? primaryColor
-                                          : Colors.black87),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  user.isPremium
-                                      ? "You have unlimited pins"
-                                      : "Unlock unlimited pins & features",
-                                  style: TextStyle(
-                                      fontSize: 13,
-                                      color: Colors.grey.shade600),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Icon(Icons.arrow_forward_ios,
-                              size: 16,
-                              color: user.isPremium
-                                  ? primaryColor
-                                  : Colors.grey.shade400),
-                        ],
-                      ),
+                    child: _buildCard(
+                      title: user.isPremium
+                          ? "Premium Active"
+                          : "Upgrade to Premium",
+                      subtitle: user.isPremium
+                          ? "You have unlimited pins"
+                          : "Unlock unlimited features",
                     ),
                   ),
 
                   const SizedBox(height: 28),
 
                   // AI GUIDE BUTTON
-                  GestureDetector(
-                    onTap: () => Navigator.push(
+                  ElevatedButton.icon(
+                    onPressed: () => Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (_) => const AiChatScreen()),
-                    ),
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFD85A30),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.auto_awesome,
-                              color: Colors.white, size: 20),
-                          SizedBox(width: 10),
-                          Text('AI Local Guide',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 16)),
-                        ],
+                        builder: (_) => const AiChatScreen(),
                       ),
                     ),
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // TEMP TEST BUTTON - remove before final submission
-                  GestureDetector(
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const PlaceDetailsScreen(
-                          placeId: 'test_place_id',
-                          placeName: 'Café Riche',
-                          category: 'Cafés',
-                          description:
-                              'A legendary spot in downtown Cairo with amazing Turkish coffee and a century of history.',
-                        ),
-                      ),
-                    ),
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade200,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Center(
-                        child: Text('Test Place Details',
-                            style:
-                                TextStyle(fontWeight: FontWeight.w600)),
-                      ),
-                    ),
+                    icon: const Icon(Icons.auto_awesome),
+                    label: const Text("AI Local Guide"),
                   ),
 
                   const SizedBox(height: 40),
@@ -527,28 +333,36 @@ class ProfileScreen extends StatelessWidget {
     required String label,
     required Color color,
   }) {
+    return Column(
+      children: [
+        Icon(icon, color: color),
+        const SizedBox(height: 8),
+        Text(value,
+            style: const TextStyle(
+                fontSize: 20, fontWeight: FontWeight.bold)),
+        Text(label),
+      ],
+    );
+  }
+
+  Widget _buildCard({
+    required String title,
+    required String subtitle,
+  }) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 18),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-              color: Colors.black.withOpacity(0.03),
-              blurRadius: 12,
-              offset: const Offset(0, 4))
-        ],
+        color: const Color(0xFFFAEBE1),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: color),
-          const SizedBox(height: 10),
-          Text(value,
+          Text(title,
               style: const TextStyle(
-                  fontSize: 24, fontWeight: FontWeight.bold)),
+                  fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),
-          Text(label,
-              style: TextStyle(color: Colors.grey.shade600)),
+          Text(subtitle),
         ],
       ),
     );
@@ -557,9 +371,9 @@ class ProfileScreen extends StatelessWidget {
   static String _monthName(int month) {
     const months = [
       '',
-      'January', 'February', 'March', 'April',
-      'May', 'June', 'July', 'August',
-      'September', 'October', 'November', 'December',
+      'January','February','March','April',
+      'May','June','July','August',
+      'September','October','November','December',
     ];
     return months[month];
   }
