@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../../models/place.dart';
 import '../../map/map_screen.dart';
 import '../../place/place_details_screen.dart';
+import '../../../services/recommendation_service.dart';
 import 'place_map_preview.dart';
 import 'post_user_header.dart';
 
@@ -27,6 +28,7 @@ class SocialPlaceCard extends StatefulWidget {
 }
 
 class _SocialPlaceCardState extends State<SocialPlaceCard> {
+  final RecommendationService _recommendationService = RecommendationService();
   bool _isSaved = false;
   bool _isLoadingSaved = true;
 
@@ -69,6 +71,7 @@ class _SocialPlaceCardState extends State<SocialPlaceCard> {
   }
 
   void _openDetails() {
+    _recommendationService.trackViewPlace(widget.place.id, widget.place.category);
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -118,6 +121,8 @@ class _SocialPlaceCardState extends State<SocialPlaceCard> {
           'placeId': widget.place.id,
         });
 
+        _recommendationService.trackSavePlace(widget.place.id, widget.place.category);
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -150,6 +155,7 @@ class _SocialPlaceCardState extends State<SocialPlaceCard> {
       );
     }
   }
+
 
   void _showMoreMenu() {
     showModalBottomSheet(

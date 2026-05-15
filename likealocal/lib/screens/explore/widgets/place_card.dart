@@ -9,12 +9,16 @@ class PlaceCard extends StatelessWidget {
   final Place place;
   final VoidCallback? onTap;
   final double? distanceInMeters;
+  final String? creatorName;
+  final bool isSuperUser;
 
   const PlaceCard({
     super.key,
     required this.place,
     this.onTap,
     this.distanceInMeters,
+    this.creatorName,
+    this.isSuperUser = false,
   });
 
   String _formatDistance(double meters) {
@@ -134,29 +138,49 @@ class PlaceCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      _smallChip(
-                        icon: Icons.category_rounded,
-                        label:
-                            place.category.isEmpty ? 'General' : place.category,
-                        color: primaryColor,
-                        bg: lightPrimary,
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          _smallChip(
+                            icon: Icons.category_rounded,
+                            label:
+                                place.category.isEmpty ? 'General' : place.category,
+                            color: primaryColor,
+                            bg: lightPrimary,
+                          ),
+                          if (distanceInMeters != null)
+                            _smallChip(
+                              icon: Icons.location_on_rounded,
+                              label: _formatDistance(distanceInMeters!),
+                              color: mutedText,
+                              bg: Colors.grey.shade100,
+                            ),
+                        ],
                       ),
-                      _smallChip(
-                        icon: Icons.rate_review_rounded,
-                        label: '${place.reviewCount} reviews',
-                        color: mutedText,
-                        bg: Colors.grey.shade100,
-                      ),
-                      if (distanceInMeters != null)
-                        _smallChip(
-                          icon: Icons.location_on_rounded,
-                          label: _formatDistance(distanceInMeters!),
-                          color: mutedText,
-                          bg: Colors.grey.shade100,
+                      if (creatorName != null)
+                        Row(
+                          children: [
+                            Text(
+                              'by $creatorName',
+                              style: const TextStyle(
+                                color: mutedText,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            if (isSuperUser) ...[
+                              const SizedBox(width: 4),
+                              const Icon(
+                                Icons.stars_rounded,
+                                color: primaryColor,
+                                size: 16,
+                              ),
+                            ],
+                          ],
                         ),
                     ],
                   ),
@@ -199,3 +223,4 @@ class PlaceCard extends StatelessWidget {
     );
   }
 }
+

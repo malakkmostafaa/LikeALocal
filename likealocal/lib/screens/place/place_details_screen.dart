@@ -7,6 +7,7 @@ import 'package:like_a_local/screens/place_details/reviews_list.dart';
 
 import '../../models/place.dart';
 import '../../services/place_service.dart';
+import '../../services/recommendation_service.dart';
 import '../explore/widgets/post_user_header.dart';
 import '../map/map_screen.dart';
 
@@ -26,6 +27,7 @@ class PlaceDetailsScreen extends StatefulWidget {
 
 class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
   final PlaceService _placeService = PlaceService();
+  final RecommendationService _recommendationService = RecommendationService();
 
   bool _isSaved = false;
   bool _isLoadingSaved = true;
@@ -34,7 +36,9 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
   void initState() {
     super.initState();
     _checkIfSaved();
+    _recommendationService.trackViewPlace(widget.place.id, widget.place.category);
   }
+
 
   Future<void> _checkIfSaved() async {
     final user = FirebaseAuth.instance.currentUser;

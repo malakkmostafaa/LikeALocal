@@ -17,29 +17,26 @@ class CategoryFilter extends StatelessWidget {
     const primaryColor = Color(0xFFE26D45);
     const lightPrimary = Color(0xFFFBE8DF);
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          _buildChip(
-            label: 'All',
-            isSelected: selectedCategory == null,
-            onTap: () => onCategorySelected(null),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildChip(
+          label: 'All',
+          isSelected: selectedCategory == null,
+          onTap: () => onCategorySelected(null),
+          primaryColor: primaryColor,
+          lightPrimary: lightPrimary,
+        ),
+        ...categories.map((cat) {
+          return _buildChip(
+            label: cat,
+            isSelected: selectedCategory == cat,
+            onTap: () => onCategorySelected(selectedCategory == cat ? null : cat),
             primaryColor: primaryColor,
             lightPrimary: lightPrimary,
-          ),
-          ...categories.map((cat) {
-            return _buildChip(
-              label: cat,
-              isSelected: selectedCategory == cat,
-              onTap: () => onCategorySelected(selectedCategory == cat ? null : cat),
-              primaryColor: primaryColor,
-              lightPrimary: lightPrimary,
-            );
-          }).toList(),
-        ],
-      ),
+          );
+        }).toList(),
+      ],
     );
   }
 
@@ -72,10 +69,12 @@ class CategoryFilter extends StatelessWidget {
           label,
           style: TextStyle(
             color: isSelected ? Colors.white : primaryColor,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w700,
+            fontSize: 13,
           ),
         ),
       ),
     );
   }
 }
+
