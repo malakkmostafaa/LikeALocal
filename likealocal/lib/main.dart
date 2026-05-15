@@ -6,9 +6,13 @@ import 'package:provider/provider.dart';
 
 import 'firebase_options.dart';
 
+import 'providers/connectivity_provider.dart';
+import 'widgets/offline_banner.dart';
+
 import 'providers/auth_provider.dart' as app_auth;
 import 'providers/user_provider.dart';
 import 'providers/place_provider.dart';
+import 'providers/review_provider.dart';
 import 'providers/location_provider.dart';
 
 import 'screens/auth/login_screen.dart';
@@ -32,6 +36,8 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => app_auth.AuthProvider()),
         ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => PlaceProvider()),
+        ChangeNotifierProvider(create: (_) => ReviewProvider()),
+        ChangeNotifierProvider(create: (_) => ConnectivityProvider()),
         ChangeNotifierProvider(
           create: (_) => LocationProvider()..fetchLocation(),
         ),
@@ -44,8 +50,9 @@ Future<void> main() async {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  static const Color primaryColor = Color(0xFFD45A38);
-  static const Color backgroundColor = Color(0xFFF7F4EF);
+  static const Color primaryColor = Color(0xFFE26D45);
+  static const Color backgroundColor = Color(0xFFF7EFE8);
+  static const Color cardColor = Color(0xFFFFFBF7);
 
   @override
   Widget build(BuildContext context) {
@@ -55,11 +62,43 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
         scaffoldBackgroundColor: backgroundColor,
+        fontFamily: null,
         colorScheme: ColorScheme.fromSeed(
           seedColor: primaryColor,
           primary: primaryColor,
+          surface: cardColor,
+        ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: backgroundColor,
+          elevation: 0,
+          centerTitle: false,
+          foregroundColor: Color(0xFF1F1F28),
+        ),
+        snackBarTheme: SnackBarThemeData(
+          backgroundColor: const Color(0xFF1F1F28),
+          contentTextStyle: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
+          ),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
         ),
       ),
+
+      // This places the offline banner above every screen.
+      builder: (context, child) {
+        return Column(
+          children: [
+            const OfflineBanner(),
+            Expanded(
+              child: child ?? const SizedBox.shrink(),
+            ),
+          ],
+        );
+      },
+
       home: const AuthGate(),
     );
   }
@@ -94,7 +133,9 @@ class SplashLoadingScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Scaffold(
       body: Center(
-        child: CircularProgressIndicator(),
+        child: CircularProgressIndicator(
+          color: MyApp.primaryColor,
+        ),
       ),
     );
   }

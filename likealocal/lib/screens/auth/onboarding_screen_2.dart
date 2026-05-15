@@ -8,6 +8,8 @@ import 'package:image_picker/image_picker.dart';
 import '../../services/storage_service.dart';
 import '../../services/user_service.dart';
 import '../main_navigation.dart';
+import 'package:provider/provider.dart';
+import '../../providers/connectivity_provider.dart';
 
 class OnboardingScreen2 extends StatefulWidget {
   const OnboardingScreen2({super.key});
@@ -48,7 +50,21 @@ class _OnboardingScreen2State extends State<OnboardingScreen2> {
 
   Future<void> _finish() async {
     setState(() => isLoading = true);
+    final isOffline = context.read<ConnectivityProvider>().isOffline;
 
+    if (isOffline && _imageFile != null) {
+      setState(() => isLoading = false);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Profile image upload is not available offline. You can skip and add it later.',
+          ),
+        ),
+      );
+
+      return;
+    }
     try {
       if (_imageFile != null) {
         final uid = FirebaseAuth.instance.currentUser?.uid;

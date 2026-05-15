@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
@@ -12,7 +11,6 @@ import '../models/dish.dart';
 class PlaceService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
   final Uuid _uuid = const Uuid();
 
   Stream<List<Place>> getPlaces() {
@@ -27,10 +25,60 @@ class PlaceService {
     });
   }
 
+  Future<List<Place>> getPlacesOnce({bool fromCache = false}) async {
+    final snapshot = await _firestore
+        .collection('places')
+        .orderBy('createdAt', descending: true)
+        .get(
+          fromCache
+              ? const GetOptions(source: Source.cache)
+              : const GetOptions(source: Source.serverAndCache),
+        );
+
+    return snapshot.docs.map((doc) {
+      return Place.fromMap(doc.data(), doc.id);
+    }).toList();
+  }
+
   Stream<Place?> getPlaceById(String placeId) {
     return _firestore.collection('places').doc(placeId).snapshots().map((doc) {
       if (!doc.exists || doc.data() == null) return null;
       return Place.fromMap(doc.data()!, doc.id);
+    });
+  }
+
+  Future<Place?> getPlaceByIdOnce(String placeId,
+      {bool fromCache = false}) async {
+    if (placeId.trim().isEmpty) return null;
+
+    final doc = await _firestore.collection('places').doc(placeId).get(
+          fromCache
+              ? const GetOptions(source: Source.cache)
+              : const GetOptions(source: Source.serverAndCache),
+        );
+
+    if (!doc.exists || doc.data() == null) return null;
+
+    return Place.fromMap(doc.data()!, doc.id);
+  }
+
+  Stream<List<Place>> getPlacesByUser(String uid) {
+    return _firestore
+        .collection('places')
+        .where('createdBy', isEqualTo: uid)
+        .snapshots()
+        .map((snapshot) {
+      final places = snapshot.docs.map((doc) {
+        return Place.fromMap(doc.data(), doc.id);
+      }).toList();
+
+      places.sort((a, b) {
+        final aTime = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final bTime = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return bTime.compareTo(aTime);
+      });
+
+      return places;
     });
   }
 
@@ -120,40 +168,20 @@ class PlaceService {
     return urls;
   }
 
-  String _getImageExtension(String path) {
-    final extension = path.split('.').last.toLowerCase();
-
-    if (extension == 'jpg') return 'jpeg';
-
-    if (['jpeg', 'png', 'webp'].contains(extension)) {
-      return extension;
-    }
-
-    return 'jpeg';
-  }
-
-  String _contentTypeFromExtension(String extension) {
-    switch (extension) {
-      case 'png':
-        return 'image/png';
-      case 'webp':
-        return 'image/webp';
-      case 'jpeg':
-      default:
-        return 'image/jpeg';
-    }
-  }
-
   Future<void> addTipToPlace(
     String placeId, {
     required String text,
     String? authorId,
   }) async {
-    final uid = authorId ?? _auth.currentUser?.uid;
+    final cleanText = text.trim();
+
+    if (cleanText.isEmpty) {
+      throw Exception('Tip text cannot be empty.');
+    }
 
     final map = {
-      'text': text.trim(),
-      if (uid != null) 'authorId': uid,
+      'text': cleanText,
+      if (authorId != null) 'authorId': authorId,
       'createdAt': Timestamp.now(),
     };
 
@@ -185,173 +213,6 @@ class PlaceService {
       return snapshot.docs.map((doc) {
         return Dish.fromMap(doc.data());
       }).toList();
-    });
-  }
-
-  Stream<List<Map<String, dynamic>>> getReviews(String placeId) {
-    return _firestore
-        .collection('places')
-        .doc(placeId)
-        .collection('reviews')
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map((snapshot) {
-      return snapshot.docs.map((doc) {
-        final data = doc.data();
-
-        return {
-          ...data,
-          'id': doc.id,
-          'createdAt': _dateFromValue(data['createdAt']),
-          'updatedAt': _dateFromValue(data['updatedAt']),
-        };
-      }).toList();
-    });
-  }
-
-  Future<void> addReviewToPlace(
-    String placeId,
-    Map<String, dynamic> review, {
-    String? userId,
-  }) async {
-    final uid = userId ?? _auth.currentUser?.uid;
-
-    if (uid == null) {
-      throw Exception('User must be authenticated to add a review.');
-    }
-
-    final userDoc = await _firestore.collection('users').doc(uid).get();
-    final userData = userDoc.data();
-
-    final userName = userData?['name'] ??
-        _auth.currentUser?.displayName ??
-        _auth.currentUser?.email ??
-        'Local User';
-
-    final reviewRef = _firestore
-        .collection('places')
-        .doc(placeId)
-        .collection('reviews')
-        .doc();
-
-    await reviewRef.set({
-      'userId': uid,
-      'userName': userName,
-      'text': review['text']?.toString().trim() ?? '',
-      'rating': (review['rating'] as num?)?.toDouble() ?? 5.0,
-      'createdAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
-
-    await _firestore.collection('users').doc(uid).set({
-      'reviewsCount': FieldValue.increment(1),
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-
-    await recalculatePlaceRating(placeId);
-  }
-
-  Future<void> editReview(
-    String placeId,
-    String reviewId,
-    Map<String, dynamic> updatedReview, {
-    String? userId,
-  }) async {
-    final uid = userId ?? _auth.currentUser?.uid;
-
-    if (uid == null) {
-      throw Exception('User must be authenticated to edit a review.');
-    }
-
-    final reviewRef = _firestore
-        .collection('places')
-        .doc(placeId)
-        .collection('reviews')
-        .doc(reviewId);
-
-    final reviewDoc = await reviewRef.get();
-
-    if (!reviewDoc.exists) {
-      throw Exception('Review not found.');
-    }
-
-    final reviewData = reviewDoc.data()!;
-
-    if (reviewData['userId'] != uid) {
-      throw Exception('You can only edit your own reviews.');
-    }
-
-    await reviewRef.update({
-      'text': updatedReview['text']?.toString().trim() ?? '',
-      'rating': (updatedReview['rating'] as num?)?.toDouble() ?? 5.0,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
-
-    await recalculatePlaceRating(placeId);
-  }
-
-  Future<void> deleteReview(
-    String placeId,
-    String reviewId, {
-    String? userId,
-  }) async {
-    final uid = userId ?? _auth.currentUser?.uid;
-
-    if (uid == null) {
-      throw Exception('User must be authenticated to delete a review.');
-    }
-
-    final reviewRef = _firestore
-        .collection('places')
-        .doc(placeId)
-        .collection('reviews')
-        .doc(reviewId);
-
-    final reviewDoc = await reviewRef.get();
-
-    if (!reviewDoc.exists) {
-      throw Exception('Review not found.');
-    }
-
-    final reviewData = reviewDoc.data()!;
-
-    if (reviewData['userId'] != uid) {
-      throw Exception('You can only delete your own reviews.');
-    }
-
-    await reviewRef.delete();
-
-    await _firestore.collection('users').doc(uid).set({
-      'reviewsCount': FieldValue.increment(-1),
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-
-    await recalculatePlaceRating(placeId);
-  }
-
-  Future<void> recalculatePlaceRating(String placeId) async {
-    final reviewsSnapshot = await _firestore
-        .collection('places')
-        .doc(placeId)
-        .collection('reviews')
-        .get();
-
-    final reviews = reviewsSnapshot.docs;
-
-    double totalRating = 0;
-
-    for (final doc in reviews) {
-      final data = doc.data();
-      totalRating += (data['rating'] as num?)?.toDouble() ?? 0.0;
-    }
-
-    final count = reviews.length;
-    final average = count == 0 ? 0.0 : totalRating / count;
-
-    await _firestore.collection('places').doc(placeId).update({
-      'rating': double.parse(average.toStringAsFixed(1)),
-      'reviewCount': count,
-      'updatedAt': FieldValue.serverTimestamp(),
     });
   }
 
@@ -428,21 +289,27 @@ class PlaceService {
     await docRef.delete();
   }
 
-  DateTime? _dateFromValue(dynamic value) {
-    if (value == null) return null;
+  String _getImageExtension(String path) {
+    final extension = path.split('.').last.toLowerCase();
 
-    if (value is Timestamp) {
-      return value.toDate();
+    if (extension == 'jpg') return 'jpeg';
+
+    if (['jpeg', 'png', 'webp'].contains(extension)) {
+      return extension;
     }
 
-    if (value is DateTime) {
-      return value;
-    }
+    return 'jpeg';
+  }
 
-    if (value is String) {
-      return DateTime.tryParse(value);
+  String _contentTypeFromExtension(String extension) {
+    switch (extension) {
+      case 'png':
+        return 'image/png';
+      case 'webp':
+        return 'image/webp';
+      case 'jpeg':
+      default:
+        return 'image/jpeg';
     }
-
-    return null;
   }
 }

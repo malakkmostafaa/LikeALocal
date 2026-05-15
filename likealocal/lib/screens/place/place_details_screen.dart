@@ -9,8 +9,6 @@ import '../../models/place.dart';
 import '../../services/place_service.dart';
 import '../explore/widgets/post_user_header.dart';
 import '../map/map_screen.dart';
-import '../place_details/review_form.dart';
-import '../place_details/reviews_list.dart';
 
 class PlaceDetailsScreen extends StatefulWidget {
   final Place place;
