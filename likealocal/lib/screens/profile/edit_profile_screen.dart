@@ -8,6 +8,9 @@ import '../../models/user_model.dart';
 import '../../services/user_service.dart';
 import '../../services/storage_service.dart';
 
+import 'package:provider/provider.dart';
+import '../../providers/connectivity_provider.dart';
+
 class EditProfileScreen extends StatefulWidget {
   final AppUser user;
 
@@ -91,6 +94,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Future<String> _getUpdatedProfileImageUrl() async {
     if (_imageFile == null) {
       return widget.user.profileImageUrl;
+    }
+
+    final isOffline = context.read<ConnectivityProvider>().isOffline;
+
+    if (isOffline) {
+      throw Exception(
+        'Profile image upload is not available offline. Please reconnect.',
+      );
     }
 
     final imageUrl = await _storageService.uploadCurrentUserProfileImage(

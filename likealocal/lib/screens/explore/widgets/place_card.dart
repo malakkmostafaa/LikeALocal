@@ -1,7 +1,9 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:like_a_local/screens/explore/widgets/place_map_preview.dart';
 
 import '../../../models/place.dart';
+import '../../map/map_screen.dart';
 
 class PlaceCard extends StatelessWidget {
   final Place place;
@@ -18,6 +20,15 @@ class PlaceCard extends StatelessWidget {
   String _formatDistance(double meters) {
     if (meters < 1000) return '${meters.round()} m away';
     return '${(meters / 1000).toStringAsFixed(1)} km away';
+  }
+
+  void _openMap(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MapScreen(initialPlace: place),
+      ),
+    );
   }
 
   @override
@@ -62,10 +73,20 @@ class PlaceCard extends StatelessWidget {
                           fit: BoxFit.cover,
                           placeholder: (_, __) =>
                               Container(color: lightPrimary),
-                          errorWidget: (_, __, ___) => _placeholder(),
+                          errorWidget: (_, __, ___) => PlaceMapPreview(
+                            lat: place.lat,
+                            lng: place.lng,
+                            placeName: place.name,
+                            onTap: () => _openMap(context),
+                          ),
                         ),
                       )
-                    : _placeholder(),
+                    : PlaceMapPreview(
+                        lat: place.lat,
+                        lng: place.lng,
+                        placeName: place.name,
+                        onTap: () => _openMap(context),
+                      ),
               ),
             ),
             Padding(
@@ -143,19 +164,6 @@ class PlaceCard extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _placeholder() {
-    return Container(
-      color: const Color(0xFFFBE8DF),
-      child: const Center(
-        child: Icon(
-          Icons.image_rounded,
-          size: 60,
-          color: Color(0xFFE26D45),
         ),
       ),
     );

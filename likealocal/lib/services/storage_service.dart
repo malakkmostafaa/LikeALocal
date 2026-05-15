@@ -14,11 +14,25 @@ class StorageService {
       throw Exception('No logged-in user found.');
     }
 
+    if (!await imageFile.exists()) {
+      throw Exception('Selected image file does not exist.');
+    }
+
+    final fileSize = await imageFile.length();
+
+    if (fileSize == 0) {
+      throw Exception('Selected image file is empty.');
+    }
+
+    if (fileSize > 10 * 1024 * 1024) {
+      throw Exception('Image is too large. Please choose an image under 10MB.');
+    }
+
     final uid = user.uid;
     final timestamp = DateTime.now().millisecondsSinceEpoch;
 
-    final extension = imageFile.path.split('.').last.toLowerCase();
-    final contentType = extension == 'png' ? 'image/png' : 'image/jpeg';
+    final extension = _safeImageExtension(imageFile.path);
+    final contentType = _contentTypeFromExtension(extension);
 
     final ref = _storage
         .ref()
@@ -36,6 +50,30 @@ class StorageService {
     );
 
     final uploadTask = await ref.putFile(imageFile, metadata);
-    return await uploadTask.ref.getDownloadURL();
+    return uploadTask.ref.getDownloadURL();
+  }
+
+  String _safeImageExtension(String path) {
+    final extension = path.split('.').last.toLowerCase();
+
+    if (extension == 'jpg') return 'jpeg';
+
+    if (['jpeg', 'png', 'webp'].contains(extension)) {
+      return extension;
+    }
+
+    return 'jpeg';
+  }
+
+  String _contentTypeFromExtension(String extension) {
+    switch (extension) {
+      case 'png':
+        return 'image/png';
+      case 'webp':
+        return 'image/webp';
+      case 'jpeg':
+      default:
+        return 'image/jpeg';
+    }
   }
 }
