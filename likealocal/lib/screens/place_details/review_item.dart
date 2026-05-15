@@ -1,7 +1,9 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
-import '../../services/place_service.dart';
+import '../../providers/connectivity_provider.dart';
+import '../../providers/review_provider.dart';
 
 class ReviewItem extends StatefulWidget {
   final Map<String, dynamic> review;
@@ -22,10 +24,7 @@ class ReviewItem extends StatefulWidget {
 }
 
 class _ReviewItemState extends State<ReviewItem> {
-  final PlaceService _placeService = PlaceService();
-
   bool _isEditing = false;
-  bool _isLoading = false;
 
   late TextEditingController _commentController;
   late int _rating;
@@ -62,19 +61,22 @@ class _ReviewItemState extends State<ReviewItem> {
       return;
     }
 
-    setState(() => _isLoading = true);
+    final isOffline = context.read<ConnectivityProvider>().isOffline;
 
     try {
-      await _placeService.editReview(widget.placeId, widget.reviewId, {
-        'text': text,
-        'rating': _rating,
-      });
+      await context.read<ReviewProvider>().editReview(
+            placeId: widget.placeId,
+            reviewId: widget.reviewId,
+            text: text,
+            rating: _rating.toDouble(),
+            isOffline: isOffline,
+          );
+
+      if (!mounted) return;
 
       setState(() => _isEditing = false);
 
       widget.onReviewUpdated?.call();
-
-      if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Review updated')),
@@ -83,12 +85,8 @@ class _ReviewItemState extends State<ReviewItem> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to update review: $e')),
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
       );
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
     }
   }
 
@@ -97,6 +95,10 @@ class _ReviewItemState extends State<ReviewItem> {
       context: context,
       builder: (_) {
         return AlertDialog(
+          backgroundColor: const Color(0xFFFFFBF7),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
           title: const Text('Delete review?'),
           content: const Text('This action cannot be undone.'),
           actions: [
@@ -118,14 +120,18 @@ class _ReviewItemState extends State<ReviewItem> {
 
     if (confirmed != true) return;
 
-    setState(() => _isLoading = true);
+    final isOffline = context.read<ConnectivityProvider>().isOffline;
 
     try {
-      await _placeService.deleteReview(widget.placeId, widget.reviewId);
-
-      widget.onReviewUpdated?.call();
+      await context.read<ReviewProvider>().deleteReview(
+            placeId: widget.placeId,
+            reviewId: widget.reviewId,
+            isOffline: isOffline,
+          );
 
       if (!mounted) return;
+
+      widget.onReviewUpdated?.call();
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Review deleted')),
@@ -134,25 +140,26 @@ class _ReviewItemState extends State<ReviewItem> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to delete review: $e')),
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
       );
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
     }
   }
 
   String _dateText(dynamic date) {
     if (date is! DateTime) return '';
-
     return '${date.day}/${date.month}/${date.year}';
   }
 
   @override
   Widget build(BuildContext context) {
     const primaryColor = Color(0xFFE26D45);
-    const mutedText = Color(0xFF777777);
+    const mutedText = Color(0xFF7A6D66);
+    const cardColor = Color(0xFFFFFBF7);
+    const borderColor = Color(0xFFEEDDD2);
+    const textColor = Color(0xFF1F1F28);
+
+    final reviewProvider = context.watch<ReviewProvider>();
+    final isLoading = reviewProvider.isLoading;
 
     final userName = widget.review['userName']?.toString() ?? 'Local User';
     final dateText = _dateText(widget.review['createdAt']);
@@ -163,9 +170,16 @@ class _ReviewItemState extends State<ReviewItem> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: cardColor,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: Colors.grey.shade100),
+        border: Border.all(color: borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.018),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -174,7 +188,7 @@ class _ReviewItemState extends State<ReviewItem> {
             children: [
               CircleAvatar(
                 radius: 18,
-                backgroundColor: primaryColor.withOpacity(0.12),
+                backgroundColor: const Color(0xFFFFE6D8),
                 child: Text(
                   userName.isEmpty ? '?' : userName[0].toUpperCase(),
                   style: const TextStyle(
@@ -187,7 +201,10 @@ class _ReviewItemState extends State<ReviewItem> {
               Expanded(
                 child: Text(
                   userName,
-                  style: const TextStyle(fontWeight: FontWeight.w800),
+                  style: const TextStyle(
+                    color: textColor,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
               ),
               if (dateText.isNotEmpty)
@@ -196,6 +213,7 @@ class _ReviewItemState extends State<ReviewItem> {
                   style: const TextStyle(
                     color: mutedText,
                     fontSize: 12,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
             ],
@@ -216,11 +234,11 @@ class _ReviewItemState extends State<ReviewItem> {
           if (_isEditing) ...[
             TextField(
               controller: _commentController,
-              enabled: !_isLoading,
+              enabled: !isLoading,
               maxLines: 3,
               decoration: InputDecoration(
                 filled: true,
-                fillColor: Colors.white,
+                fillColor: const Color(0xFFFFF3EC),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
                   borderSide: BorderSide.none,
@@ -233,7 +251,7 @@ class _ReviewItemState extends State<ReviewItem> {
                 return IconButton(
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
-                  onPressed: _isLoading
+                  onPressed: isLoading
                       ? null
                       : () {
                           setState(() {
@@ -252,7 +270,11 @@ class _ReviewItemState extends State<ReviewItem> {
           ] else
             Text(
               widget.review['text']?.toString() ?? '',
-              style: const TextStyle(height: 1.45),
+              style: const TextStyle(
+                color: textColor,
+                height: 1.45,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           if (_isOwner) ...[
             const SizedBox(height: 12),
@@ -261,23 +283,30 @@ class _ReviewItemState extends State<ReviewItem> {
               children: [
                 if (_isEditing) ...[
                   TextButton(
-                    onPressed: _isLoading
+                    onPressed: isLoading
                         ? null
                         : () {
                             setState(() {
                               _isEditing = false;
+                              _commentController.text =
+                                  widget.review['text']?.toString() ?? '';
+                              _rating =
+                                  ((widget.review['rating'] as num?)?.toInt() ??
+                                          5)
+                                      .clamp(1, 5);
                             });
                           },
                     child: const Text('Cancel'),
                   ),
                   const SizedBox(width: 8),
                   ElevatedButton(
-                    onPressed: _isLoading ? null : _updateReview,
+                    onPressed: isLoading ? null : _updateReview,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: primaryColor,
                       foregroundColor: Colors.white,
+                      elevation: 0,
                     ),
-                    child: _isLoading
+                    child: isLoading
                         ? const SizedBox(
                             width: 16,
                             height: 16,
@@ -290,7 +319,7 @@ class _ReviewItemState extends State<ReviewItem> {
                   ),
                 ] else ...[
                   TextButton.icon(
-                    onPressed: _isLoading
+                    onPressed: isLoading
                         ? null
                         : () {
                             setState(() {
@@ -301,7 +330,7 @@ class _ReviewItemState extends State<ReviewItem> {
                     label: const Text('Edit'),
                   ),
                   TextButton.icon(
-                    onPressed: _isLoading ? null : _deleteReview,
+                    onPressed: isLoading ? null : _deleteReview,
                     icon: const Icon(
                       Icons.delete_outline,
                       size: 18,

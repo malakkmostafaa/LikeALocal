@@ -2,10 +2,14 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:like_a_local/providers/connectivity_provider.dart';
+import 'package:like_a_local/providers/place_provider.dart';
+import 'package:like_a_local/providers/review_provider.dart';
+
+import 'package:provider/provider.dart';
 
 import '../../models/place.dart';
 import '../../models/user_model.dart';
-import '../../services/place_service.dart';
 import 'edit_profile_screen.dart';
 import 'settings_screen.dart';
 import 'super_user_screen.dart';
@@ -19,21 +23,231 @@ class ProfileScreen extends StatefulWidget {
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
+class _ProfileActionsPanel extends StatelessWidget {
+  final AppUser user;
+
+  const _ProfileActionsPanel({
+    required this.user,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: _ProfileScreenState.cardColor,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: _ProfileScreenState.borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.025),
+            blurRadius: 14,
+            offset: const Offset(0, 7),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _ProfileActionTile(
+                  icon: Icons.edit_outlined,
+                  title: 'Edit Profile',
+                  subtitle: 'Update info',
+                  isPrimary: true,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => EditProfileScreen(user: user),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const _PanelDivider(vertical: true),
+              Expanded(
+                child: _ProfileActionTile(
+                  icon: Icons.workspace_premium_outlined,
+                  title: 'Super User',
+                  subtitle: user.isSuperUser ? 'Unlocked' : 'Progress',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => SuperUserScreen(user: user),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+          const _PanelDivider(),
+          Row(
+            children: [
+              Expanded(
+                child: _ProfileActionTile(
+                  icon: Icons.auto_awesome_rounded,
+                  title: 'Plans',
+                  subtitle: user.isPremium ? 'Premium' : 'Upgrade',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => SubscriptionPlansScreen(user: user),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const _PanelDivider(vertical: true),
+              Expanded(
+                child: _ProfileActionTile(
+                  icon: Icons.smart_toy_outlined,
+                  title: 'AI Guide',
+                  subtitle: 'Coming soon',
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('AI Guide coming soon')),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileActionTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool isPrimary;
+  final VoidCallback onTap;
+
+  const _ProfileActionTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.isPrimary = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final iconBg = isPrimary
+        ? _ProfileScreenState.primaryColor
+        : _ProfileScreenState.softPrimary;
+
+    final iconColor =
+        isPrimary ? Colors.white : _ProfileScreenState.primaryColor;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(28),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+          child: Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: iconBg,
+                  borderRadius: BorderRadius.circular(15),
+                  boxShadow: isPrimary
+                      ? [
+                          BoxShadow(
+                            color: _ProfileScreenState.primaryColor
+                                .withOpacity(0.18),
+                            blurRadius: 10,
+                            offset: const Offset(0, 5),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Icon(
+                  icon,
+                  color: iconColor,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _ProfileScreenState.textColor,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 13.5,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _ProfileScreenState.mutedText,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 11.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PanelDivider extends StatelessWidget {
+  final bool vertical;
+
+  const _PanelDivider({
+    this.vertical = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: vertical ? 1 : double.infinity,
+      height: vertical ? 62 : 1,
+      color: _ProfileScreenState.borderColor.withOpacity(0.8),
+    );
+  }
+}
+
 class _ProfileScreenState extends State<ProfileScreen> {
   int _selectedTab = 0;
 
-  static const Color bgColor = Color(0xFFF3EAE2);
-  static const Color cardColor = Color(0xFFFFF8F2);
-  static const Color elevatedCardColor = Color(0xFFFFFCF8);
-  static const Color primaryColor = Color(0xFFE26D45);
-  static const Color deepPrimary = Color(0xFFB94F32);
-  static const Color softPrimary = Color(0xFFFFE5D7);
-  static const Color softerPrimary = Color(0xFFFFF0E8);
-  static const Color borderColor = Color(0xFFEBD8CC);
-  static const Color textColor = Color(0xFF1F1F28);
-  static const Color mutedText = Color(0xFF7B6F68);
+  static const Color bgColor = Color(0xFFF7EFE8);
+  static const Color cardColor = Color(0xFFFFFBF7);
+  static const Color surfaceColor = Color(0xFFFFF3EC);
 
-  final PlaceService _placeService = PlaceService();
+  static const Color primaryColor = Color(0xFFE26D45);
+  static const Color primaryDark = Color(0xFFB95637);
+  static const Color softPrimary = Color(0xFFFFE6D8);
+
+  static const Color borderColor = Color(0xFFEEDDD2);
+  static const Color textColor = Color(0xFF1F1F28);
+  static const Color mutedText = Color(0xFF7A6D66);
+
+  static const Color goldColor = Color(0xFFE5A11A);
 
   @override
   Widget build(BuildContext context) {
@@ -84,7 +298,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 22, 20, 0),
+                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
                     child: _ProfileHeaderCard(
                       user: user,
                       joinedText: joinedText,
@@ -93,20 +307,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+                    padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
                     child: _StatsRow(user: user),
                   ),
                 ),
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
-                    child: _EditProfileButton(user: user),
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
-                    child: _ShortcutGrid(user: user),
+                    padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+                    child: _ProfileActionsPanel(user: user),
                   ),
                 ),
                 SliverToBoxAdapter(
@@ -205,7 +413,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (confirmed != true) return;
 
     try {
-      await _placeService.deletePlace(place.id);
+      await context.read<PlaceProvider>().deletePlace(place.id,
+          isOffline: context.read<ConnectivityProvider>().isOffline);
 
       if (!mounted) return;
 
@@ -231,26 +440,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (result == null) return;
 
+    final isOffline = context.read<ConnectivityProvider>().isOffline;
+
     try {
-      await _placeService.editReview(
-        review.placeId,
-        review.reviewId,
-        {
-          'text': result.text,
-          'rating': result.rating,
-        },
-      );
+      await context.read<ReviewProvider>().editReview(
+            placeId: review.placeId,
+            reviewId: review.reviewId,
+            text: result.text,
+            rating: result.rating,
+            isOffline: isOffline,
+          );
 
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Review updated')),
       );
+
+      setState(() {});
     } catch (e) {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not update review: $e')),
+        SnackBar(
+          content: Text(
+            e.toString().replaceFirst('Exception: ', ''),
+          ),
+        ),
       );
     }
   }
@@ -287,22 +503,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (confirmed != true) return;
 
+    final isOffline = context.read<ConnectivityProvider>().isOffline;
+
     try {
-      await _placeService.deleteReview(
-        review.placeId,
-        review.reviewId,
-      );
+      await context.read<ReviewProvider>().deleteReview(
+            placeId: review.placeId,
+            reviewId: review.reviewId,
+            isOffline: isOffline,
+          );
 
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Review deleted')),
       );
+
+      setState(() {});
     } catch (e) {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not delete review: $e')),
+        SnackBar(
+          content: Text(
+            e.toString().replaceFirst('Exception: ', ''),
+          ),
+        ),
       );
     }
   }
@@ -404,25 +629,16 @@ class _ProfileHeaderCard extends StatelessWidget {
         : user.bio.trim();
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFFFFF8F2),
-            Color(0xFFFFEDE3),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(34),
-        border: Border.all(
-          color: _ProfileScreenState.borderColor,
-        ),
+        color: _ProfileScreenState.cardColor,
+        borderRadius: BorderRadius.circular(32),
+        border: Border.all(color: _ProfileScreenState.borderColor),
         boxShadow: [
           BoxShadow(
-            color: _ProfileScreenState.primaryColor.withOpacity(0.08),
-            blurRadius: 22,
-            offset: const Offset(0, 10),
+            color: Colors.black.withOpacity(0.028),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -432,28 +648,23 @@ class _ProfileHeaderCard extends StatelessWidget {
             clipBehavior: Clip.none,
             children: [
               Container(
+                width: 88,
+                height: 88,
                 padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   color: _ProfileScreenState.softPrimary,
                   shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: _ProfileScreenState.primaryColor.withOpacity(0.12),
-                      blurRadius: 14,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
                 ),
                 child: CircleAvatar(
-                  radius: 43,
-                  backgroundColor: const Color(0xFFFFE5D7),
+                  radius: 40,
+                  backgroundColor: _ProfileScreenState.surfaceColor,
                   backgroundImage: user.profileImageUrl.isNotEmpty
                       ? CachedNetworkImageProvider(user.profileImageUrl)
                       : null,
                   child: user.profileImageUrl.isEmpty
                       ? const Icon(
                           Icons.person_rounded,
-                          size: 42,
+                          size: 40,
                           color: _ProfileScreenState.primaryColor,
                         )
                       : null,
@@ -461,8 +672,8 @@ class _ProfileHeaderCard extends StatelessWidget {
               ),
               if (user.isSuperUser)
                 Positioned(
-                  bottom: -1,
-                  right: -1,
+                  bottom: 0,
+                  right: 0,
                   child: Container(
                     padding: const EdgeInsets.all(7),
                     decoration: BoxDecoration(
@@ -475,8 +686,8 @@ class _ProfileHeaderCard extends StatelessWidget {
                     ),
                     child: const Icon(
                       Icons.workspace_premium_rounded,
-                      size: 17,
-                      color: Color(0xFFC88412),
+                      size: 16,
+                      color: _ProfileScreenState.goldColor,
                     ),
                   ),
                 ),
@@ -489,15 +700,18 @@ class _ProfileHeaderCard extends StatelessWidget {
               children: [
                 Wrap(
                   spacing: 8,
+                  runSpacing: 6,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Text(
                       displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: _ProfileScreenState.textColor,
-                        fontSize: 22,
+                        fontSize: 21,
                         fontWeight: FontWeight.w900,
-                        letterSpacing: -0.5,
+                        letterSpacing: -0.4,
                       ),
                     ),
                     if (user.isSuperUser)
@@ -548,7 +762,7 @@ class _ProfileHeaderCard extends StatelessWidget {
                 Row(
                   children: [
                     const Icon(
-                      Icons.auto_awesome_rounded,
+                      Icons.calendar_month_rounded,
                       size: 15,
                       color: _ProfileScreenState.primaryColor,
                     ),
@@ -620,34 +834,35 @@ class _StatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 15),
+        padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [
-              _ProfileScreenState.elevatedCardColor,
-              _ProfileScreenState.softerPrimary,
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          color: _ProfileScreenState.cardColor,
           borderRadius: BorderRadius.circular(24),
           border: Border.all(color: _ProfileScreenState.borderColor),
           boxShadow: [
             BoxShadow(
-              color: _ProfileScreenState.primaryColor.withOpacity(0.06),
-              blurRadius: 14,
-              offset: const Offset(0, 7),
+              color: Colors.black.withOpacity(0.022),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
             ),
           ],
         ),
         child: Column(
           children: [
-            Icon(
-              icon,
-              color: _ProfileScreenState.primaryColor,
-              size: 22,
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: _ProfileScreenState.softPrimary,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(
+                icon,
+                color: _ProfileScreenState.primaryColor,
+                size: 19,
+              ),
             ),
-            const SizedBox(height: 7),
+            const SizedBox(height: 8),
             Text(
               value,
               style: const TextStyle(
@@ -672,6 +887,127 @@ class _StatCard extends StatelessWidget {
   }
 }
 
+class _ActionCapsule extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool isPrimary;
+  final VoidCallback onTap;
+
+  const _ActionCapsule({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.isPrimary = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(28),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(28),
+        onTap: onTap,
+        child: Container(
+          width: 165,
+          padding: const EdgeInsets.all(15),
+          decoration: BoxDecoration(
+            gradient: isPrimary
+                ? const LinearGradient(
+                    colors: [
+                      _ProfileScreenState.primaryColor,
+                      _ProfileScreenState.primaryDark,
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  )
+                : const LinearGradient(
+                    colors: [
+                      _ProfileScreenState.cardColor,
+                      _ProfileScreenState.surfaceColor,
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(
+              color: isPrimary
+                  ? _ProfileScreenState.primaryColor
+                  : _ProfileScreenState.borderColor,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: isPrimary
+                    ? _ProfileScreenState.primaryColor.withOpacity(0.18)
+                    : Colors.black.withOpacity(0.025),
+                blurRadius: 14,
+                offset: const Offset(0, 7),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: isPrimary
+                      ? Colors.white.withOpacity(0.18)
+                      : _ProfileScreenState.softPrimary,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(
+                  icon,
+                  color: isPrimary
+                      ? Colors.white
+                      : _ProfileScreenState.primaryColor,
+                  size: 21,
+                ),
+              ),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: isPrimary
+                            ? Colors.white
+                            : _ProfileScreenState.textColor,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 13.5,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: isPrimary
+                            ? Colors.white.withOpacity(0.78)
+                            : _ProfileScreenState.mutedText,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _EditProfileButton extends StatelessWidget {
   final AppUser user;
 
@@ -682,7 +1018,7 @@ class _EditProfileButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: _ProfileScreenState.elevatedCardColor,
+      color: _ProfileScreenState.cardColor,
       borderRadius: BorderRadius.circular(24),
       child: InkWell(
         borderRadius: BorderRadius.circular(24),
@@ -744,7 +1080,7 @@ class _ShortcutGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: _ProfileScreenState.elevatedCardColor,
+        color: _ProfileScreenState.cardColor,
         borderRadius: BorderRadius.circular(30),
         border: Border.all(color: _ProfileScreenState.borderColor),
         boxShadow: [
@@ -910,12 +1246,12 @@ class _ProfileTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final labels = ['My Places', 'Saved Pins', 'Reviews'];
+    final labels = ['Places', 'Pins', 'Reviews'];
 
     return Container(
       padding: const EdgeInsets.all(5),
       decoration: BoxDecoration(
-        color: _ProfileScreenState.softPrimary,
+        color: _ProfileScreenState.surfaceColor,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: _ProfileScreenState.borderColor),
       ),
@@ -931,16 +1267,18 @@ class _ProfileTabs extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
                   color: selected
-                      ? _ProfileScreenState.primaryColor
+                      ? _ProfileScreenState.cardColor
                       : Colors.transparent,
                   borderRadius: BorderRadius.circular(19),
+                  border: selected
+                      ? Border.all(color: _ProfileScreenState.borderColor)
+                      : null,
                   boxShadow: selected
                       ? [
                           BoxShadow(
-                            color: _ProfileScreenState.primaryColor
-                                .withOpacity(0.20),
-                            blurRadius: 10,
-                            offset: const Offset(0, 5),
+                            color: Colors.black.withOpacity(0.035),
+                            blurRadius: 9,
+                            offset: const Offset(0, 4),
                           ),
                         ]
                       : null,
@@ -950,8 +1288,8 @@ class _ProfileTabs extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: selected
-                        ? Colors.white
-                        : _ProfileScreenState.textColor.withOpacity(0.65),
+                        ? _ProfileScreenState.primaryColor
+                        : _ProfileScreenState.textColor.withOpacity(0.55),
                     fontSize: 13,
                     fontWeight: FontWeight.w900,
                   ),
@@ -1074,7 +1412,7 @@ class _SavedPinsSection extends StatelessWidget {
   }
 }
 
-class _MyReviewsSection extends StatelessWidget {
+class _MyReviewsSection extends StatefulWidget {
   final String uid;
   final ValueChanged<_ReviewWithPlace> onEditReview;
   final ValueChanged<_ReviewWithPlace> onDeleteReview;
@@ -1087,20 +1425,89 @@ class _MyReviewsSection extends StatelessWidget {
   });
 
   @override
+  State<_MyReviewsSection> createState() => _MyReviewsSectionState();
+}
+
+class _MyReviewsSectionState extends State<_MyReviewsSection> {
+  late Future<List<_ReviewWithPlace>> _reviewsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _reviewsFuture = _loadMyReviews();
+  }
+
+  Future<void> _refresh() async {
+    setState(() {
+      _reviewsFuture = _loadMyReviews();
+    });
+  }
+
+  Future<List<_ReviewWithPlace>> _loadMyReviews() async {
+    final firestore = FirebaseFirestore.instance;
+
+    final placesSnapshot = await firestore.collection('places').get();
+
+    final List<_ReviewWithPlace> reviews = [];
+
+    for (final placeDoc in placesSnapshot.docs) {
+      final placeData = placeDoc.data();
+
+      final placeId = placeDoc.id;
+      final placeName = placeData['name']?.toString() ?? 'Unknown place';
+
+      final reviewsSnapshot = await placeDoc.reference
+          .collection('reviews')
+          .where('userId', isEqualTo: widget.uid)
+          .get();
+
+      for (final reviewDoc in reviewsSnapshot.docs) {
+        final data = reviewDoc.data();
+
+        reviews.add(
+          _ReviewWithPlace(
+            reviewId: reviewDoc.id,
+            placeId: placeId,
+            text: data['text']?.toString() ?? '',
+            rating: (data['rating'] as num?)?.toDouble() ?? 0.0,
+            placeName: data['placeName']?.toString().trim().isNotEmpty == true
+                ? data['placeName'].toString()
+                : placeName,
+            createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
+          ),
+        );
+      }
+    }
+
+    reviews.sort((a, b) {
+      final aTime = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final bTime = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return bTime.compareTo(aTime);
+    });
+
+    return reviews;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance
-          .collectionGroup('reviews')
-          .where('userId', isEqualTo: uid)
-          .snapshots(),
+    return FutureBuilder<List<_ReviewWithPlace>>(
+      future: _reviewsFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const _SectionLoadingCard();
         }
 
-        final docs = snapshot.data?.docs ?? [];
+        if (snapshot.hasError) {
+          return _EmptySectionCard(
+            icon: Icons.error_outline_rounded,
+            title: 'Could not load reviews',
+            message: snapshot.error.toString(),
+          );
+        }
 
-        if (docs.isEmpty) {
+        final reviews = snapshot.data ?? [];
+
+        if (reviews.isEmpty) {
           return const _EmptySectionCard(
             icon: Icons.rate_review_outlined,
             title: 'No reviews yet',
@@ -1108,36 +1515,68 @@ class _MyReviewsSection extends StatelessWidget {
           );
         }
 
-        final reviews = docs.map((doc) {
-          final data = doc.data();
-          final placeId = doc.reference.parent.parent?.id ?? '';
-
-          return _ReviewWithPlace(
-            reviewId: doc.id,
-            placeId: placeId,
-            text: data['text']?.toString() ?? '',
-            rating: (data['rating'] as num?)?.toDouble() ?? 0.0,
-            placeName: data['placeName']?.toString(),
-            createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
-          );
-        }).toList();
-
-        reviews.sort((a, b) {
-          final aTime = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-          final bTime = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-          return bTime.compareTo(aTime);
-        });
-
         return Column(
-          children: reviews.map((review) {
-            return _ProfileReviewCard(
-              review: review,
-              onEdit: () => onEditReview(review),
-              onDelete: () => onDeleteReview(review),
-            );
-          }).toList(),
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 12),
+            ...reviews.map((review) {
+              return _ProfileReviewCard(
+                review: review,
+                onEdit: () async {
+                  widget.onEditReview(review);
+                  await Future.delayed(const Duration(milliseconds: 500));
+                  _refresh();
+                },
+                onDelete: () async {
+                  widget.onDeleteReview(review);
+                  await Future.delayed(const Duration(milliseconds: 500));
+                  _refresh();
+                },
+              );
+            }),
+          ],
         );
       },
+    );
+  }
+}
+
+class _ContentSectionTitle extends StatelessWidget {
+  final String title;
+  final String subtitle;
+
+  const _ContentSectionTitle({
+    required this.title,
+    required this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 2, bottom: 2),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: _ProfileScreenState.textColor,
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.4,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            subtitle,
+            style: const TextStyle(
+              color: _ProfileScreenState.mutedText,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1160,19 +1599,12 @@ class _ProfilePlaceCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            _ProfileScreenState.elevatedCardColor,
-            _ProfileScreenState.cardColor,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: _ProfileScreenState.cardColor,
         borderRadius: BorderRadius.circular(28),
         border: Border.all(color: _ProfileScreenState.borderColor),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.028),
+            color: Colors.black.withOpacity(0.026),
             blurRadius: 13,
             offset: const Offset(0, 6),
           ),
@@ -1225,7 +1657,7 @@ class _ProfilePlaceCard extends StatelessWidget {
                       children: [
                         const Icon(
                           Icons.star_rounded,
-                          color: Color(0xFFE5A11A),
+                          color: _ProfileScreenState.goldColor,
                           size: 17,
                         ),
                         const SizedBox(width: 3),
@@ -1267,7 +1699,7 @@ class _ProfilePlaceCard extends StatelessWidget {
 
   Widget _fallbackImage() {
     return Container(
-      color: _ProfileScreenState.softPrimary,
+      color: _ProfileScreenState.surfaceColor,
       child: const Center(
         child: Icon(
           Icons.place_rounded,
@@ -1296,20 +1728,13 @@ class _ProfileReviewCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            _ProfileScreenState.elevatedCardColor,
-            _ProfileScreenState.softerPrimary,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: _ProfileScreenState.cardColor,
         borderRadius: BorderRadius.circular(28),
         border: Border.all(color: _ProfileScreenState.borderColor),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.025),
-            blurRadius: 12,
+            color: Colors.black.withOpacity(0.026),
+            blurRadius: 13,
             offset: const Offset(0, 6),
           ),
         ],

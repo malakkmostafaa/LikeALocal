@@ -62,7 +62,6 @@ class AuthService {
       // Profile
       'profileImageUrl': '',
       'bio': '',
-      'onboardingCompleted': false,
 
       // Dates
       'createdAt': FieldValue.serverTimestamp(),

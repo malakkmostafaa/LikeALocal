@@ -1136,8 +1136,8 @@ class _DiscoveryRowCard extends StatelessWidget {
     if (title.contains('Near')) {
       return const LinearGradient(
         colors: [
-          Color(0xFFEFF7EE),
-          Color(0xFFDCEED8),
+          Color(0xFFFFEEE6),
+          Color(0xFFFFD6C2),
         ],
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
@@ -1147,8 +1147,8 @@ class _DiscoveryRowCard extends StatelessWidget {
     if (title.contains('Top')) {
       return const LinearGradient(
         colors: [
-          Color(0xFFFFF5D9),
-          Color(0xFFFFE5A8),
+          Color(0xFFFFEEE6),
+          Color(0xFFFFD6C2),
         ],
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
@@ -1157,8 +1157,8 @@ class _DiscoveryRowCard extends StatelessWidget {
 
     return const LinearGradient(
       colors: [
-        Color(0xFFF1EDFF),
-        Color(0xFFE1D8FF),
+        Color(0xFFFFEEE6),
+        Color(0xFFFFD6C2),
       ],
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
@@ -1166,10 +1166,7 @@ class _DiscoveryRowCard extends StatelessWidget {
   }
 
   Color get _accentColor {
-    if (title.contains('Trending')) return ExploreScreen.primaryColor;
-    if (title.contains('Near')) return const Color(0xFF5F8F5A);
-    if (title.contains('Top')) return const Color(0xFFC48A1B);
-    return const Color(0xFF7657C8);
+    return ExploreScreen.primaryColor;
   }
 
   @override
