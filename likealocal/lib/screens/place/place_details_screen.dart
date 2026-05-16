@@ -1,14 +1,20 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:like_a_local/screens/place_details/review_form.dart';
-import 'package:like_a_local/screens/place_details/reviews_list.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
 
 import '../../models/place.dart';
+import '../../providers/place_provider.dart';
+import '../../providers/connectivity_provider.dart';
 import '../../services/place_service.dart';
 import '../../services/recommendation_service.dart';
 import '../../widgets/pin_button.dart';
+import '../../widgets/video_player_widget.dart';
+import '../add_place/add_place_screen.dart';
 import '../explore/widgets/post_user_header.dart';
 import '../map/map_screen.dart';
+import '../place_details/review_form.dart';
+import '../place_details/reviews_list.dart';
 
 class PlaceDetailsScreen extends StatefulWidget {
   final Place place;
@@ -109,6 +115,107 @@ class _PlaceDetailsContent extends StatelessWidget {
                   onChanged: onPinChanged,
                 ),
               ),
+              if (place.createdBy == FirebaseAuth.instance.currentUser?.uid)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.92),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.12),
+                          blurRadius: 10,
+                        ),
+                      ],
+                    ),
+                    child: PopupMenuButton<String>(
+                      icon: const Icon(Icons.more_vert_rounded, color: textColor),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      onSelected: (value) async {
+                        if (value == 'edit') {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => AddPlaceScreen(placeToEdit: place),
+                            ),
+                          );
+                        } else if (value == 'delete') {
+                          final confirm = await showDialog<bool>(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: const Text('Delete Place'),
+                              content: const Text('Are you sure you want to delete this place? This cannot be undone.'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context, false),
+                                  child: const Text('Cancel'),
+                                ),
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context, true),
+                                  child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (confirm == true && context.mounted) {
+                            try {
+                              showDialog(
+                                context: context,
+                                barrierDismissible: false,
+                                builder: (_) => const Center(child: CircularProgressIndicator()),
+                              );
+                              
+                              final provider = context.read<PlaceProvider>();
+                              final isOffline = context.read<ConnectivityProvider>().isOffline;
+                              
+                              await provider.deletePlace(place, isOffline: isOffline);
+                              
+                              if (context.mounted) {
+                                Navigator.pop(context); // pop loading
+                                Navigator.pop(context); // pop place details
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Place deleted successfully.')),
+                                );
+                              }
+                            } catch (e) {
+                              if (context.mounted) {
+                                Navigator.pop(context); // pop loading
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Failed to delete: $e')),
+                                );
+                              }
+                            }
+                          }
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        const PopupMenuItem(
+                          value: 'edit',
+                          child: Row(
+                            children: [
+                              Icon(Icons.edit_rounded, size: 20, color: textColor),
+                              SizedBox(width: 10),
+                              Text('Edit Post'),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              Icon(Icons.delete_rounded, size: 20, color: Colors.red),
+                              SizedBox(width: 10),
+                              Text('Delete Post', style: TextStyle(color: Colors.red)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               const SizedBox(width: 12),
             ],
           ),
@@ -185,7 +292,25 @@ class _PlaceDetailsContent extends StatelessWidget {
                     ),
                     const SizedBox(height: 26),
                   ],
+                  if (place.videos.isNotEmpty) ...[
+                    _SectionTitle('Videos'),
+                    const SizedBox(height: 14),
+                    ...place.videos.map((videoUrl) {
+                      return Container(
+                        height: 220,
+                        margin: const EdgeInsets.only(bottom: 16),
+                        clipBehavior: Clip.antiAlias,
+                        decoration: BoxDecoration(
+                          color: Colors.black,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: VideoPlayerWidget(url: videoUrl),
+                      );
+                    }),
+                    const SizedBox(height: 10),
+                  ],
                   _LocationPreviewButton(place: place),
+
                   const SizedBox(height: 26),
                   if (place.recommendedDishes.isNotEmpty) ...[
                     _SectionTitle('Local favorites'),

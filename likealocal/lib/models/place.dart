@@ -9,6 +9,7 @@ class Place {
   final String description;
   final String category;
   final List<String> images;
+  final List<String> videos;
   final GeoPoint location;
   final String? createdBy;
   final DateTime? createdAt;
@@ -23,6 +24,7 @@ class Place {
     required this.description,
     required this.category,
     required this.images,
+    this.videos = const [],
     required this.location,
     this.createdBy,
     this.createdAt,
@@ -88,6 +90,7 @@ class Place {
       description: map['description']?.toString() ?? '',
       category: map['category']?.toString() ?? 'Other',
       images: parsedImages,
+      videos: _parseStringList(map['videos']),
       location: geo ?? const GeoPoint(0, 0),
       createdBy: map['createdBy']?.toString(),
       createdAt: (map['createdAt'] is Timestamp)
@@ -106,6 +109,7 @@ class Place {
       'description': description,
       'category': category,
       'images': images,
+      'videos': videos,
       'location': location,
       if (createdBy != null) 'createdBy': createdBy,
       if (createdAt != null) 'createdAt': Timestamp.fromDate(createdAt!),
