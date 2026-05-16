@@ -17,6 +17,7 @@ import 'settings_screen.dart';
 import 'super_user_screen.dart';
 import 'subscription_plans_screen.dart';
 import '../place/place_details_screen.dart';
+import '../add_place/add_place_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -417,8 +418,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (confirmed != true) return;
 
     try {
-      await context.read<PlaceProvider>().deletePlace(place.id,
-          isOffline: context.read<ConnectivityProvider>().isOffline);
+      await context.read<PlaceProvider>().deletePlace(
+        place,
+        isOffline: context.read<ConnectivityProvider>().isOffline,
+      );
 
       if (!mounted) return;
 
@@ -1367,9 +1370,10 @@ class _MyPlacesSection extends StatelessWidget {
                   } else if (value == 'delete') {
                     onDeletePlace(place);
                   } else if (value == 'edit') {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Edit place screen coming soon'),
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => AddPlaceScreen(placeToEdit: place),
                       ),
                     );
                   }

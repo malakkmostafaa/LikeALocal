@@ -94,15 +94,10 @@ class MyApp extends StatelessWidget {
         ),
       ),
 
-      // This places the offline banner above every screen.
+      // This places the offline banner globally without overlapping or double-padding.
       builder: (context, child) {
-        return Column(
-          children: [
-            const OfflineBanner(),
-            Expanded(
-              child: child ?? const SizedBox.shrink(),
-            ),
-          ],
+        return OfflineBanner(
+          child: child ?? const SizedBox.shrink(),
         );
       },
 

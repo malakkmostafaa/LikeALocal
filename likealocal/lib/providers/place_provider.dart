@@ -72,17 +72,19 @@ class PlaceProvider extends ChangeNotifier {
   Future<void> addPlace(
     Place place, {
     List<String> localImagePaths = const [],
+    List<String> localVideoPaths = const [],
     required bool isOffline,
   }) async {
-    if (isOffline && localImagePaths.isNotEmpty) {
+    if (isOffline && (localImagePaths.isNotEmpty || localVideoPaths.isNotEmpty)) {
       throw Exception(
-        'Place image uploads are not available offline. Please reconnect.',
+        'Media uploads are not available offline. Please reconnect.',
       );
     }
 
     await _placeService.addPlace(
       place,
       localImagePaths: localImagePaths,
+      localVideoPaths: localVideoPaths,
     );
   }
 
@@ -90,12 +92,17 @@ class PlaceProvider extends ChangeNotifier {
     Place place, {
     List<String> newLocalImagePaths = const [],
     List<String> removeImageUrls = const [],
+    List<String> newLocalVideoPaths = const [],
+    List<String> removeVideoUrls = const [],
     required bool isOffline,
   }) async {
     if (isOffline &&
-        (newLocalImagePaths.isNotEmpty || removeImageUrls.isNotEmpty)) {
+        (newLocalImagePaths.isNotEmpty ||
+            removeImageUrls.isNotEmpty ||
+            newLocalVideoPaths.isNotEmpty ||
+            removeVideoUrls.isNotEmpty)) {
       throw Exception(
-        'Image changes are not available offline. Please reconnect.',
+        'Media changes are not available offline. Please reconnect.',
       );
     }
 
@@ -103,18 +110,20 @@ class PlaceProvider extends ChangeNotifier {
       place,
       newLocalImagePaths: newLocalImagePaths,
       removeImageUrls: removeImageUrls,
+      newLocalVideoPaths: newLocalVideoPaths,
+      removeVideoUrls: removeVideoUrls,
     );
   }
 
   Future<void> deletePlace(
-    String placeId, {
+    Place place, {
     required bool isOffline,
   }) async {
     if (isOffline) {
       throw Exception('Deleting places is not available offline.');
     }
 
-    await _placeService.deletePlace(placeId);
+    await _placeService.deletePlace(place.id, place.createdBy ?? '');
   }
 
   List<Place> placesByUser(String uid) {

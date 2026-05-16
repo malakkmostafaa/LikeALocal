@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'home/home_screen.dart';
 import 'explore/explore_screen.dart';
 import 'add_place/add_place_screen.dart';
 import 'map/map_screen.dart';
@@ -17,7 +16,6 @@ class _MainNavigationState extends State<MainNavigation> {
   int currentIndex = 0;
 
   final List<Widget> screens = const [
-    HomeScreen(),
     ExploreScreen(),
     AddPlaceScreen(),
     MapScreen(),
@@ -42,10 +40,6 @@ class _MainNavigationState extends State<MainNavigation> {
         selectedFontSize: 11,
         unselectedFontSize: 11,
         items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_rounded),
-            label: 'Home',
-          ),
           BottomNavigationBarItem(
             icon: Icon(Icons.explore_rounded),
             label: 'Explore',

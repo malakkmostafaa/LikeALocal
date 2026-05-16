@@ -12,6 +12,7 @@ import '../../services/user_service.dart';
 import '../../services/recommendation_service.dart';
 import '../../utils/categories.dart';
 import '../place/place_details_screen.dart';
+import '../chat/chat_screen.dart';
 
 import 'widgets/place_card.dart';
 import 'widgets/search_bar_widget.dart';
@@ -69,7 +70,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
       if (locationProvider.error != null || !locationProvider.hasLocation) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Location permission denied or disabled.')),
+            const SnackBar(
+                content: Text('Location permission denied or disabled.')),
           );
         }
         return;
@@ -108,7 +110,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
     if (creatorIds.isEmpty) return;
 
-    final newIds = creatorIds.where((id) => !_creators.containsKey(id)).toList();
+    final newIds =
+        creatorIds.where((id) => !_creators.containsKey(id)).toList();
     if (newIds.isEmpty) return;
 
     if (_isFetchingCreators) return;
@@ -136,7 +139,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
           place.description.toLowerCase().contains(_searchQuery) ||
           place.category.toLowerCase().contains(_searchQuery);
 
-      final matchesCategory = _selectedCategory == null || place.category == _selectedCategory;
+      final matchesCategory =
+          _selectedCategory == null || place.category == _selectedCategory;
 
       return matchesSearch && matchesCategory;
     }).toList();
@@ -147,8 +151,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
       if (pos != null) {
         filtered.sort((a, b) {
-          final distA = Geolocator.distanceBetween(pos.latitude, pos.longitude, a.lat, a.lng);
-          final distB = Geolocator.distanceBetween(pos.latitude, pos.longitude, b.lat, b.lng);
+          final distA = Geolocator.distanceBetween(
+              pos.latitude, pos.longitude, a.lat, a.lng);
+          final distB = Geolocator.distanceBetween(
+              pos.latitude, pos.longitude, b.lat, b.lng);
           return distA.compareTo(distB);
         });
         return filtered;
@@ -156,8 +162,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
     }
 
     if (_showForYou) {
-      final likedCategories = List<String>.from(_recommendationProfile?['likedCategories'] ?? []);
-      final interactionScores = Map<String, dynamic>.from(_recommendationProfile?['interactionScore'] ?? {});
+      final likedCategories =
+          List<String>.from(_recommendationProfile?['likedCategories'] ?? []);
+      final interactionScores = Map<String, dynamic>.from(
+          _recommendationProfile?['interactionScore'] ?? {});
       final userPrefs = user?.preferences ?? [];
 
       filtered.sort((a, b) {
@@ -189,7 +197,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
           // Review count (+0.1 per review)
           score += place.reviewCount * 0.1;
 
-          debugPrint('Explore [${place.name}] score = $score (Cat: ${place.category}, Super: $isSuper)');
+          debugPrint(
+              'Explore [${place.name}] score = $score (Cat: ${place.category}, Super: $isSuper)');
           return score;
         }
 
@@ -235,7 +244,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
   double? _getDistance(Place place) {
     final pos = context.read<LocationProvider>().currentPosition;
     if (pos == null) return null;
-    return Geolocator.distanceBetween(pos.latitude, pos.longitude, place.lat, place.lng);
+    return Geolocator.distanceBetween(
+        pos.latitude, pos.longitude, place.lat, place.lng);
   }
 
   void _openPlaceDetails(Place place) {
@@ -258,13 +268,25 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
     return Scaffold(
       backgroundColor: bgColor,
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const ChatScreen()),
+          );
+        },
+        backgroundColor: primaryColor,
+        child: const Icon(Icons.smart_toy_rounded, color: Colors.white),
+      ),
       body: SafeArea(
         bottom: false,
         child: StreamBuilder<List<Place>>(
           stream: _placesStream,
           builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
-              return const Center(child: CircularProgressIndicator(color: primaryColor));
+            if (snapshot.connectionState == ConnectionState.waiting &&
+                !snapshot.hasData) {
+              return const Center(
+                  child: CircularProgressIndicator(color: primaryColor));
             }
 
             final allPlaces = snapshot.data ?? [];
@@ -275,6 +297,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
             final filtered = _filterPlaces(allPlaces, user);
             final trending = _getTrending(allPlaces);
 
+            final firstName = user?.name.split(' ').first ?? 'there';
+
             return CustomScrollView(
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               slivers: [
@@ -284,14 +308,47 @@ class _ExploreScreenState extends State<ExploreScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Good ${DateTime.now().hour < 12 ? 'morning' : DateTime.now().hour < 17 ? 'afternoon' : 'evening'}, ${user?.name.split(' ').first ?? 'Nazmy'} 👋',
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w900,
-                            color: textColor,
-                            letterSpacing: -0.5,
-                          ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Good ${DateTime.now().hour < 12 ? 'morning' : DateTime.now().hour < 17 ? 'afternoon' : 'evening'}, $firstName 👋',
+                              style: const TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.w900,
+                                color: textColor,
+                                letterSpacing: -0.5,
+                              ),
+                            ),
+                            Row(
+                              children: [
+                                IconButton(
+                                  icon: const Icon(
+                                      Icons.notifications_none_rounded,
+                                      color: textColor),
+                                  onPressed: () {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                          content: Text(
+                                              'Notifications coming soon')),
+                                    );
+                                  },
+                                ),
+                                IconButton(
+                                  icon: const Icon(
+                                      Icons.chat_bubble_outline_rounded,
+                                      color: textColor),
+                                  onPressed: () {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                          content:
+                                              Text('Member chat coming soon')),
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 4),
                         const Text(
@@ -316,7 +373,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 SliverToBoxAdapter(
                   child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     child: Row(
                       children: [
                         _FilterChip(
@@ -330,7 +388,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         ),
                         const SizedBox(width: 8),
                         _FilterChip(
-                          label: 'Nearby',
+                          label: 'Near Me',
                           isSelected: _showNearby,
                           onTap: _toggleNearby,
                           icon: Icons.near_me_rounded,
@@ -338,14 +396,17 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         const SizedBox(width: 8),
                         CategoryFilter(
                           selectedCategory: _selectedCategory,
-                          onCategorySelected: (cat) => setState(() => _selectedCategory = cat),
+                          onCategorySelected: (cat) =>
+                              setState(() => _selectedCategory = cat),
                           categories: Categories.all,
                         ),
                       ],
                     ),
                   ),
                 ),
-                if (_searchQuery.isEmpty && _selectedCategory == null && !_showForYou)
+                if (_searchQuery.isEmpty &&
+                    _selectedCategory == null &&
+                    !_showForYou)
                   SliverToBoxAdapter(
                     child: TrendingSection(
                       trendingPlaces: trending,
@@ -464,4 +525,3 @@ class _FilterChip extends StatelessWidget {
     );
   }
 }
-
