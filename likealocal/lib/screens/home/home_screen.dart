@@ -1,6 +1,4 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:like_a_local/screens/chat/chat_screen.dart';
 import 'package:provider/provider.dart';
@@ -11,6 +9,7 @@ import '../../providers/place_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../services/user_service.dart';
 import '../../services/recommendation_service.dart';
+import '../../widgets/pin_button.dart';
 import '../explore/widgets/social_place_card.dart';
 import '../place/place_details_screen.dart';
 
@@ -440,109 +439,6 @@ class _RecommendedPlaceCard extends StatefulWidget {
 
 class _RecommendedPlaceCardState extends State<_RecommendedPlaceCard> {
   final RecommendationService _recommendationService = RecommendationService();
-  bool _isSaved = false;
-  bool _isLoadingSaved = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _checkIfSaved();
-  }
-
-  Future<void> _checkIfSaved() async {
-    final user = FirebaseAuth.instance.currentUser;
-
-    if (user == null) {
-      if (mounted) {
-        setState(() => _isLoadingSaved = false);
-      }
-      return;
-    }
-
-    try {
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('pins')
-          .doc(widget.place.id)
-          .get();
-
-      if (!mounted) return;
-
-      setState(() {
-        _isSaved = doc.exists;
-        _isLoadingSaved = false;
-      });
-    } catch (_) {
-      if (mounted) {
-        setState(() => _isLoadingSaved = false);
-      }
-    }
-  }
-
-  Future<void> _toggleSave() async {
-    final user = FirebaseAuth.instance.currentUser;
-
-    if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please log in first')),
-      );
-      return;
-    }
-
-    final previous = _isSaved;
-
-    setState(() {
-      _isSaved = !_isSaved;
-    });
-
-    try {
-      final docRef = FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('pins')
-          .doc(widget.place.id);
-
-      if (_isSaved) {
-        await docRef.set({
-          'placeId': widget.place.id,
-          'savedAt': FieldValue.serverTimestamp(),
-        });
-
-        _recommendationService.trackSavePlace(widget.place.id, widget.place.category);
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Saved to pins'),
-              duration: Duration(seconds: 1),
-            ),
-          );
-        }
-      } else {
-        await docRef.delete();
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Removed from pins'),
-              duration: Duration(seconds: 1),
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (!mounted) return;
-
-      setState(() {
-        _isSaved = previous;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
-    }
-  }
 
   void _openDetails() {
     _recommendationService.trackViewPlace(widget.place.id, widget.place.category);
@@ -626,41 +522,19 @@ class _RecommendedPlaceCardState extends State<_RecommendedPlaceCard> {
                 Positioned(
                   top: 12,
                   right: 12,
-                  child: InkWell(
-                    onTap: _isLoadingSaved ? null : _toggleSave,
-                    customBorder: const CircleBorder(),
-                    child: Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: _HomeScreenState.cardColor.withOpacity(0.94),
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.08),
-                            blurRadius: 8,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: _isLoadingSaved
-                          ? const Padding(
-                              padding: EdgeInsets.all(10),
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: _HomeScreenState.primaryColor,
-                              ),
-                            )
-                          : Icon(
-                              _isSaved
-                                  ? Icons.bookmark_rounded
-                                  : Icons.bookmark_border_rounded,
-                              color: _isSaved
-                                  ? _HomeScreenState.primaryColor
-                                  : _HomeScreenState.textColor,
-                              size: 21,
-                            ),
-                    ),
+                  child: PinButton(
+                    placeId: widget.place.id,
+                    backgroundColor: _HomeScreenState.cardColor,
+                    activeColor: _HomeScreenState.primaryColor,
+                    inactiveColor: _HomeScreenState.textColor,
+                    onChanged: (pinned) {
+                      if (pinned) {
+                        _recommendationService.trackSavePlace(
+                          widget.place.id,
+                          widget.place.category,
+                        );
+                      }
+                    },
                   ),
                 ),
               ],

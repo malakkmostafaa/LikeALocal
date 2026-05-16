@@ -2,14 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../../models/place.dart';
+import '../../../services/recommendation_service.dart';
+import '../../../widgets/pin_button.dart';
 import '../../map/map_screen.dart';
 import '../../place/place_details_screen.dart';
-import '../../../services/recommendation_service.dart';
 import 'place_map_preview.dart';
 import 'post_user_header.dart';
-
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
 class SocialPlaceCard extends StatefulWidget {
   final Place place;
@@ -29,46 +27,11 @@ class SocialPlaceCard extends StatefulWidget {
 
 class _SocialPlaceCardState extends State<SocialPlaceCard> {
   final RecommendationService _recommendationService = RecommendationService();
-  bool _isSaved = false;
-  bool _isLoadingSaved = true;
 
   static const Color primaryColor = Color(0xFFE26D45);
   static const Color softPrimary = Color(0xFFFFEEE6);
   static const Color textColor = Color(0xFF1F1F28);
   static const Color mutedText = Color(0xFF777777);
-
-  @override
-  void initState() {
-    super.initState();
-    _checkIfSaved();
-  }
-
-  Future<void> _checkIfSaved() async {
-    final user = FirebaseAuth.instance.currentUser;
-
-    if (user == null) {
-      if (mounted) setState(() => _isLoadingSaved = false);
-      return;
-    }
-
-    try {
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('pins')
-          .doc(widget.place.id)
-          .get();
-
-      if (!mounted) return;
-
-      setState(() {
-        _isSaved = doc.exists;
-        _isLoadingSaved = false;
-      });
-    } catch (_) {
-      if (mounted) setState(() => _isLoadingSaved = false);
-    }
-  }
 
   void _openDetails() {
     _recommendationService.trackViewPlace(widget.place.id, widget.place.category);
@@ -91,71 +54,6 @@ class _SocialPlaceCardState extends State<SocialPlaceCard> {
       ),
     );
   }
-
-  Future<void> _handleSave() async {
-    final user = FirebaseAuth.instance.currentUser;
-
-    if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please log in first')),
-      );
-      return;
-    }
-
-    final previous = _isSaved;
-
-    setState(() {
-      _isSaved = !_isSaved;
-    });
-
-    try {
-      final docRef = FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('pins')
-          .doc(widget.place.id);
-
-      if (_isSaved) {
-        await docRef.set({
-          'savedAt': FieldValue.serverTimestamp(),
-          'placeId': widget.place.id,
-        });
-
-        _recommendationService.trackSavePlace(widget.place.id, widget.place.category);
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Saved to pins'),
-              duration: Duration(seconds: 1),
-            ),
-          );
-        }
-      } else {
-        await docRef.delete();
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Removed from pins'),
-              duration: Duration(seconds: 1),
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (!mounted) return;
-
-      setState(() {
-        _isSaved = previous;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
-    }
-  }
-
 
   void _showMoreMenu() {
     showModalBottomSheet(
@@ -332,40 +230,22 @@ class _SocialPlaceCardState extends State<SocialPlaceCard> {
                     ),
                   ),
 
-                  // Save icon
                   Positioned(
                     top: 12,
                     right: 12,
-                    child: _isLoadingSaved
-                        ? Container(
-                            width: 38,
-                            height: 38,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.94),
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.08),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 3),
-                                ),
-                              ],
-                            ),
-                            child: const Padding(
-                              padding: EdgeInsets.all(10),
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: primaryColor,
-                              ),
-                            ),
-                          )
-                        : _FloatingCircleButton(
-                            icon: _isSaved
-                                ? Icons.bookmark_rounded
-                                : Icons.bookmark_border_rounded,
-                            color: _isSaved ? primaryColor : textColor,
-                            onTap: _handleSave,
-                          ),
+                    child: PinButton(
+                      placeId: widget.place.id,
+                      activeColor: primaryColor,
+                      inactiveColor: textColor,
+                      onChanged: (pinned) {
+                        if (pinned) {
+                          _recommendationService.trackSavePlace(
+                            widget.place.id,
+                            widget.place.category,
+                          );
+                        }
+                      },
+                    ),
                   ),
                 ],
               ),
@@ -469,13 +349,11 @@ class _SocialPlaceCardState extends State<SocialPlaceCard> {
 
 class _FloatingCircleButton extends StatelessWidget {
   final IconData icon;
-  final Color color;
   final VoidCallback onTap;
 
   const _FloatingCircleButton({
     required this.icon,
     required this.onTap,
-    this.color = const Color(0xFF1F1F28),
   });
 
   @override
@@ -499,7 +377,7 @@ class _FloatingCircleButton extends StatelessWidget {
         ),
         child: Icon(
           icon,
-          color: color,
+          color: const Color(0xFF1F1F28),
           size: 21,
         ),
       ),

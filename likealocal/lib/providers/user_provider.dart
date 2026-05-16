@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -54,7 +55,16 @@ class UserProvider extends ChangeNotifier {
       if (userData == null) return;
 
       final Map<String, dynamic> map = json.decode(userData);
-      _user = AppUser.fromMap(map);
+      final cachedUser = AppUser.fromMap(map);
+
+      // Discard cache if it belongs to a different (or no) signed-in user.
+      final currentUid = FirebaseAuth.instance.currentUser?.uid;
+      if (currentUid == null || cachedUser.uid != currentUid) {
+        await _clearCache();
+        return;
+      }
+
+      _user = cachedUser;
       _isLoading = false;
       notifyListeners();
     } catch (e) {

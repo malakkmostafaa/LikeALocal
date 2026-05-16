@@ -1,6 +1,4 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:like_a_local/screens/place_details/review_form.dart';
 import 'package:like_a_local/screens/place_details/reviews_list.dart';
@@ -8,6 +6,7 @@ import 'package:like_a_local/screens/place_details/reviews_list.dart';
 import '../../models/place.dart';
 import '../../services/place_service.dart';
 import '../../services/recommendation_service.dart';
+import '../../widgets/pin_button.dart';
 import '../explore/widgets/post_user_header.dart';
 import '../map/map_screen.dart';
 
@@ -29,82 +28,10 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
   final PlaceService _placeService = PlaceService();
   final RecommendationService _recommendationService = RecommendationService();
 
-  bool _isSaved = false;
-  bool _isLoadingSaved = true;
-
   @override
   void initState() {
     super.initState();
-    _checkIfSaved();
     _recommendationService.trackViewPlace(widget.place.id, widget.place.category);
-  }
-
-
-  Future<void> _checkIfSaved() async {
-    final user = FirebaseAuth.instance.currentUser;
-
-    if (user == null) {
-      if (mounted) setState(() => _isLoadingSaved = false);
-      return;
-    }
-
-    final doc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .collection('pins')
-        .doc(widget.place.id)
-        .get();
-
-    if (!mounted) return;
-
-    setState(() {
-      _isSaved = doc.exists;
-      _isLoadingSaved = false;
-    });
-  }
-
-  Future<void> _toggleSave() async {
-    final user = FirebaseAuth.instance.currentUser;
-
-    if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please log in first')),
-      );
-      return;
-    }
-
-    final previous = _isSaved;
-
-    setState(() {
-      _isSaved = !_isSaved;
-    });
-
-    try {
-      final docRef = FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('pins')
-          .doc(widget.place.id);
-
-      if (_isSaved) {
-        await docRef.set({
-          'placeId': widget.place.id,
-          'savedAt': FieldValue.serverTimestamp(),
-        });
-      } else {
-        await docRef.delete();
-      }
-    } catch (e) {
-      if (!mounted) return;
-
-      setState(() {
-        _isSaved = previous;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not update pin: $e')),
-      );
-    }
   }
 
   String _formatDistance(double meters) {
@@ -122,10 +49,12 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
         return _PlaceDetailsContent(
           place: place,
           distanceInMeters: widget.distanceInMeters,
-          isSaved: _isSaved,
-          isLoadingSaved: _isLoadingSaved,
-          onSave: _toggleSave,
           formatDistance: _formatDistance,
+          onPinChanged: (pinned) {
+            if (pinned) {
+              _recommendationService.trackSavePlace(place.id, place.category);
+            }
+          },
         );
       },
     );
@@ -135,18 +64,14 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
 class _PlaceDetailsContent extends StatelessWidget {
   final Place place;
   final double? distanceInMeters;
-  final bool isSaved;
-  final bool isLoadingSaved;
-  final VoidCallback onSave;
   final String Function(double meters) formatDistance;
+  final ValueChanged<bool> onPinChanged;
 
   const _PlaceDetailsContent({
     required this.place,
     required this.distanceInMeters,
-    required this.isSaved,
-    required this.isLoadingSaved,
-    required this.onSave,
     required this.formatDistance,
+    required this.onPinChanged,
   });
 
   @override
@@ -175,11 +100,14 @@ class _PlaceDetailsContent extends StatelessWidget {
               onTap: () => Navigator.pop(context),
             ),
             actions: [
-              _CircleIconButton(
-                icon: isSaved ? Icons.bookmark_rounded : Icons.bookmark_border,
-                color: isSaved ? primaryColor : textColor,
-                isLoading: isLoadingSaved,
-                onTap: onSave,
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: PinButton(
+                  placeId: place.id,
+                  activeColor: primaryColor,
+                  inactiveColor: textColor,
+                  onChanged: onPinChanged,
+                ),
               ),
               const SizedBox(width: 12),
             ],
@@ -406,23 +334,17 @@ class _HeroImage extends StatelessWidget {
 
 class _CircleIconButton extends StatelessWidget {
   final IconData icon;
-  final Color color;
-  final bool isLoading;
   final VoidCallback onTap;
 
   const _CircleIconButton({
     required this.icon,
     required this.onTap,
-    this.color = const Color(0xFF1F1F28),
-    this.isLoading = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    const primaryColor = Color(0xFFE26D45);
-
     return IconButton(
-      onPressed: isLoading ? null : onTap,
+      onPressed: onTap,
       icon: Container(
         padding: const EdgeInsets.all(9),
         decoration: BoxDecoration(
@@ -435,16 +357,7 @@ class _CircleIconButton extends StatelessWidget {
             ),
           ],
         ),
-        child: isLoading
-            ? const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: primaryColor,
-                ),
-              )
-            : Icon(icon, color: color, size: 20),
+        child: Icon(icon, color: const Color(0xFF1F1F28), size: 20),
       ),
     );
   }
