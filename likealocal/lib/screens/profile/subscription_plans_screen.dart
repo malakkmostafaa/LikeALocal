@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import '../../models/user_model.dart';
 import 'mock_payment_screen.dart';
 
+import 'package:provider/provider.dart';
+import '../../providers/user_provider.dart';
+
 class SubscriptionPlansScreen extends StatelessWidget {
   final AppUser user;
 
@@ -22,6 +25,7 @@ class SubscriptionPlansScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final liveUser = context.watch<UserProvider>().user ?? user;
     return Scaffold(
       backgroundColor: backgroundColor,
       appBar: AppBar(
@@ -41,7 +45,7 @@ class SubscriptionPlansScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _PremiumHero(user: user),
+            _PremiumHero(user: liveUser),
             const SizedBox(height: 22),
             const Text(
               'Choose your plan',
@@ -74,8 +78,8 @@ class SubscriptionPlansScreen extends StatelessWidget {
                 'Explore public local places',
                 'Standard discovery reach',
               ],
-              isCurrentPlan: !user.isPremium,
-              buttonText: !user.isPremium ? 'Current Plan' : 'Included',
+              isCurrentPlan: !liveUser.isPremium,
+              buttonText: !liveUser.isPremium ? 'Current Plan' : 'Included',
               onTap: null,
               icon: Icons.explore_rounded,
               accentColor: mutedText,
@@ -93,11 +97,11 @@ class SubscriptionPlansScreen extends StatelessWidget {
                 'Advanced local recommendations',
                 'Early access to new features',
               ],
-              isCurrentPlan: user.isPremium,
-              buttonText: user.isPremium
+              isCurrentPlan: liveUser.isPremium,
+              buttonText: liveUser.isPremium
                   ? 'Active Subscription'
                   : 'Upgrade with Paymob',
-              onTap: user.isPremium
+              onTap: liveUser.isPremium
                   ? null
                   : () {
                       Navigator.push(
@@ -129,7 +133,8 @@ class _PremiumHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isPremium = user.isPremium;
+    final liveUser = context.watch<UserProvider>().user ?? user;
+    final isPremium = liveUser.isPremium;
 
     return Container(
       width: double.infinity,
