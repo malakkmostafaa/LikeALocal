@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:like_a_local/screens/explore/widgets/place_map_preview.dart';
 
 import '../../../models/place.dart';
+import '../../../widgets/pin_button.dart';
 import '../../map/map_screen.dart';
 
 class PlaceCard extends StatelessWidget {
@@ -63,35 +64,49 @@ class PlaceCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(28),
-              ),
-              child: SizedBox(
-                height: 190,
-                child: hasImage
-                    ? Hero(
-                        tag: 'place_image_${place.id}',
-                        child: CachedNetworkImage(
-                          imageUrl: place.images.first,
-                          fit: BoxFit.cover,
-                          placeholder: (_, __) =>
-                              Container(color: lightPrimary),
-                          errorWidget: (_, __, ___) => PlaceMapPreview(
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(28),
+                  ),
+                  child: SizedBox(
+                    height: 190,
+                    width: double.infinity,
+                    child: hasImage
+                        ? Hero(
+                            tag: 'place_image_${place.id}',
+                            child: CachedNetworkImage(
+                              imageUrl: place.images.first,
+                              fit: BoxFit.cover,
+                              placeholder: (_, __) =>
+                                  Container(color: lightPrimary),
+                              errorWidget: (_, __, ___) => PlaceMapPreview(
+                                lat: place.lat,
+                                lng: place.lng,
+                                placeName: place.name,
+                                onTap: () => _openMap(context),
+                              ),
+                            ),
+                          )
+                        : PlaceMapPreview(
                             lat: place.lat,
                             lng: place.lng,
                             placeName: place.name,
                             onTap: () => _openMap(context),
                           ),
-                        ),
-                      )
-                    : PlaceMapPreview(
-                        lat: place.lat,
-                        lng: place.lng,
-                        placeName: place.name,
-                        onTap: () => _openMap(context),
-                      ),
-              ),
+                  ),
+                ),
+                Positioned(
+                  top: 12,
+                  right: 12,
+                  child: PinButton(
+                    placeId: place.id,
+                    activeColor: primaryColor,
+                    inactiveColor: textColor,
+                  ),
+                ),
+              ],
             ),
             Padding(
               padding: const EdgeInsets.all(16),

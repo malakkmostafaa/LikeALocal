@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../../../models/place.dart';
+import '../../../widgets/pin_button.dart';
 import '../../place/place_details_screen.dart';
 
 class TrendingSection extends StatelessWidget {
@@ -101,26 +102,41 @@ class _TrendingCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-              child: SizedBox(
-                height: 90,
-                width: double.infinity,
-                child: imageUrl != null
-                    ? CachedNetworkImage(
-                        imageUrl: imageUrl,
-                        fit: BoxFit.cover,
-                        placeholder: (_, __) => Container(color: lightPrimary),
-                        errorWidget: (_, __, ___) => Container(
-                          color: lightPrimary,
-                          child: const Icon(Icons.image, color: primaryColor),
-                        ),
-                      )
-                    : Container(
-                        color: lightPrimary,
-                        child: const Icon(Icons.place, color: primaryColor),
-                      ),
-              ),
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                  child: SizedBox(
+                    height: 90,
+                    width: double.infinity,
+                    child: imageUrl != null
+                        ? CachedNetworkImage(
+                            imageUrl: imageUrl,
+                            fit: BoxFit.cover,
+                            placeholder: (_, __) => Container(color: lightPrimary),
+                            errorWidget: (_, __, ___) => Container(
+                              color: lightPrimary,
+                              child: const Icon(Icons.image, color: primaryColor),
+                            ),
+                          )
+                        : Container(
+                            color: lightPrimary,
+                            child: const Icon(Icons.place, color: primaryColor),
+                          ),
+                  ),
+                ),
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: PinButton(
+                    placeId: place.id,
+                    size: 32,
+                    iconSize: 18,
+                    activeColor: primaryColor,
+                    inactiveColor: textColor,
+                  ),
+                ),
+              ],
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
