@@ -1,23 +1,31 @@
 import 'dart:io';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
 
+import '../../models/dish.dart';
+import '../../models/place.dart';
+import '../../models/tip.dart';
+import '../../providers/connectivity_provider.dart';
 import '../../providers/place_provider.dart';
 import '../../services/user_service.dart';
-import '../../providers/connectivity_provider.dart';
-import '../../models/place.dart';
 import '../../utils/categories.dart';
+import 'add_place_steps.dart';
+import 'add_place_widgets.dart';
 import 'location_picker_screen.dart';
 
 class AddPlaceScreen extends StatefulWidget {
   final Place? placeToEdit;
 
-  const AddPlaceScreen({super.key, this.placeToEdit});
+  const AddPlaceScreen({
+    super.key,
+    this.placeToEdit,
+  });
 
   @override
   State<AddPlaceScreen> createState() => _AddPlaceScreenState();
@@ -25,152 +33,254 @@ class AddPlaceScreen extends StatefulWidget {
 
 class _AddPlaceScreenState extends State<AddPlaceScreen> {
   final UserService _userService = UserService();
+  final PageController _pageController = PageController();
 
-  final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _descriptionController = TextEditingController();
-  final TextEditingController _latController = TextEditingController();
-  final TextEditingController _lngController = TextEditingController();
+  final TextEditingController nameController = TextEditingController();
+  final TextEditingController descriptionController = TextEditingController();
+  final TextEditingController latController = TextEditingController();
+  final TextEditingController lngController = TextEditingController();
 
-  String _selectedCategory = Categories.all.first;
+  final List<TextEditingController> tipControllers = [];
+  final List<DishDraftControllers> dishControllers = [];
 
-  final List<File> _selectedImages = [];
-  List<String> _existingImages = [];
-  final List<String> _removedImages = [];
+  String selectedCategory = Categories.all.first;
+  int currentStep = 0;
+  bool isLoading = false;
 
-  final List<File> _selectedVideos = [];
-  List<String> _existingVideos = [];
-  final List<String> _removedVideos = [];
+  final List<File> selectedImages = [];
+  List<String> existingImages = [];
+  final List<String> removedImages = [];
 
-  bool _isLoading = false;
-
-  // Design constants
-  static const Color backgroundColor = Color(0xFFF7F4EF);
-  static const Color inputFillColor = Color(0xFFEDEDE6);
-  static const Color mainColor = Color(0xFFD45A38);
+  final List<File> selectedVideos = [];
+  List<String> existingVideos = [];
+  final List<String> removedVideos = [];
 
   bool get isEditing => widget.placeToEdit != null;
 
   @override
   void initState() {
     super.initState();
+
     if (isEditing) {
       final p = widget.placeToEdit!;
-      _nameController.text = p.name;
-      _descriptionController.text = p.description;
-      _latController.text = p.lat.toString();
-      _lngController.text = p.lng.toString();
+
+      nameController.text = p.name;
+      descriptionController.text = p.description;
+      latController.text = p.lat.toString();
+      lngController.text = p.lng.toString();
+
       if (Categories.all.contains(p.category)) {
-        _selectedCategory = p.category;
+        selectedCategory = p.category;
       }
-      _existingImages = List<String>.from(p.images);
-      _existingVideos = List<String>.from(p.videos);
+
+      existingImages = List<String>.from(p.images);
+      existingVideos = List<String>.from(p.videos);
+
+      for (final tip in p.tips) {
+        tipControllers.add(TextEditingController(text: tip.text));
+      }
+
+      for (final dish in p.recommendedDishes) {
+        dishControllers.add(
+          DishDraftControllers(
+            name: TextEditingController(text: dish.name),
+            description: TextEditingController(text: dish.description ?? ''),
+          ),
+        );
+      }
+    }
+
+    if (tipControllers.isEmpty) {
+      tipControllers.add(TextEditingController());
+    }
+
+    if (dishControllers.isEmpty) {
+      dishControllers.add(
+        DishDraftControllers(
+          name: TextEditingController(),
+          description: TextEditingController(),
+        ),
+      );
     }
   }
 
   @override
   void dispose() {
-    _nameController.dispose();
-    _descriptionController.dispose();
-    _latController.dispose();
-    _lngController.dispose();
+    _pageController.dispose();
+
+    nameController.dispose();
+    descriptionController.dispose();
+    latController.dispose();
+    lngController.dispose();
+
+    for (final controller in tipControllers) {
+      controller.dispose();
+    }
+
+    for (final dish in dishControllers) {
+      dish.dispose();
+    }
+
     _cleanupTempMedia();
+
     super.dispose();
   }
 
-  Future<void> _pickImages() async {
+  Future<void> goToStep(int step) async {
+    if (step < 0 || step > 2) return;
+
+    if (step > currentStep && !validateCurrentStep()) {
+      return;
+    }
+
+    setState(() => currentStep = step);
+
+    await _pageController.animateToPage(
+      step,
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  bool validateCurrentStep() {
+    if (currentStep == 0) {
+      if (nameController.text.trim().isEmpty) {
+        showErrorDialog('Place name is required.');
+        return false;
+      }
+
+      if (descriptionController.text.trim().isEmpty) {
+        showErrorDialog('Description is required.');
+        return false;
+      }
+
+      final lat = double.tryParse(latController.text);
+      final lng = double.tryParse(lngController.text);
+
+      if (lat == null || lng == null) {
+        showErrorDialog('Please choose a valid location.');
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  Future<void> pickLocationFromMap() async {
+    final currentLat = double.tryParse(latController.text);
+    final currentLng = double.tryParse(lngController.text);
+
+    final result = await Navigator.push<Map<String, double>>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => LocationPickerScreen(
+          initialLat: currentLat,
+          initialLng: currentLng,
+        ),
+      ),
+    );
+
+    if (!mounted || result == null) return;
+
+    setState(() {
+      latController.text = result['lat']!.toStringAsFixed(6);
+      lngController.text = result['lng']!.toStringAsFixed(6);
+    });
+  }
+
+  Future<void> pickImages() async {
+    if (isLoading) return;
+
     try {
-      final ImagePicker picker = ImagePicker();
-      final List<XFile> images = await picker.pickMultiImage(
+      final picker = ImagePicker();
+
+      final images = await picker.pickMultiImage(
         imageQuality: 80,
         maxWidth: 1200,
         maxHeight: 1200,
       );
 
-      if (images.isNotEmpty && mounted) {
-        List<File> validFiles = [];
+      if (!mounted || images.isEmpty) return;
 
-        for (final xFile in images) {
-          try {
-            final file = File(xFile.path);
-            if (await file.exists() && await file.length() > 0) {
-              final copiedFile = await _copyImageToAppDirectory(file);
-              if (copiedFile != null) {
-                validFiles.add(copiedFile);
-              }
-            }
-          } catch (e) {
-            continue;
+      final validFiles = <File>[];
+
+      for (final xFile in images) {
+        final file = File(xFile.path);
+
+        if (await file.exists() && await file.length() > 0) {
+          final copiedFile = await copyImageToAppDirectory(file);
+
+          if (copiedFile != null) {
+            validFiles.add(copiedFile);
           }
         }
+      }
 
-        if (validFiles.isNotEmpty) {
-          setState(() {
-            _selectedImages.addAll(validFiles);
-          });
-        }
+      if (!mounted) return;
+
+      if (validFiles.isNotEmpty) {
+        setState(() {
+          selectedImages.addAll(validFiles);
+        });
       }
-    } catch (e) {
-      if (mounted) {
-        _showErrorDialog('Failed to pick images');
-      }
+    } catch (_) {
+      if (!mounted) return;
+      showErrorDialog('Failed to pick images.');
     }
   }
 
-  Future<void> _pickSingleImage() async {
+  Future<void> pickSingleImage() async {
+    if (isLoading) return;
+
     try {
-      final ImagePicker picker = ImagePicker();
-      final XFile? image = await picker.pickImage(
+      final picker = ImagePicker();
+
+      final image = await picker.pickImage(
         source: ImageSource.gallery,
         imageQuality: 80,
         maxWidth: 1200,
         maxHeight: 1200,
       );
 
-      if (image != null && mounted) {
-        final file = File(image.path);
-        if (await file.exists()) {
-          final copiedFile = await _copyImageToAppDirectory(file);
-          setState(() {
-            _selectedImages.add(copiedFile ?? file);
-          });
-        }
+      if (!mounted || image == null) return;
+
+      final file = File(image.path);
+
+      if (!await file.exists()) {
+        if (!mounted) return;
+        showErrorDialog('Selected image was not found.');
+        return;
       }
-    } catch (e) {
-      if (mounted) {
-        _showErrorDialog('Failed to pick image');
-      }
+
+      final copiedFile = await copyImageToAppDirectory(file);
+
+      if (!mounted) return;
+
+      setState(() {
+        selectedImages.add(copiedFile ?? file);
+      });
+    } catch (_) {
+      if (!mounted) return;
+      showErrorDialog('Failed to pick image.');
     }
   }
 
-  void _removeNewImage(int index) {
-    setState(() {
-      _selectedImages.removeAt(index);
-    });
-  }
-
-  void _removeExistingImage(int index) {
-    setState(() {
-      _removedImages.add(_existingImages[index]);
-      _existingImages.removeAt(index);
-    });
-  }
-
-  Future<void> _pickVideos() async {
-    if (_isLoading) return;
+  Future<void> pickVideos() async {
+    if (isLoading) return;
 
     try {
       final isOffline = context.read<ConnectivityProvider>().isOffline;
 
       if (isOffline) {
-        _showErrorDialog(
+        showErrorDialog(
           'Video uploads are not available offline. Please reconnect and try again.',
         );
         return;
       }
 
-      final ImagePicker picker = ImagePicker();
+      final picker = ImagePicker();
 
-      final XFile? video = await picker.pickVideo(
+      final video = await picker.pickVideo(
         source: ImageSource.gallery,
         maxDuration: const Duration(minutes: 5),
       );
@@ -181,7 +291,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
 
       if (!await file.exists()) {
         if (!mounted) return;
-        _showErrorDialog('Selected video file was not found.');
+        showErrorDialog('Selected video file was not found.');
         return;
       }
 
@@ -190,69 +300,36 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
       if (!mounted) return;
 
       if (fileSize == 0) {
-        _showErrorDialog('Selected video file is empty.');
+        showErrorDialog('Selected video file is empty.');
         return;
       }
 
       if (fileSize > 200 * 1024 * 1024) {
-        _showErrorDialog(
-            'Video is too large. Please choose a video under 200MB.');
+        showErrorDialog(
+          'Video is too large. Please choose a video under 200MB.',
+        );
         return;
       }
 
-      final copied = await _copyVideoToAppDirectory(file);
+      final copied = await copyVideoToAppDirectory(file);
 
       if (!mounted) return;
 
       if (copied == null) {
-        _showErrorDialog('Could not prepare the selected video for upload.');
+        showErrorDialog('Could not prepare the selected video for upload.');
         return;
       }
 
       setState(() {
-        _selectedVideos.add(copied);
+        selectedVideos.add(copied);
       });
     } catch (e) {
       if (!mounted) return;
-      _showErrorDialog('Failed to pick video: $e');
+      showErrorDialog('Failed to pick video: $e');
     }
   }
 
-  Future<File?> _copyVideoToAppDirectory(File originalFile) async {
-    try {
-      final directory = await getApplicationDocumentsDirectory();
-      final videosDir = Directory(path.join(directory.path, 'temp_videos'));
-      if (!await videosDir.exists()) {
-        await videosDir.create(recursive: true);
-      }
-      final rawExt =
-          originalFile.path.split('.').last.split('?').first.toLowerCase();
-      final extension =
-          ['mp4', 'mov', 'mkv', 'm4v', 'avi'].contains(rawExt) ? rawExt : 'mp4';
-      final fileName = '${DateTime.now().millisecondsSinceEpoch}.$extension';
-      final newPath = path.join(videosDir.path, fileName);
-      await originalFile.copy(newPath);
-      final copied = File(newPath);
-      if (await copied.exists() && await copied.length() > 0) return copied;
-      return null;
-    } catch (e) {
-      debugPrint('Failed to copy video: $e');
-      return null;
-    }
-  }
-
-  void _removeNewVideo(int index) {
-    setState(() => _selectedVideos.removeAt(index));
-  }
-
-  void _removeExistingVideo(int index) {
-    setState(() {
-      _removedVideos.add(_existingVideos[index]);
-      _existingVideos.removeAt(index);
-    });
-  }
-
-  Future<File?> _copyImageToAppDirectory(File originalFile) async {
+  Future<File?> copyImageToAppDirectory(File originalFile) async {
     try {
       final directory = await getApplicationDocumentsDirectory();
       final imagesDir = Directory(path.join(directory.path, 'temp_images'));
@@ -263,91 +340,174 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
 
       final fileName =
           '${DateTime.now().millisecondsSinceEpoch}_${path.basename(originalFile.path)}';
+
       final newPath = path.join(imagesDir.path, fileName);
 
       await originalFile.copy(newPath);
+
       final copiedFile = File(newPath);
 
       if (await copiedFile.exists() && await copiedFile.length() > 0) {
         return copiedFile;
       }
+
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<File?> copyVideoToAppDirectory(File originalFile) async {
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      final videosDir = Directory(path.join(directory.path, 'temp_videos'));
+
+      if (!await videosDir.exists()) {
+        await videosDir.create(recursive: true);
+      }
+
+      final rawExt =
+          originalFile.path.split('.').last.split('?').first.toLowerCase();
+
+      final extension = ['mp4', 'mov', 'm4v'].contains(rawExt) ? rawExt : 'mp4';
+
+      final fileName = '${DateTime.now().millisecondsSinceEpoch}.$extension';
+      final newPath = path.join(videosDir.path, fileName);
+
+      await originalFile.copy(newPath);
+
+      final copied = File(newPath);
+
+      if (await copied.exists() && await copied.length() > 0) {
+        return copied;
+      }
+
       return null;
     } catch (e) {
+      debugPrint('Failed to copy video: $e');
       return null;
     }
   }
 
-  Future<void> _pickLocationFromMap() async {
-    final currentLat = double.tryParse(_latController.text);
-    final currentLng = double.tryParse(_lngController.text);
+  void removeNewImage(int index) {
+    setState(() => selectedImages.removeAt(index));
+  }
 
-    final result = await Navigator.push<Map<String, double>>(
-      context,
-      MaterialPageRoute(
-        builder: (context) => LocationPickerScreen(
-          initialLat: currentLat,
-          initialLng: currentLng,
+  void removeExistingImage(int index) {
+    setState(() {
+      removedImages.add(existingImages[index]);
+      existingImages.removeAt(index);
+    });
+  }
+
+  void removeNewVideo(int index) {
+    setState(() => selectedVideos.removeAt(index));
+  }
+
+  void removeExistingVideo(int index) {
+    setState(() {
+      removedVideos.add(existingVideos[index]);
+      existingVideos.removeAt(index);
+    });
+  }
+
+  void addTipField() {
+    setState(() {
+      tipControllers.add(TextEditingController());
+    });
+  }
+
+  void removeTipField(int index) {
+    if (tipControllers.length == 1) {
+      tipControllers[index].clear();
+      return;
+    }
+
+    final removed = tipControllers.removeAt(index);
+    removed.dispose();
+
+    setState(() {});
+  }
+
+  void addDishField() {
+    setState(() {
+      dishControllers.add(
+        DishDraftControllers(
+          name: TextEditingController(),
+          description: TextEditingController(),
         ),
-      ),
-    );
-
-    if (result != null && mounted) {
-      setState(() {
-        _latController.text = result['lat']!.toStringAsFixed(6);
-        _lngController.text = result['lng']!.toStringAsFixed(6);
-      });
-    }
+      );
+    });
   }
 
-  void _showErrorDialog(String message) {
-    if (!mounted) return;
+  void removeDishField(int index) {
+    if (dishControllers.length == 1) {
+      dishControllers[index].name.clear();
+      dishControllers[index].description.clear();
+      return;
+    }
 
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Error'),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('OK'),
+    final removed = dishControllers.removeAt(index);
+    removed.dispose();
+
+    setState(() {});
+  }
+
+  List<Tip> buildTips() {
+    final user = FirebaseAuth.instance.currentUser;
+
+    return tipControllers
+        .map((controller) => controller.text.trim())
+        .where((text) => text.isNotEmpty)
+        .map(
+          (text) => Tip(
+            text: text,
+            authorId: user?.uid,
+            createdAt: DateTime.now(),
           ),
-        ],
-      ),
-    );
+        )
+        .toList();
   }
 
-  Future<void> _submitPlace() async {
-    if (_isLoading) return;
+  List<Dish> buildDishes() {
+    final user = FirebaseAuth.instance.currentUser;
 
-    if (_nameController.text.trim().isEmpty) {
-      _showErrorDialog('Place name is required');
-      return;
-    }
+    return dishControllers
+        .where((dish) => dish.name.text.trim().isNotEmpty)
+        .map(
+          (dish) => Dish(
+            name: dish.name.text.trim(),
+            description: dish.description.text.trim().isEmpty
+                ? null
+                : dish.description.text.trim(),
+            authorId: user?.uid,
+          ),
+        )
+        .toList();
+  }
 
-    if (_descriptionController.text.trim().isEmpty) {
-      _showErrorDialog('Description is required');
-      return;
-    }
+  Future<void> submitPlace() async {
+    if (isLoading) return;
+    if (!validateCurrentStep()) return;
 
-    final lat = double.tryParse(_latController.text);
-    final lng = double.tryParse(_lngController.text);
+    final lat = double.tryParse(latController.text);
+    final lng = double.tryParse(lngController.text);
 
     if (lat == null || lng == null) {
-      _showErrorDialog('Please enter valid coordinates');
+      showErrorDialog('Please choose a valid location.');
       return;
     }
 
     final provider = context.read<PlaceProvider>();
     final isOffline = context.read<ConnectivityProvider>().isOffline;
 
-    final hasMediaChanges = _selectedImages.isNotEmpty ||
-        _selectedVideos.isNotEmpty ||
-        _removedImages.isNotEmpty ||
-        _removedVideos.isNotEmpty;
+    final hasMediaChanges = selectedImages.isNotEmpty ||
+        selectedVideos.isNotEmpty ||
+        removedImages.isNotEmpty ||
+        removedVideos.isNotEmpty;
 
     if (isOffline && hasMediaChanges) {
-      _showErrorDialog(
+      showErrorDialog(
         'Media uploads are not available offline. Please reconnect and try again.',
       );
       return;
@@ -355,65 +515,72 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
 
     if (!mounted) return;
 
-    setState(() => _isLoading = true);
+    setState(() => isLoading = true);
 
     try {
       final user = FirebaseAuth.instance.currentUser;
 
       if (user == null) {
-        throw Exception('User not authenticated');
+        throw Exception('User not authenticated.');
       }
 
+      final tips = buildTips();
+      final dishes = buildDishes();
+
       if (isEditing) {
+        final oldPlace = widget.placeToEdit!;
+
         final updatedPlace = Place(
-          id: widget.placeToEdit!.id,
-          name: _nameController.text.trim(),
-          description: _descriptionController.text.trim(),
-          category: _selectedCategory,
-          images: _existingImages,
-          videos: _existingVideos,
+          id: oldPlace.id,
+          name: nameController.text.trim(),
+          description: descriptionController.text.trim(),
+          category: selectedCategory,
+          images: existingImages,
+          videos: existingVideos,
           location: GeoPoint(lat, lng),
-          createdBy: widget.placeToEdit!.createdBy,
-          createdAt: widget.placeToEdit!.createdAt,
-          recommendedDishes: widget.placeToEdit!.recommendedDishes,
-          rating: widget.placeToEdit!.rating,
-          reviewCount: widget.placeToEdit!.reviewCount,
-          tips: widget.placeToEdit!.tips,
+          createdBy: oldPlace.createdBy,
+          createdAt: oldPlace.createdAt,
+          tips: tips,
+          recommendedDishes: dishes,
+          rating: oldPlace.rating,
+          reviewCount: oldPlace.reviewCount,
         );
 
         await provider.updatePlace(
           updatedPlace,
-          newLocalImagePaths: _selectedImages.map((f) => f.path).toList(),
-          removeImageUrls: _removedImages,
-          newLocalVideoPaths: _selectedVideos.map((f) => f.path).toList(),
-          removeVideoUrls: _removedVideos,
+          newLocalImagePaths: selectedImages.map((f) => f.path).toList(),
+          removeImageUrls: removedImages,
+          newLocalVideoPaths: selectedVideos.map((f) => f.path).toList(),
+          removeVideoUrls: removedVideos,
           isOffline: isOffline,
         );
 
         if (!mounted) return;
 
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Place updated successfully')),
+          const SnackBar(content: Text('Place updated successfully.')),
         );
 
         Navigator.of(context).pop();
       } else {
         final place = Place(
           id: '',
-          name: _nameController.text.trim(),
-          description: _descriptionController.text.trim(),
-          category: _selectedCategory,
+          name: nameController.text.trim(),
+          description: descriptionController.text.trim(),
+          category: selectedCategory,
           images: const [],
           videos: const [],
           location: GeoPoint(lat, lng),
           createdBy: user.uid,
           createdAt: DateTime.now(),
+          tips: tips,
+          recommendedDishes: dishes,
         );
 
         await provider.addPlace(
           place,
-          localImagePaths: _selectedImages.map((file) => file.path).toList(),
-          localVideoPaths: _selectedVideos.map((file) => file.path).toList(),
+          localImagePaths: selectedImages.map((file) => file.path).toList(),
+          localVideoPaths: selectedVideos.map((file) => file.path).toList(),
           isOffline: isOffline,
         );
 
@@ -435,9 +602,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
               content: const Text('Place added successfully.'),
               actions: [
                 TextButton(
-                  onPressed: () {
-                    Navigator.of(dialogContext).pop();
-                  },
+                  onPressed: () => Navigator.of(dialogContext).pop(),
                   child: const Text('OK'),
                 ),
               ],
@@ -447,27 +612,57 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
 
         if (!mounted) return;
 
-        setState(() {
-          _nameController.clear();
-          _descriptionController.clear();
-          _latController.clear();
-          _lngController.clear();
-          _selectedImages.clear();
-          _selectedVideos.clear();
-          _removedImages.clear();
-          _removedVideos.clear();
-          _existingImages.clear();
-          _existingVideos.clear();
-        });
+        clearForm();
       }
     } catch (e) {
       if (!mounted) return;
-      _showErrorDialog('Operation failed: ${e.toString()}');
+      showErrorDialog('Operation failed: ${e.toString()}');
     } finally {
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() => isLoading = false);
       }
     }
+  }
+
+  void clearForm() {
+    setState(() {
+      currentStep = 0;
+
+      nameController.clear();
+      descriptionController.clear();
+      latController.clear();
+      lngController.clear();
+
+      selectedCategory = Categories.all.first;
+
+      selectedImages.clear();
+      selectedVideos.clear();
+      removedImages.clear();
+      removedVideos.clear();
+      existingImages.clear();
+      existingVideos.clear();
+
+      for (final controller in tipControllers) {
+        controller.dispose();
+      }
+
+      tipControllers.clear();
+      tipControllers.add(TextEditingController());
+
+      for (final dish in dishControllers) {
+        dish.dispose();
+      }
+
+      dishControllers.clear();
+      dishControllers.add(
+        DishDraftControllers(
+          name: TextEditingController(),
+          description: TextEditingController(),
+        ),
+      );
+    });
+
+    _pageController.jumpToPage(0);
   }
 
   Future<void> _cleanupTempMedia() async {
@@ -495,410 +690,111 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
     } catch (_) {}
   }
 
+  void showErrorDialog(String message) {
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: AddPlaceColors.card,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          title: const Text('Error'),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final title = isEditing ? 'Edit Place' : 'Add New Place';
+
     return Scaffold(
-      backgroundColor: backgroundColor,
+      backgroundColor: AddPlaceColors.background,
       appBar: AppBar(
-        backgroundColor: backgroundColor,
+        backgroundColor: AddPlaceColors.background,
         elevation: 0,
+        iconTheme: const IconThemeData(color: AddPlaceColors.text),
         title: Text(
-          isEditing ? 'Edit Place' : 'Add New Place',
+          title,
           style: const TextStyle(
-            color: Colors.black87,
-            fontWeight: FontWeight.bold,
+            color: AddPlaceColors.text,
+            fontWeight: FontWeight.w900,
           ),
         ),
-        iconTheme: const IconThemeData(color: Colors.black87),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+        child: Column(
+          children: [
+            AddPlaceStepHeader(
+              currentStep: currentStep,
+              isEditing: isEditing,
+            ),
+            Expanded(
+              child: PageView(
+                controller: _pageController,
+                physics: const NeverScrollableScrollPhysics(),
                 children: [
-                  Icon(
-                      isEditing
-                          ? Icons.edit_location_alt_rounded
-                          : Icons.add_location_alt,
-                      color: mainColor,
-                      size: 28),
-                  const SizedBox(width: 12),
-                  Text(
-                    isEditing ? 'Update Details' : 'Share a Hidden Gem',
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 32),
-              _buildSectionTitle('Place Details'),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _nameController,
-                decoration: InputDecoration(
-                  hintText: 'Place Name',
-                  filled: true,
-                  fillColor: inputFillColor,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(18),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _descriptionController,
-                maxLines: 3,
-                decoration: InputDecoration(
-                  hintText: 'Description',
-                  filled: true,
-                  fillColor: inputFillColor,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(18),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                decoration: BoxDecoration(
-                  color: inputFillColor,
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: _selectedCategory,
-                    isExpanded: true,
-                    items: Categories.all.map((category) {
-                      return DropdownMenuItem(
-                        value: category,
-                        child: Text(category),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      if (value != null) {
-                        setState(() => _selectedCategory = value);
-                      }
+                  AddPlaceMainInfoStep(
+                    nameController: nameController,
+                    descriptionController: descriptionController,
+                    latController: latController,
+                    lngController: lngController,
+                    selectedCategory: selectedCategory,
+                    onCategoryChanged: (value) {
+                      if (value == null) return;
+                      setState(() => selectedCategory = value);
                     },
+                    onPickLocation: pickLocationFromMap,
                   ),
-                ),
-              ),
-              const SizedBox(height: 32),
-              _buildSectionTitle('Location'),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _latController,
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(
-                        hintText: 'Latitude',
-                        filled: true,
-                        fillColor: inputFillColor,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(18),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                    ),
+                  AddPlaceLocalDetailsStep(
+                    tipControllers: tipControllers,
+                    dishControllers: dishControllers,
+                    onAddTip: addTipField,
+                    onRemoveTip: removeTipField,
+                    onAddDish: addDishField,
+                    onRemoveDish: removeDishField,
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: TextField(
-                      controller: _lngController,
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(
-                        hintText: 'Longitude',
-                        filled: true,
-                        fillColor: inputFillColor,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(18),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                    ),
+                  AddPlaceMediaStep(
+                    existingImages: existingImages,
+                    selectedImages: selectedImages,
+                    existingVideos: existingVideos,
+                    selectedVideos: selectedVideos,
+                    onPickImages: pickImages,
+                    onPickSingleImage: pickSingleImage,
+                    onPickVideos: pickVideos,
+                    onRemoveExistingImage: removeExistingImage,
+                    onRemoveNewImage: removeNewImage,
+                    onRemoveExistingVideo: removeExistingVideo,
+                    onRemoveNewVideo: removeNewVideo,
+                    summaryName: nameController.text.trim(),
+                    summaryCategory: selectedCategory,
+                    tipsCount: buildTips().length,
+                    dishesCount: buildDishes().length,
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: OutlinedButton.icon(
-                  onPressed: _pickLocationFromMap,
-                  icon: const Icon(Icons.map, color: mainColor),
-                  label: const Text('Pick from Map'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: mainColor,
-                    side: const BorderSide(color: mainColor),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 32),
-              _buildSectionTitle('Photos'),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                      child: ElevatedButton.icon(
-                    onPressed: _pickImages,
-                    icon: const Icon(Icons.photo_library),
-                    label: const Text('Pick Multiple'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: mainColor,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                  )),
-                  const SizedBox(width: 12),
-                  Expanded(
-                      child: ElevatedButton.icon(
-                    onPressed: _pickSingleImage,
-                    icon: const Icon(Icons.add_photo_alternate),
-                    label: const Text('Pick One'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: mainColor,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                  )),
-                ],
-              ),
-              if (_existingImages.isNotEmpty || _selectedImages.isNotEmpty) ...[
-                const SizedBox(height: 24),
-                const Text(
-                  'Images',
-                  style: TextStyle(fontWeight: FontWeight.w500),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: 100,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    children: [
-                      ..._existingImages.asMap().entries.map((entry) {
-                        final index = entry.key;
-                        final url = entry.value;
-                        return _buildImageThumbnail(
-                          imageWidget: Image.network(url,
-                              fit: BoxFit.cover, width: 100, height: 100),
-                          onRemove: () => _removeExistingImage(index),
-                        );
-                      }),
-                      ..._selectedImages.asMap().entries.map((entry) {
-                        final index = entry.key;
-                        final file = entry.value;
-                        return _buildImageThumbnail(
-                          imageWidget: Image.file(file,
-                              fit: BoxFit.cover, width: 100, height: 100),
-                          onRemove: () => _removeNewImage(index),
-                        );
-                      }),
-                    ],
-                  ),
-                ),
-              ],
-              const SizedBox(height: 24),
-              _buildSectionTitle('Videos'),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton.icon(
-                  onPressed: _pickVideos,
-                  icon: const Icon(Icons.videocam_rounded),
-                  label: const Text('Pick a Video'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: mainColor,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Max 5 min · mp4, mov supported',
-                style: TextStyle(color: Colors.grey[500], fontSize: 11),
-              ),
-              if (_existingVideos.isNotEmpty || _selectedVideos.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                SizedBox(
-                  height: 100,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    children: [
-                      ..._existingVideos.asMap().entries.map((entry) {
-                        return _buildVideoThumbnail(
-                          label: 'Video ${entry.key + 1}',
-                          onRemove: () => _removeExistingVideo(entry.key),
-                        );
-                      }),
-                      ..._selectedVideos.asMap().entries.map((entry) {
-                        return _buildVideoThumbnail(
-                          label: entry.value.path.split('/').last,
-                          onRemove: () => _removeNewVideo(entry.key),
-                        );
-                      }),
-                    ],
-                  ),
-                ),
-              ],
-              const SizedBox(height: 40),
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : _submitPlace,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: mainColor,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                  ),
-                  child: _isLoading
-                      ? const SizedBox(
-                          height: 24,
-                          width: 24,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
-                      : Text(
-                          isEditing ? 'Save Changes' : 'Add Place',
-                          style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                ),
-              ),
-              const SizedBox(height: 24),
-            ],
-          ),
+            ),
+            AddPlaceBottomNavigation(
+              currentStep: currentStep,
+              isLoading: isLoading,
+              isEditing: isEditing,
+              onBack: currentStep == 0 ? null : () => goToStep(currentStep - 1),
+              onNext: currentStep == 2
+                  ? submitPlace
+                  : () => goToStep(currentStep + 1),
+            ),
+          ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildSectionTitle(String title) {
-    return Text(
-      title,
-      style: const TextStyle(
-        fontSize: 18,
-        fontWeight: FontWeight.bold,
-        color: Colors.black87,
-      ),
-    );
-  }
-
-  Widget _buildImageThumbnail(
-      {required Widget imageWidget, required VoidCallback onRemove}) {
-    return Container(
-      width: 100,
-      margin: const EdgeInsets.only(right: 8),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[300]!),
-      ),
-      child: Stack(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(11),
-            child: imageWidget,
-          ),
-          Positioned(
-            top: 4,
-            right: 4,
-            child: GestureDetector(
-              onTap: onRemove,
-              child: Container(
-                padding: const EdgeInsets.all(4),
-                decoration: const BoxDecoration(
-                  color: Colors.black54,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.close,
-                  size: 16,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildVideoThumbnail(
-      {required String label, required VoidCallback onRemove}) {
-    return Container(
-      width: 120,
-      margin: const EdgeInsets.only(right: 8),
-      decoration: BoxDecoration(
-        color: Colors.grey[900],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[700]!),
-      ),
-      child: Stack(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(11),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.videocam_rounded,
-                    color: Colors.white70, size: 32),
-                const SizedBox(height: 4),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  child: Text(
-                    label,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white60, fontSize: 9),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Positioned(
-            top: 4,
-            right: 4,
-            child: GestureDetector(
-              onTap: onRemove,
-              child: Container(
-                padding: const EdgeInsets.all(4),
-                decoration: const BoxDecoration(
-                  color: Colors.black54,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.close, size: 14, color: Colors.white),
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
