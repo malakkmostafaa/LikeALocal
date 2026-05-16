@@ -9,6 +9,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_local_notifications: ^18.0.1
+  flutter_markdown: ^0.7.3
+  googleapis_auth: ^1.6.0
 
   # State Management
   provider: ^6.1.1
@@ -56,7 +59,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  
-  # assets:
-  #   - assets/images/
-  #   - assets/icons/
+  assets:
+    - assets/service_account.json

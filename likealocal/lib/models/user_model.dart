@@ -26,6 +26,9 @@ class AppUser {
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
+  final int? chatStartHour;   
+  final int? chatEndHour;     
+
   AppUser({
     required this.uid,
     required this.name,
@@ -45,6 +48,8 @@ class AppUser {
     required this.bio,
     required this.createdAt,
     required this.updatedAt,
+    required this.chatStartHour,
+    required this.chatEndHour,
   });
 
   factory AppUser.empty({
@@ -71,6 +76,8 @@ class AppUser {
       bio: '',
       createdAt: null,
       updatedAt: null,
+      chatStartHour: null,
+      chatEndHour: null,
     );
   }
 
@@ -94,6 +101,8 @@ class AppUser {
       bio: map['bio'] ?? '',
       createdAt: _dateFromValue(map['createdAt']),
       updatedAt: _dateFromValue(map['updatedAt']),
+      chatStartHour: map['chatStartHour'] as int?,
+      chatEndHour: map['chatEndHour'] as int?,
     );
   }
 
@@ -135,6 +144,8 @@ class AppUser {
       'bio': bio,
       'createdAt': createdAt,
       'updatedAt': updatedAt,
+      'chatStartHour': chatStartHour,
+      'chatEndHour': chatEndHour,
     };
   }
 
@@ -158,6 +169,8 @@ class AppUser {
       'bio': bio,
       'createdAt': createdAt ?? FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
+      'chatStartHour': chatStartHour,
+      'chatEndHour': chatEndHour,
     };
   }
 
@@ -181,6 +194,20 @@ class AppUser {
       'bio': bio,
       'createdAt': createdAt?.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
+      'chatStartHour': chatStartHour,
+      'chatEndHour': chatEndHour,
     };
+  }
+
+  bool get isChatAvailableNow {
+    if (!chatEnabled) return false;
+    if (chatStartHour == null || chatEndHour == null) return true; // no restriction
+    final hour = DateTime.now().hour;
+    if (chatStartHour! <= chatEndHour!) {
+      return hour >= chatStartHour! && hour < chatEndHour!;
+    } else {
+      // overnight e.g. 10 PM – 2 AM
+      return hour >= chatStartHour! || hour < chatEndHour!;
+    }
   }
 }

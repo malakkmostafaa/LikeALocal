@@ -5,16 +5,17 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 
 import 'firebase_options.dart';
-
 import 'providers/connectivity_provider.dart';
 import 'widgets/offline_banner.dart';
-
 import 'providers/auth_provider.dart' as app_auth;
 import 'providers/user_provider.dart';
 import 'providers/place_provider.dart';
 import 'providers/review_provider.dart';
 import 'providers/location_provider.dart';
-
+import 'providers/chat_provider.dart';
+import 'providers/notification_provider.dart';
+import 'providers/ai_provider.dart';
+import 'services/notification_service.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/main_navigation.dart';
 
@@ -30,6 +31,9 @@ Future<void> main() async {
     cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
   );
 
+  // Initialize local notifications + FCM foreground handler
+  await NotificationService.init();
+
   runApp(
     MultiProvider(
       providers: [
@@ -41,6 +45,9 @@ Future<void> main() async {
         ChangeNotifierProvider(
           create: (_) => LocationProvider()..fetchLocation(),
         ),
+        ChangeNotifierProvider(create: (_) => ChatProvider()),
+        ChangeNotifierProvider(create: (_) => NotificationProvider()),
+        ChangeNotifierProvider(create: (_) => AiProvider()),
       ],
       child: const MyApp(),
     ),
@@ -62,7 +69,6 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
         scaffoldBackgroundColor: backgroundColor,
-        fontFamily: null,
         colorScheme: ColorScheme.fromSeed(
           seedColor: primaryColor,
           primary: primaryColor,
@@ -86,19 +92,14 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-
-      // This places the offline banner above every screen.
       builder: (context, child) {
         return Column(
           children: [
             const OfflineBanner(),
-            Expanded(
-              child: child ?? const SizedBox.shrink(),
-            ),
+            Expanded(child: child ?? const SizedBox.shrink()),
           ],
         );
       },
-
       home: const AuthGate(),
     );
   }
@@ -117,6 +118,8 @@ class AuthGate extends StatelessWidget {
         }
 
         if (snapshot.hasData && snapshot.data != null) {
+          // Save FCM token every time user is confirmed logged in
+          NotificationService.saveFcmToken();
           return const MainNavigation();
         }
 
@@ -133,9 +136,7 @@ class SplashLoadingScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Scaffold(
       body: Center(
-        child: CircularProgressIndicator(
-          color: MyApp.primaryColor,
-        ),
+        child: CircularProgressIndicator(color: MyApp.primaryColor),
       ),
     );
   }

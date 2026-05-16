@@ -15,6 +15,9 @@ import 'settings_screen.dart';
 import 'super_user_screen.dart';
 import 'subscription_plans_screen.dart';
 import '../place/place_details_screen.dart';
+import '../chat/ai_chatbot_screen.dart';
+import '../chat/chat_screen.dart';
+
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -106,10 +109,13 @@ class _ProfileActionsPanel extends StatelessWidget {
                 child: _ProfileActionTile(
                   icon: Icons.smart_toy_outlined,
                   title: 'AI Guide',
-                  subtitle: 'Coming soon',
+                  subtitle: 'Ask me anything',
                   onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('AI Guide coming soon')),
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const AiChatbotScreen(),
+                      ),
                     );
                   },
                 ),
@@ -1134,8 +1140,9 @@ class _ShortcutGrid extends StatelessWidget {
                   icon: Icons.smart_toy_outlined,
                   title: 'AI Guide',
                   onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('AI Guide coming soon')),
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const AiChatbotScreen()),
                     );
                   },
                 ),
@@ -1146,10 +1153,13 @@ class _ShortcutGrid extends StatelessWidget {
                   icon: Icons.send_outlined,
                   title: 'Messages',
                   onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Messages coming soon')),
-                    );
-                  },
+                      // Navigate to the Chats tab (index 4 in MainNavigation)
+                      // Simplest approach: push the screen directly
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const ChatScreen()),
+                      );
+                    },
                 ),
               ),
             ],

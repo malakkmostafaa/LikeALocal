@@ -168,101 +168,64 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
-class _HomeHeader extends StatelessWidget {
-  final AppUser? user;
+  class _HomeHeader extends StatelessWidget {
+    final AppUser? user;
 
-  const _HomeHeader({required this.user});
+    const _HomeHeader({required this.user});
 
-  void _openChat(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const ChatScreen(),
-      ),
-    );
-  }
+    @override
+    Widget build(BuildContext context) {
+      final firstName = user?.name.trim().isNotEmpty == true
+          ? user!.name.trim().split(' ').first
+          : 'there';
 
-  @override
-  Widget build(BuildContext context) {
-    final firstName = user?.name.trim().isNotEmpty == true
-        ? user!.name.trim().split(' ').first
-        : 'there';
-
-    return SafeArea(
-      bottom: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Top row: brand + actions
-            Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    'LikeALocal',
-                    style: TextStyle(
-                      color: HomeScreen.primaryColor,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: -0.2,
-                    ),
-                  ),
+      return SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Brand name only — no buttons (bell lives in MainNavigation)
+              const Text(
+                'LikeALocal',
+                style: TextStyle(
+                  color: HomeScreen.primaryColor,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.2,
                 ),
-                _HeaderIconButton(
-                  icon: Icons.chat_bubble_rounded,
-                  isPrimary: true,
-                  onTap: () => _openChat(context),
-                ),
-                const SizedBox(width: 10),
-                _HeaderIconButton(
-                  icon: Icons.notifications_none_rounded,
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Notifications coming soon'),
-                        duration: Duration(seconds: 1),
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 24),
-
-            // Greeting area
-            Text(
-              'Hey, $firstName',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: HomeScreen.textColor,
-                fontSize: 30,
-                fontWeight: FontWeight.w900,
-                letterSpacing: -0.8,
               ),
-            ),
-
-            const SizedBox(height: 6),
-
-            const Text(
-              'Trusted local recommendations, curated for you.',
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: HomeScreen.mutedText,
-                fontSize: 14,
-                height: 1.35,
-                fontWeight: FontWeight.w500,
+              const SizedBox(height: 24),
+              Text(
+                'Hey, $firstName',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: HomeScreen.textColor,
+                  fontSize: 30,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.8,
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 6),
+              const Text(
+                'Trusted local recommendations, curated for you.',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: HomeScreen.mutedText,
+                  fontSize: 14,
+                  height: 1.35,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
-    );
+      );
+    }
   }
-}
 
 class _HeaderIconButton extends StatelessWidget {
   final IconData icon;

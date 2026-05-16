@@ -9,6 +9,13 @@ import '../../models/place.dart';
 import '../../services/place_service.dart';
 import '../explore/widgets/post_user_header.dart';
 import '../map/map_screen.dart';
+import 'package:provider/provider.dart';
+import '../../providers/chat_provider.dart';
+import '../chat/conversation_screen.dart';
+import '../../providers/ai_provider.dart';
+import '../../services/ai_service.dart';
+import '../../models/user_model.dart';
+
 
 class PlaceDetailsScreen extends StatefulWidget {
   final Place place;
@@ -255,6 +262,8 @@ class _PlaceDetailsContent extends StatelessWidget {
                   ],
                   _LocationPreviewButton(place: place),
                   const SizedBox(height: 26),
+                  const SizedBox(height: 16),
+                  _ChatWithContributorButton(place: place),
                   if (place.recommendedDishes.isNotEmpty) ...[
                     _SectionTitle('Local favorites'),
                     const SizedBox(height: 14),
@@ -344,6 +353,8 @@ class _PlaceDetailsContent extends StatelessWidget {
                     const SizedBox(height: 18),
                   ],
                   _SectionTitle('Reviews'),
+                  const SizedBox(height: 14),
+                  _AiReviewSummary(place: place),
                   const SizedBox(height: 14),
                   ReviewForm(placeId: place.id),
                   const SizedBox(height: 16),
@@ -621,6 +632,288 @@ class _SectionTitle extends StatelessWidget {
         fontWeight: FontWeight.w900,
         color: Color(0xFF1F1F28),
         letterSpacing: -0.3,
+      ),
+    );
+  }
+}
+
+class _ChatWithContributorButton extends StatefulWidget {
+  final Place place;
+  const _ChatWithContributorButton({required this.place});
+
+  @override
+  State<_ChatWithContributorButton> createState() =>
+      _ChatWithContributorButtonState();
+}
+
+class _ChatWithContributorButtonState
+    extends State<_ChatWithContributorButton> {
+  AppUser? _contributor;
+  bool _loadingContributor = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadContributor();
+  }
+
+  Future<void> _loadContributor() async {
+    if (widget.place.createdBy == null || widget.place.createdBy!.isEmpty) {
+      setState(() => _loadingContributor = false);
+      return;
+    }
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(widget.place.createdBy)
+          .get();
+      if (doc.exists && doc.data() != null) {
+        setState(() {
+          _contributor = AppUser.fromMap(doc.data()!);
+          _loadingContributor = false;
+        });
+      } else {
+        setState(() => _loadingContributor = false);
+      }
+    } catch (_) {
+      setState(() => _loadingContributor = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final myId = FirebaseAuth.instance.currentUser?.uid;
+    if (widget.place.createdBy == null || widget.place.createdBy!.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    if (widget.place.createdBy == myId) return const SizedBox.shrink();
+    if (_loadingContributor) return const SizedBox.shrink();
+
+    const primary = Color(0xFFE26D45);
+    const muted = Color(0xFF777777);
+
+    // Build subtitle based on contributor's settings
+    String subtitle = 'Ask the local who added this place';
+    Color subtitleColor = muted;
+
+    if (_contributor != null) {
+      if (!_contributor!.chatEnabled) {
+        subtitle = 'This user has disabled chat';
+        subtitleColor = Colors.red.shade400;
+      } else if (_contributor!.chatStartHour != null &&
+          _contributor!.chatEndHour != null) {
+        final start = _formatHour(_contributor!.chatStartHour!);
+        final end = _formatHour(_contributor!.chatEndHour!);
+        if (!_contributor!.isChatAvailableNow) {
+          subtitle = 'Available $start – $end (currently unavailable)';
+          subtitleColor = Colors.orange.shade700;
+        } else {
+          subtitle = 'Available $start – $end';
+        }
+      }
+    }
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(24),
+      onTap: () async {
+        // Show alert if chat is disabled or outside hours
+        if (_contributor != null && !_contributor!.isChatAvailableNow) {
+          showDialog(
+            context: context,
+            builder: (_) => AlertDialog(
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20)),
+              title: const Text('Chat unavailable',
+                  style: TextStyle(fontWeight: FontWeight.w900)),
+              content: Text(subtitle),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('OK',
+                      style: TextStyle(color: primary)),
+                ),
+              ],
+            ),
+          );
+          return;
+        }
+
+        final chatProvider = context.read<ChatProvider>();
+        try {
+          final chatId = await chatProvider.openChat(
+            otherUserId: widget.place.createdBy!,
+            placeId: widget.place.id,
+            placeName: widget.place.name,
+          );
+          if (!context.mounted) return;
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ConversationScreen(
+                chatId: chatId,
+                otherUserId: widget.place.createdBy!,
+                placeName: widget.place.name,
+              ),
+            ),
+          );
+        } catch (e) {
+          if (!context.mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not open chat: $e')),
+          );
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: primary.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: primary.withOpacity(0.18)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(11),
+              decoration: const BoxDecoration(
+                  color: primary, shape: BoxShape.circle),
+              child:
+                  const Icon(Icons.chat_rounded, color: Colors.white),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Chat with contributor',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w900, fontSize: 16)),
+                  const SizedBox(height: 4),
+                  Text(subtitle,
+                      style: TextStyle(
+                          color: subtitleColor, fontSize: 13)),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatHour(int hour) {
+    final period = hour < 12 ? 'AM' : 'PM';
+    final h = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+    return '$h $period';
+  }
+}
+
+class _AiReviewSummary extends StatefulWidget {
+  final Place place;
+  const _AiReviewSummary({required this.place});
+
+  @override
+  State<_AiReviewSummary> createState() => _AiReviewSummaryState();
+}
+
+class _AiReviewSummaryState extends State<_AiReviewSummary> {
+  String? _summary;
+  bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.place.reviewCount > 0) _loadSummary();
+  }
+
+  Future<void> _loadSummary() async {
+    setState(() => _loading = true);
+
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('places')
+          .doc(widget.place.id)
+          .collection('reviews')
+          .orderBy('createdAt', descending: true)
+          .limit(10)
+          .get();
+
+      final texts = snap.docs
+          .map((d) => d.data()['text']?.toString() ?? '')
+          .where((s) => s.isNotEmpty)
+          .toList();
+
+      if (!mounted || texts.isEmpty) {
+        setState(() => _loading = false);
+        return;
+      }
+
+      // Call Groq directly — no shared provider state
+      final result = await AiService().summarizeReviews(
+        placeName: widget.place.name,
+        reviews: texts,
+      );
+
+      if (mounted) setState(() { _summary = result; _loading = false; });
+    } catch (e) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.place.reviewCount == 0) return const SizedBox.shrink();
+
+    if (_loading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 16, height: 16,
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, color: Color(0xFFE26D45)),
+            ),
+            SizedBox(width: 8),
+            Text('Summarizing reviews…',
+                style: TextStyle(color: Colors.grey)),
+          ],
+        ),
+      );
+    }
+
+    if (_summary == null) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFBE8DF).withOpacity(0.5),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE26D45).withOpacity(0.15)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.auto_awesome_rounded,
+              color: Color(0xFFE26D45), size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('AI Summary',
+                    style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFFE26D45))),
+                const SizedBox(height: 6),
+                Text(_summary!,
+                    style: const TextStyle(
+                        height: 1.5, color: Color(0xFF444444))),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
