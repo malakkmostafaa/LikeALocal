@@ -362,6 +362,9 @@ class PlaceService {
       'description': place.description,
       'category': place.category,
       'location': GeoPoint(place.lat, place.lng),
+      'tips': place.tips.map((tip) => tip.toMap()).toList(),
+      'recommendedDishes':
+          place.recommendedDishes.map((dish) => dish.toMap()).toList(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
