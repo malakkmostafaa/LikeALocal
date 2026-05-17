@@ -1,128 +1,109 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import 'package:cloud_firestore/cloud_firestore.dart';
-import '../utils/app_config.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:google_generative_ai/google_generative_ai.dart';
 
-class AiService {
-  static const _model = 'llama-3.3-70b-versatile';
-  static const _baseUrl = 'https://api.groq.com/openai/v1/chat/completions';
+/// Thin wrapper around the Gemini generative model, locked to the
+/// LikeALocal assistant persona via a system prompt.
+class GeminiAssistantService {
+  static const String _basePrompt = '''
+You are LikeALocal's in-app assistant. LikeALocal is a mobile app that helps
+users discover hidden gems in Cairo, Egypt — restaurants, cafés, art spots,
+hangouts, neighborhoods, and similar local favorites — and save them as "pins".
 
-  Future<String> _buildContext({
-    List<String> userPreferences = const [],
-  }) async {
-    try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('places')
-          .orderBy('rating', descending: true)
-          .limit(30)
-          .get();
+Stay focused on:
+- Recommending places, food, neighborhoods, and experiences in Cairo.
+- Helping users use the app's features: pinning places, the 5-pin free
+  tier limit, upgrading to Premium for unlimited pins, writing reviews,
+  exploring the feed, and the map view.
+- Travel etiquette, local tips, and short cultural context when useful.
 
-      final buffer = StringBuffer();
-      buffer.writeln('=== LikeALocal places database (top 30 by rating) ===');
+Personalization rules:
+- An APP CONTEXT block below may include the signed-in user's name, plan,
+  preferences, pinned places, and a list of PLACES AVAILABLE IN THE APP.
+- When recommending, prefer names from PLACES AVAILABLE IN THE APP. Quote
+  the exact place name so the user can find it inside the app.
+- Use the user's preferences and pinned places to tailor suggestions
+  (e.g., "since you like Cafés and pinned Garden Nook, try ...").
+- If no app place fits the question, say so plainly and suggest the user
+  explore the Explore feed — don't invent places that aren't listed.
 
-      for (final doc in snapshot.docs) {
-        final d = doc.data();
-        buffer.writeln(
-          '• ${d['name']} | Category: ${d['category']} | '
-          'Rating: ${d['rating']} | ${d['description'] ?? ''}',
-        );
-        if (d['tips'] is List && (d['tips'] as List).isNotEmpty) {
-          final tips = (d['tips'] as List).take(2);
-          buffer.writeln('  Tips: ${tips.map((t) => t['text']).join('; ')}');
-        }
-      }
-
-      if (userPreferences.isNotEmpty) {
-        buffer.writeln('\n=== User preferences: ${userPreferences.join(', ')} ===');
-      }
-
-      return buffer.toString();
-    } catch (e) {
-      return '';
-    }
-  }
-
-  Future<String> chat({
-    required List<Map<String, String>> history,
-    List<String> userPreferences = const [],
-  }) async {
-    final context = await _buildContext(userPreferences: userPreferences);
-
-    final systemPrompt = '''
-You are an AI local guide for the LikeALocal app — a platform where locals share hidden gems, restaurants, and authentic experiences.
-
-$context
-
-Rules:
-- Recommend only places from the database above. If nothing matches, say so honestly.
-- Be warm, concise, and conversational.
-- When recommending, always mention the place name and category.
-- Never make up places, ratings, or details not in the database.
+General rules:
+- If a question is unrelated to travel, Cairo, or this app, politely say
+  you can only help with LikeALocal topics and offer an example question.
+- Keep replies short and friendly (2–4 sentences unless the user asks for
+  detail). Use plain text, no markdown headers.
+- Never invent specific business hours, prices, or addresses you are not
+  sure about — say "check the place's page in the app" instead.
 ''';
 
-    final messages = [
-      {'role': 'system', 'content': systemPrompt},
-      ...history,
-    ];
+  /// Sends [history] (oldest first) + the new user [message] and returns
+  /// the assistant's reply text. [appContext], when non-empty, is appended
+  /// to the system prompt so the model can personalize answers.
+  Future<String> sendMessage({
+    required List<({String role, String text})> history,
+    required String message,
+    String appContext = '',
+  }) async {
+    final apiKey = dotenv.env['GEMINI_API_KEY'] ?? '';
 
-    final response = await http.post(
-      Uri.parse(_baseUrl),
-      headers: {
-        'Authorization': 'Bearer ${AppConfig.groqApiKey}',
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode({
-        'model': _model,
-        'messages': messages,
-        'max_tokens': 512,
-        'temperature': 0.7,
-      }),
+    final systemPrompt = appContext.trim().isEmpty
+        ? _basePrompt
+        : '$_basePrompt\n\n--- APP CONTEXT ---\n$appContext';
+
+    final model = GenerativeModel(
+      model: 'gemini-2.5-flash',
+      apiKey: apiKey,
+      systemInstruction: Content.system(systemPrompt),
     );
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      return data['choices'][0]['message']['content'] as String;
-    } else {
-      throw Exception('Groq error ${response.statusCode}: ${response.body}');
-    }
-  }
+    final chat = model.startChat(
+      history: history.map((m) {
+        return m.role == 'user'
+            ? Content.text(m.text)
+            : Content.model([TextPart(m.text)]);
+      }).toList(),
+    );
 
+    final response = await chat.sendMessage(Content.text(message));
+    final reply = response.text?.trim();
+
+    if (reply == null || reply.isEmpty) {
+      throw Exception('Empty response from Gemini.');
+    }
+    return reply;
+  }
+}
+
+/// Gemini helper for one-off tasks such as review summarization.
+class AiService {
   Future<String> summarizeReviews({
     required String placeName,
     required List<String> reviews,
   }) async {
-    if (reviews.isEmpty) return 'No reviews yet to summarize.';
+    final apiKey = dotenv.env['GEMINI_API_KEY'] ?? '';
+    if (apiKey.isEmpty) {
+      throw Exception('GEMINI_API_KEY is not configured.');
+    }
 
-    final prompt = '''
-Summarize these user reviews for "$placeName" in 2-3 sentences.
-Focus on what visitors love, what to watch out for, and the overall vibe.
-Keep it conversational and helpful.
-
-Reviews:
-${reviews.take(10).map((r) => '- $r').join('\n')}
-''';
-
-    final response = await http.post(
-      Uri.parse(_baseUrl),
-      headers: {
-        'Authorization': 'Bearer ${AppConfig.groqApiKey}',
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode({
-        'model': _model,
-        'messages': [
-          {'role': 'user', 'content': prompt}
-        ],
-        'max_tokens': 200,
-        'temperature': 0.5,
-      }),
+    final model = GenerativeModel(
+      model: 'gemini-2.5-flash',
+      apiKey: apiKey,
     );
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      return data['choices'][0]['message']['content'] as String;
-    } else {
-      throw Exception('Groq error ${response.statusCode}');
+    final reviewLines = reviews.map((r) => '- $r').join('\n');
+    final prompt = '''
+Summarize these user reviews for "$placeName" in 2–3 concise sentences.
+Focus on what visitors liked or disliked. Do not invent details.
+
+Reviews:
+$reviewLines
+''';
+
+    final response = await model.generateContent([Content.text(prompt)]);
+    final summary = response.text?.trim();
+
+    if (summary == null || summary.isEmpty) {
+      throw Exception('Empty summary from Gemini.');
     }
+    return summary;
   }
 }

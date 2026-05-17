@@ -1,22 +1,52 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+
 import '../../services/user_service.dart';
 
-class MockPaymentScreen extends StatefulWidget {
-  const MockPaymentScreen({super.key});
+class PaymobLinkPaymentScreen extends StatefulWidget {
+  const PaymobLinkPaymentScreen({super.key});
 
   @override
-  State<MockPaymentScreen> createState() => _MockPaymentScreenState();
+  State<PaymobLinkPaymentScreen> createState() =>
+      _PaymobLinkPaymentScreenState();
 }
 
-class _MockPaymentScreenState extends State<MockPaymentScreen> {
-  bool _isLoading = false;
+class _PaymobLinkPaymentScreenState extends State<PaymobLinkPaymentScreen> {
   final UserService _userService = UserService();
 
-  Future<void> _processPayment() async {
+  bool _isLoading = false;
+
+  static const String paymobPaymentLink = 'https://paymob.link/d6n23';
+
+  Future<void> _openPaymobPaymentLink() async {
+    final uri = Uri.parse(paymobPaymentLink);
+
+    try {
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+
+      if (!launched && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not open Paymob payment page.'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not open payment page: $e'),
+        ),
+      );
+    }
+  }
+
+  Future<void> _markPaymentCompletedForDemo() async {
     setState(() => _isLoading = true);
-    
-    // Simulate network delay for payment processing
-    await Future.delayed(const Duration(seconds: 2));
 
     try {
       await _userService.updateCurrentUser({
@@ -24,60 +54,76 @@ class _MockPaymentScreenState extends State<MockPaymentScreen> {
       });
 
       if (!mounted) return;
-      
-      // Show Success Dialog
+
       await showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.check_circle, color: Colors.green, size: 60),
-              const SizedBox(height: 16),
-              const Text(
-                "Payment Successful!",
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                "You are now a Premium user. Enjoy unlimited features!",
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    // Pop dialog and the payment screen
-                    Navigator.of(context).pop();
-                    Navigator.of(context).pop();
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFD96B41),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  child: const Text("Awesome", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        builder: (context) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.check_circle,
+                  color: Colors.green,
+                  size: 60,
                 ),
-              ),
-            ],
-          ),
-        ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Premium Activated!',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Demo mode: payment was marked as completed.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      Navigator.of(context).pop();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFD96B41),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    child: const Text(
+                      'Awesome',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       );
-      
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error processing payment: $e")),
-        );
-      }
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not activate premium: $e')),
+      );
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -88,18 +134,20 @@ class _MockPaymentScreenState extends State<MockPaymentScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text("Secure Checkout", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Paymob Checkout',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         foregroundColor: Colors.black,
       ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ORDER SUMMARY
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
@@ -113,102 +161,114 @@ class _MockPaymentScreenState extends State<MockPaymentScreen> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text("Premium Plus", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        Text(
+                          'Premium Plus',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                         SizedBox(height: 4),
-                        Text("Monthly Subscription", style: TextStyle(color: Colors.grey)),
+                        Text(
+                          'For Life Subscription',
+                          style: TextStyle(color: Colors.grey),
+                        ),
                       ],
                     ),
-                    Text("\$4.99", style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+                    Text(
+                      'EGP 500',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
                   ],
                 ),
               ),
-              const SizedBox(height: 30),
-              
-              const Text("Payment Method", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 16),
-              
-              // MOCK CREDIT CARD INPUT
-              TextFormField(
-                decoration: InputDecoration(
-                  labelText: "Card Number",
-                  hintText: "0000 0000 0000 0000",
-                  prefixIcon: const Icon(Icons.credit_card),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              const SizedBox(height: 28),
+              const Text(
+                'Payment Method',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
                 ),
-                keyboardType: TextInputType.number,
-                initialValue: "4242 4242 4242 4242",
               ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      decoration: InputDecoration(
-                        labelText: "Expiry Date",
-                        hintText: "MM/YY",
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      initialValue: "12/26",
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: TextFormField(
-                      decoration: InputDecoration(
-                        labelText: "CVC",
-                        hintText: "123",
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      initialValue: "123",
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                decoration: InputDecoration(
-                  labelText: "Cardholder Name",
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.grey.shade200),
                 ),
-                initialValue: "Jane Doe",
+                child: const Row(
+                  children: [
+                    Icon(Icons.payment_rounded, color: primaryColor),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'You will be redirected to Paymob’s secure payment page.',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              
               const Spacer(),
-              
               SizedBox(
                 width: double.infinity,
                 height: 56,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : _processPayment,
+                child: ElevatedButton.icon(
+                  onPressed: _openPaymobPaymentLink,
+                  icon: const Icon(Icons.open_in_new_rounded),
+                  label: const Text(
+                    'Open Paymob Payment Page',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primaryColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: OutlinedButton(
+                  onPressed: _isLoading ? null : _markPaymentCompletedForDemo,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: primaryColor,
+                    side: const BorderSide(color: primaryColor),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
                   child: _isLoading
                       ? const SizedBox(
-                          width: 24, height: 24,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: primaryColor,
+                          ),
                         )
                       : const Text(
-                          "Pay \$4.99 securely",
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                          'I completed payment',
+                          style: TextStyle(fontWeight: FontWeight.bold),
                         ),
                 ),
               ),
               const SizedBox(height: 16),
               const Center(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.lock, size: 14, color: Colors.grey),
-                    SizedBox(width: 4),
-                    Text(
-                      "Secured by Mock Stripe Integration",
-                      style: TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-                  ],
+                child: Text(
+                  'Demo mode: payment verification is manual.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
                 ),
               ),
             ],

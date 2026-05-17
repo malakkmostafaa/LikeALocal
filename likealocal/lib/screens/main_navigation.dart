@@ -7,7 +7,7 @@ import 'home/home_screen.dart';
 import 'explore/explore_screen.dart';
 import 'add_place/add_place_screen.dart';
 import 'map/map_screen.dart';
-import 'chat/chat_screen.dart';
+//import 'chat/chat_screen.dart';
 import 'profile/profile_screen.dart';
 import 'notifications/notifications_screen.dart';
 import '../providers/notification_provider.dart';
@@ -39,11 +39,10 @@ class _MainNavigationState extends State<MainNavigation> {
   }
 
   final List<Widget> screens = const [
-    HomeScreen(),
     ExploreScreen(),
     AddPlaceScreen(),
     MapScreen(),
-    ChatScreen(),
+    //ChatScreen(),
     ProfileScreen(),
   ];
 
@@ -66,10 +65,6 @@ class _MainNavigationState extends State<MainNavigation> {
         unselectedFontSize: 11,
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.home_rounded),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
             icon: Icon(Icons.explore_rounded),
             label: 'Explore',
           ),
@@ -80,11 +75,11 @@ class _MainNavigationState extends State<MainNavigation> {
           BottomNavigationBarItem(
             icon: Icon(Icons.map_rounded),
             label: 'Map',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble_outline_rounded),
-            label: 'Chats',
-          ),
+           ),
+          // BottomNavigationBarItem(
+          //   icon: Icon(Icons.chat_bubble_outline_rounded),
+          //   label: 'Chats',
+          // ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_rounded),
             label: 'Profile',

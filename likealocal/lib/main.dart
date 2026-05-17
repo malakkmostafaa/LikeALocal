@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
@@ -19,11 +20,18 @@ import 'providers/notification_provider.dart';
 import 'providers/ai_provider.dart';
 import 'services/notification_service.dart';
 import 'services/reminder_geofence_service.dart';
+import 'providers/pin_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/main_navigation.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  try {
+    await dotenv.load(fileName: '.env');
+  } catch (_) {
+    // .env missing — AI chat needs GEMINI_API_KEY; copy .env.example to .env
+  }
 
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
@@ -49,13 +57,14 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => PlaceProvider()),
         ChangeNotifierProvider(create: (_) => ReviewProvider()),
+        ChangeNotifierProvider(create: (_) => PinProvider()),
+        ChangeNotifierProvider(create: (_) => ChatProvider()),
+        ChangeNotifierProvider(create: (_) => AiChatProvider()),
         ChangeNotifierProvider(create: (_) => ConnectivityProvider()),
         ChangeNotifierProvider(
           create: (_) => LocationProvider()..fetchLocation(),
         ),
-        ChangeNotifierProvider(create: (_) => ChatProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
-        ChangeNotifierProvider(create: (_) => AiProvider()),
       ],
       child: const MyApp(),
     ),
@@ -100,12 +109,11 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
+
+      // This places the offline banner globally without overlapping or double-padding.
       builder: (context, child) {
-        return Column(
-          children: [
-            const OfflineBanner(),
-            Expanded(child: child ?? const SizedBox.shrink()),
-          ],
+        return OfflineBanner(
+          child: child ?? const SizedBox.shrink(),
         );
       },
       home: const AuthGate(),

@@ -54,6 +54,13 @@ dependencies:
   uuid: ^4.3.3
   connectivity_plus: ^7.1.1
 
+  # AI
+  google_generative_ai: ^0.4.6
+  flutter_dotenv: ^5.1.0
+  video_player: ^2.11.1
+  url_launcher: ^6.3.2
+  speech_to_text: ^7.3.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -61,5 +68,10 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
   assets:
+    - .env
     - assets/service_account.json
+  # assets:
+  #   - assets/images/
+  #   - assets/icons/

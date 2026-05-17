@@ -1,538 +1,555 @@
-import 'package:cached_network_image/cached_network_image.dart';
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
+import '../../utils/voice_search_matcher.dart';
 
 import '../../models/place.dart';
 import '../../models/user_model.dart';
 import '../../providers/location_provider.dart';
-import '../../providers/place_provider.dart';
 import '../../providers/user_provider.dart';
+import '../../services/place_service.dart';
+import '../../services/user_service.dart';
+import '../../services/recommendation_service.dart';
 import '../../utils/categories.dart';
 import '../place/place_details_screen.dart';
-import '../main_navigation.dart'; 
-import '../../widgets/notification_bell.dart';
+import '../chat/ai_chatbot_screen.dart';
+import '../chat/chat_screen.dart';
+import '../notifications/notifications_screen.dart';
 
 import 'widgets/place_card.dart';
 import 'widgets/search_bar_widget.dart';
+import 'widgets/trending_section.dart';
 
-enum ExploreCollectionType {
-  all,
-  category,
-  trending,
-  nearby,
-  topRated,
+enum ExploreSortMode {
+  recommended,
   newest,
+  rating,
+  mostReviewed,
+  budgetLowToHigh,
+  budgetHighToLow,
 }
 
-class ExploreScreen extends StatelessWidget {
+class ExploreScreen extends StatefulWidget {
   const ExploreScreen({super.key});
 
-  static const Color bgColor = Color(0xFFF6EFE8);
+  @override
+  State<ExploreScreen> createState() => _ExploreScreenState();
+}
+
+class _ExploreScreenState extends State<ExploreScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  final PlaceService _placeService = PlaceService();
+  final RecommendationService _recommendationService = RecommendationService();
+  final ScrollController _scrollController = ScrollController();
+
+  late final Stream<List<Place>> _placesStream;
+  List<Place> _latestPlaces = [];
+  final stt.SpeechToText _speech = stt.SpeechToText();
+
+  bool _speechAvailable = false;
+  bool _isListening = false;
+  String _searchQuery = '';
+
+  String? _selectedCategory;
+  int? _selectedBudgetLevel;
+  bool _showScrollToTop = false;
+
+  bool _showForYou = false;
+  bool _showNearby = false;
+  bool _showNewestFirst = true;
+
+  ExploreSortMode _sortMode = ExploreSortMode.recommended;
+
+  Map<String, AppUser> _creators = {};
+  bool _isFetchingCreators = false;
+
+  Map<String, dynamic>? _recommendationProfile;
+  Timer? _searchDebounce;
+
+  static const Color bgColor = Color(0xFFFAF7F2);
   static const Color cardColor = Color(0xFFFFFBF7);
   static const Color primaryColor = Color(0xFFE26D45);
-  static const Color softPrimary = Color(0xFFFFEEE6);
-  static const Color borderColor = Color(0xFFF0E4DC);
+  static const Color softPrimary = Color(0xFFFBE8DF);
   static const Color textColor = Color(0xFF1F1F28);
   static const Color mutedText = Color(0xFF777777);
-
-  static List<_CategoryCollectionData> get categoryCollections {
-    return Categories.all.map((category) {
-      return _CategoryCollectionData(
-        label: _displayCategoryName(category),
-        category: category,
-        icon: _categoryIcon(category),
-      );
-    }).toList();
-  }
-
-  static String _displayCategoryName(String category) {
-    switch (category) {
-      case Categories.cafe:
-        return 'Cafes';
-      case Categories.food:
-        return 'Food';
-      case Categories.restaurant:
-        return 'Restaurants';
-      case Categories.park:
-        return 'Parks';
-      case Categories.museum:
-        return 'Museums';
-      case Categories.bar:
-        return 'Bars';
-      case Categories.shop:
-        return 'Shopping';
-      case Categories.other:
-        return 'Other';
-      default:
-        return category;
-    }
-  }
-
-  static IconData _categoryIcon(String category) {
-    switch (category) {
-      case Categories.cafe:
-        return Icons.local_cafe_rounded;
-      case Categories.food:
-        return Icons.restaurant_rounded;
-      case Categories.restaurant:
-        return Icons.dinner_dining_rounded;
-      case Categories.park:
-        return Icons.park_rounded;
-      case Categories.museum:
-        return Icons.museum_rounded;
-      case Categories.bar:
-        return Icons.local_bar_rounded;
-      case Categories.shop:
-        return Icons.shopping_bag_rounded;
-      case Categories.other:
-        return Icons.more_horiz_rounded;
-      default:
-        return Icons.place_rounded;
-    }
-  }
-
-  void _openCollection(
-    BuildContext context, {
-    required ExploreCollectionType type,
-    required String title,
-    String? category,
-  }) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => PlaceCollectionScreen(
-          type: type,
-          title: title,
-          category: category,
-        ),
-      ),
-    );
-  }
-
-  List<Place> _previewPlaces(List<Place> places) {
-    final result = List<Place>.from(places);
-
-    result.sort((a, b) {
-      final ratingCompare = b.rating.compareTo(a.rating);
-      if (ratingCompare != 0) return ratingCompare;
-
-      final reviewCompare = b.reviewCount.compareTo(a.reviewCount);
-      if (reviewCompare != 0) return reviewCompare;
-
-      final aTime = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-      final bTime = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-
-      return bTime.compareTo(aTime);
-    });
-
-    return result.take(3).toList();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-        backgroundColor: bgColor,
-        appBar: AppBar(
-          backgroundColor: bgColor,
-          elevation: 0,
-          scrolledUnderElevation: 0,
-          titleSpacing: 20,
-          title: const Text(
-            'Explore',
-            style: TextStyle(
-              color: textColor,
-              fontSize: 26,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -0.5,
-            ),
-          ),
-          actions: const [
-            NotificationBell(),
-          ],
-        ),
-      body: SafeArea(
-        bottom: false,
-        child: Consumer<PlaceProvider>(
-          builder: (context, placeProvider, child) {
-            if (placeProvider.isLoading) {
-              return const Center(
-                child: CircularProgressIndicator(color: primaryColor),
-              );
-            }
-
-            final places = placeProvider.places;
-
-            if (places.isEmpty) {
-              return const _EmptyExploreState();
-            }
-
-            final previewPlaces = _previewPlaces(places);
-
-            return CustomScrollView(
-              slivers: [
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 18),
-                    child: _SearchEntryCard(
-                      onTap: () {
-                        _openCollection(
-                          context,
-                          type: ExploreCollectionType.all,
-                          title: 'Search Places',
-                        );
-                      },
-                    ),
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                    child: _AllPlacesHeroCard(
-                      totalPlaces: places.length,
-                      previewPlaces: previewPlaces,
-                      onTap: () {
-                        _openCollection(
-                          context,
-                          type: ExploreCollectionType.all,
-                          title: 'All Places',
-                        );
-                      },
-                    ),
-                  ),
-                ),
-                const SliverToBoxAdapter(
-                  child: _SectionHeader(
-                    title: 'Collections',
-                    subtitle:
-                        'Browse places by the kind of experience you want',
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: SizedBox(
-                    height: 142,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      physics: const BouncingScrollPhysics(),
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: categoryCollections.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 12),
-                      itemBuilder: (context, index) {
-                        final item = categoryCollections[index];
-
-                        final count = places.where((place) {
-                          return place.category == item.category;
-                        }).length;
-
-                        return _CategoryCollectionCard(
-                          data: item,
-                          count: count,
-                          places: places,
-                          onTap: () {
-                            _openCollection(
-                              context,
-                              type: ExploreCollectionType.category,
-                              title: item.label,
-                              category: item.category,
-                            );
-                          },
-                        );
-                      },
-                    ),
-                  ),
-                ),
-                const SliverToBoxAdapter(
-                  child: SizedBox(height: 24),
-                ),
-                const SliverToBoxAdapter(
-                  child: _SectionHeader(
-                    title: 'Ways to explore',
-                    subtitle: 'Find places by activity, distance, or quality',
-                  ),
-                ),
-                SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  sliver: SliverList(
-                    delegate: SliverChildListDelegate(
-                      [
-                        _DiscoveryRowCard(
-                          title: 'Trending now',
-                          subtitle:
-                              'Popular places based on ratings, reviews, and recent activity',
-                          icon: Icons.trending_up_rounded,
-                          onTap: () {
-                            _openCollection(
-                              context,
-                              type: ExploreCollectionType.trending,
-                              title: 'Trending Now',
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 12),
-                        _DiscoveryRowCard(
-                          title: 'Near you',
-                          subtitle:
-                              'Places sorted by distance using your current location',
-                          icon: Icons.near_me_rounded,
-                          onTap: () {
-                            _openCollection(
-                              context,
-                              type: ExploreCollectionType.nearby,
-                              title: 'Near You',
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 12),
-                        _DiscoveryRowCard(
-                          title: 'Top rated gems',
-                          subtitle:
-                              'The highest rated local spots from the community',
-                          icon: Icons.star_rounded,
-                          onTap: () {
-                            _openCollection(
-                              context,
-                              type: ExploreCollectionType.topRated,
-                              title: 'Top Rated',
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 12),
-                        _DiscoveryRowCard(
-                          title: 'Newly added',
-                          subtitle: 'Fresh places recently shared by locals',
-                          icon: Icons.fiber_new_rounded,
-                          onTap: () {
-                            _openCollection(
-                              context,
-                              type: ExploreCollectionType.newest,
-                              title: 'Newly Added',
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SliverToBoxAdapter(
-                  child: SizedBox(height: 34),
-                ),
-              ],
-            );
-          },
-        ),
-      ),
-    );
-  }
-}
-
-class PlaceCollectionScreen extends StatefulWidget {
-  final ExploreCollectionType type;
-  final String title;
-  final String? category;
-
-  const PlaceCollectionScreen({
-    super.key,
-    required this.type,
-    required this.title,
-    this.category,
-  });
-
-  @override
-  State<PlaceCollectionScreen> createState() => _PlaceCollectionScreenState();
-}
-
-class _PlaceCollectionScreenState extends State<PlaceCollectionScreen> {
-  final TextEditingController _searchController = TextEditingController();
-
-  String _searchQuery = '';
-  String _selectedSort = 'Smart sort';
-
-  Position? _currentPosition;
-  bool _isFetchingLocation = false;
-
-  final List<String> _sortOptions = const [
-    'Smart sort',
-    'Nearby',
-    'Trending',
-    'Top Rated',
-    'Newest',
-  ];
+  static const Color borderColor = Color(0xFFEEDDD2);
 
   @override
   void initState() {
     super.initState();
+    _placesStream = _placeService.getPlaces();
+    _loadRecommendationProfile();
+    _initSpeech();
+    _scrollController.addListener(() {
+      final shouldShow = _scrollController.offset > 420;
 
-    final cachedPosition = context.read<LocationProvider>().currentPosition;
-    if (cachedPosition != null) {
-      _currentPosition = cachedPosition;
-    }
-
-    if (widget.type == ExploreCollectionType.nearby) {
-      _selectedSort = 'Nearby';
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _fetchLocation();
-      });
-    } else if (widget.type == ExploreCollectionType.trending) {
-      _selectedSort = 'Trending';
-    } else if (widget.type == ExploreCollectionType.topRated) {
-      _selectedSort = 'Top Rated';
-    } else if (widget.type == ExploreCollectionType.newest) {
-      _selectedSort = 'Newest';
-    }
+      if (shouldShow != _showScrollToTop && mounted) {
+        setState(() {
+          _showScrollToTop = shouldShow;
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _searchDebounce?.cancel();
+    _scrollController.dispose();
+    _speech.stop();
     super.dispose();
   }
 
-  Future<void> _fetchLocation() async {
-    setState(() {
-      _isFetchingLocation = true;
-    });
-
+  Future<void> _toggleNearby() async {
     final locationProvider = context.read<LocationProvider>();
-    await locationProvider.fetchLocation();
 
-    if (!mounted) return;
+    if (!_showNearby) {
+      await locationProvider.fetchLocation();
 
-    setState(() {
-      _currentPosition = locationProvider.currentPosition;
-      _isFetchingLocation = false;
-    });
+      if (locationProvider.error != null || !locationProvider.hasLocation) {
+        if (!mounted) return;
 
-    if (_currentPosition == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Location permission denied or disabled.'),
+          ),
+        );
+        return;
+      }
+
+      setState(() {
+        _showNearby = true;
+        _showForYou = false;
+        _showNewestFirst = false;
+      });
+    } else {
+      setState(() => _showNearby = false);
+    }
+  }
+
+  Future<void> _initSpeech() async {
+    try {
+      final available = await _speech.initialize(
+        onStatus: (status) {
+          if (!mounted) return;
+
+          if (status == 'done' || status == 'notListening') {
+            setState(() => _isListening = false);
+          }
+        },
+        onError: (error) {
+          if (!mounted) return;
+
+          setState(() => _isListening = false);
+
+          final errorMsg = error.errorMsg;
+
+          if (errorMsg == 'error_speech_timeout' ||
+              errorMsg == 'error_no_match' ||
+              errorMsg == 'error_audio') {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('I did not catch that. Try speaking again.'),
+              ),
+            );
+            return;
+          }
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Voice search error: $errorMsg'),
+            ),
+          );
+        },
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _speechAvailable = available;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _speechAvailable = false;
+        _isListening = false;
+      });
+    }
+  }
+
+  Future<void> _toggleVoiceSearch() async {
+    if (_isListening) {
+      await _speech.stop();
+
+      if (!mounted) return;
+      setState(() => _isListening = false);
+      return;
+    }
+
+    if (!_speechAvailable) {
+      await _initSpeech();
+    }
+
+    if (!_speechAvailable) {
+      if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Location permission denied or disabled.'),
+          content: Text('Speech recognition is not available on this device.'),
         ),
       );
+      return;
+    }
+
+    setState(() => _isListening = true);
+
+    await _speech.listen(
+      listenFor: const Duration(seconds: 15),
+      pauseFor: const Duration(seconds: 4),
+      partialResults: true,
+      cancelOnError: false,
+      listenMode: stt.ListenMode.confirmation,
+      localeId: 'en_US',
+      onResult: (result) {
+        final words = result.recognizedWords.trim();
+
+        if (words.isEmpty) return;
+
+        final correctedQuery = VoiceSearchMatcher.getBestMatch(
+          words,
+          _latestPlaces,
+          threshold: 0.60,
+        );
+
+        _searchController.text = correctedQuery;
+        _searchController.selection = TextSelection.fromPosition(
+          TextPosition(offset: _searchController.text.length),
+        );
+
+        setState(() {
+          _searchQuery = correctedQuery.toLowerCase();
+        });
+
+        if (correctedQuery.toLowerCase() != words.toLowerCase() && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Searching for "$correctedQuery"'),
+              duration: const Duration(seconds: 1),
+            ),
+          );
+        }
+
+        if (result.finalResult) {
+          _recommendationService.trackSearch(correctedQuery);
+
+          if (mounted) {
+            setState(() => _isListening = false);
+          }
+        }
+      },
+    );
+  }
+
+  Future<void> _scrollToTop() async {
+    if (!_scrollController.hasClients) return;
+
+    await _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 450),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  Future<void> _loadRecommendationProfile() async {
+    final profile = await _recommendationService.getRecommendationProfile();
+
+    if (mounted) {
+      setState(() => _recommendationProfile = profile);
     }
   }
 
-  Future<void> _selectSort(String sort) async {
-    if (sort == 'Nearby' && _currentPosition == null) {
-      await _fetchLocation();
-    }
-
-    if (!mounted) return;
-
+  void _toggleForYou() {
     setState(() {
-      _selectedSort = sort;
+      _showForYou = !_showForYou;
+
+      if (_showForYou) {
+        _showNearby = false;
+        _showNewestFirst = false;
+        _sortMode = ExploreSortMode.recommended;
+      }
+    });
+
+    if (_showForYou) {
+      _loadRecommendationProfile();
+    }
+  }
+
+  void _toggleNewestFirst() {
+    setState(() {
+      _showNewestFirst = !_showNewestFirst;
+
+      if (_showNewestFirst) {
+        _showForYou = false;
+        _showNearby = false;
+      }
     });
   }
 
-  double? _getDistance(Place place) {
-    if (_currentPosition == null) return null;
-    if (place.lat == 0 || place.lng == 0) return null;
+  void _onSearchChanged(String val) {
+    setState(() => _searchQuery = val.toLowerCase());
 
-    return context.read<LocationProvider>().calculateDistance(
-          place.lat,
-          place.lng,
-        );
+    _searchDebounce?.cancel();
+
+    if (val.trim().length > 2) {
+      _searchDebounce = Timer(const Duration(milliseconds: 700), () {
+        _recommendationService.trackSearch(val);
+      });
+    }
   }
 
-  double _trendingScore(Place place) {
-    final ratingScore = place.rating * 2.2;
-    final reviewScore = place.reviewCount * 0.35;
+  Future<void> _loadCreators(List<Place> places) async {
+    final creatorIds = places
+        .map((p) => p.createdBy)
+        .whereType<String>()
+        .where((id) => id.trim().isNotEmpty)
+        .toSet()
+        .toList();
 
-    double recencyScore = 0;
-    final createdAt = place.createdAt;
+    if (creatorIds.isEmpty) return;
 
-    if (createdAt != null) {
-      final daysOld = DateTime.now().difference(createdAt).inDays;
+    final newIds =
+        creatorIds.where((id) => !_creators.containsKey(id)).toList();
 
-      if (daysOld <= 3) {
-        recencyScore = 3;
-      } else if (daysOld <= 7) {
-        recencyScore = 2;
-      } else if (daysOld <= 30) {
-        recencyScore = 1;
+    if (newIds.isEmpty || _isFetchingCreators) return;
+
+    _isFetchingCreators = true;
+
+    try {
+      final users = await UserService().getUsersByIds(newIds);
+
+      if (mounted) {
+        setState(() {
+          _creators.addAll(users);
+          _isFetchingCreators = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _isFetchingCreators = false);
+      }
+    }
+  }
+
+  List<Place> _filterPlaces(List<Place> places, AppUser? user) {
+    var filtered = places.where((place) {
+      final matchesSearch = _searchQuery.isEmpty ||
+          place.name.toLowerCase().contains(_searchQuery) ||
+          place.description.toLowerCase().contains(_searchQuery) ||
+          place.category.toLowerCase().contains(_searchQuery);
+
+      final matchesCategory =
+          _selectedCategory == null || place.category == _selectedCategory;
+
+      final matchesBudget = _selectedBudgetLevel == null ||
+          place.budgetLevel <= _selectedBudgetLevel!;
+
+      return matchesSearch && matchesCategory && matchesBudget;
+    }).toList();
+
+    if (_showNearby) {
+      final locationProvider = context.read<LocationProvider>();
+      final pos = locationProvider.currentPosition;
+
+      if (pos != null) {
+        filtered.sort((a, b) {
+          final distA = Geolocator.distanceBetween(
+            pos.latitude,
+            pos.longitude,
+            a.lat,
+            a.lng,
+          );
+
+          final distB = Geolocator.distanceBetween(
+            pos.latitude,
+            pos.longitude,
+            b.lat,
+            b.lng,
+          );
+
+          return distA.compareTo(distB);
+        });
+
+        return filtered;
       }
     }
 
-    return ratingScore + reviewScore + recencyScore;
-  }
+    if (_showForYou || _sortMode == ExploreSortMode.recommended) {
+      filtered.sort((a, b) {
+        final scoreA = _recommendationScore(a, user);
+        final scoreB = _recommendationScore(b, user);
 
-  List<Place> _basePlaces(List<Place> places) {
-    if (widget.type == ExploreCollectionType.category &&
-        widget.category != null) {
-      return places.where((place) {
-        return place.category == widget.category;
-      }).toList();
+        return scoreB.compareTo(scoreA);
+      });
+
+      return filtered;
     }
 
-    return List<Place>.from(places);
+    if (_showNewestFirst || _sortMode == ExploreSortMode.newest) {
+      filtered.sort((a, b) {
+        final aTime = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final bTime = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+
+        return bTime.compareTo(aTime);
+      });
+
+      return filtered;
+    }
+
+    switch (_sortMode) {
+      case ExploreSortMode.rating:
+        filtered.sort((a, b) {
+          final ratingCompare = b.rating.compareTo(a.rating);
+
+          if (ratingCompare != 0) return ratingCompare;
+
+          return b.reviewCount.compareTo(a.reviewCount);
+        });
+        break;
+
+      case ExploreSortMode.mostReviewed:
+        filtered.sort((a, b) {
+          final reviewCompare = b.reviewCount.compareTo(a.reviewCount);
+
+          if (reviewCompare != 0) return reviewCompare;
+
+          return b.rating.compareTo(a.rating);
+        });
+        break;
+
+      case ExploreSortMode.budgetLowToHigh:
+        filtered.sort((a, b) {
+          final budgetCompare = a.budgetLevel.compareTo(b.budgetLevel);
+
+          if (budgetCompare != 0) return budgetCompare;
+
+          return b.rating.compareTo(a.rating);
+        });
+        break;
+
+      case ExploreSortMode.budgetHighToLow:
+        filtered.sort((a, b) {
+          final budgetCompare = b.budgetLevel.compareTo(a.budgetLevel);
+
+          if (budgetCompare != 0) return budgetCompare;
+
+          return b.rating.compareTo(a.rating);
+        });
+        break;
+
+      case ExploreSortMode.recommended:
+      case ExploreSortMode.newest:
+        break;
+    }
+
+    return filtered;
   }
 
-  List<Place> _applySearch(List<Place> places) {
-    final query = _searchQuery.trim().toLowerCase();
+  double _recommendationScore(Place place, AppUser? user) {
+    double score = 0;
 
-    if (query.isEmpty) return places;
+    final likedCategories =
+        List<String>.from(_recommendationProfile?['likedCategories'] ?? []);
 
-    return places.where((place) {
-      return place.name.toLowerCase().contains(query) ||
-          place.description.toLowerCase().contains(query) ||
-          place.category.toLowerCase().contains(query);
-    }).toList();
+    final interactionScores = Map<String, dynamic>.from(
+      _recommendationProfile?['interactionScore'] ?? {},
+    );
+
+    final userPrefs = user?.preferences ?? [];
+    final budgetScores = Map<String, dynamic>.from(
+      _recommendationProfile?['budgetInteractionScore'] ?? {},
+    );
+
+    final preferredBudgetLevel =
+        (_recommendationProfile?['preferredBudgetLevel'] as num?)?.toInt();
+
+    final userPriceRange = user?.priceRange ?? 1;
+    if (userPrefs.contains(place.category)) {
+      score += 10;
+    }
+
+    if (likedCategories.contains(place.category)) {
+      score += 8;
+    }
+
+    score += (interactionScores[place.category] ?? 0).toDouble();
+
+    // Match user’s selected price preference.
+    final userBudgetDifference = (place.budgetLevel - userPriceRange).abs();
+
+    if (userBudgetDifference == 0) {
+      score += 9;
+    } else if (userBudgetDifference == 1) {
+      score += 5;
+    } else if (userBudgetDifference == 2) {
+      score += 2;
+    }
+
+// Match learned budget behavior from activity.
+    final budgetKey = place.budgetLevel.toString();
+    score += ((budgetScores[budgetKey] ?? 0) as num).toDouble() * 0.6;
+
+// Boost latest preferred budget level.
+    if (preferredBudgetLevel != null &&
+        place.budgetLevel == preferredBudgetLevel) {
+      score += 4;
+    }
+
+    final isSuper = _creators[place.createdBy]?.isSuperUser == true;
+
+    if (isSuper) {
+      score += 3;
+    }
+
+    score += place.rating;
+    score += place.reviewCount * 0.1;
+
+    return score;
   }
 
-  List<Place> _sortPlaces(List<Place> places, AppUser? user) {
+  List<Place> _getTrending(List<Place> places) {
     final result = List<Place>.from(places);
 
     result.sort((a, b) {
-      if (_selectedSort == 'Nearby') {
-        final distA = _getDistance(a) ?? double.infinity;
-        final distB = _getDistance(b) ?? double.infinity;
-        return distA.compareTo(distB);
-      }
+      final aScore = a.rating * 2 + a.reviewCount * 0.1;
+      final bScore = b.rating * 2 + b.reviewCount * 0.1;
 
-      if (_selectedSort == 'Trending') {
-        return _trendingScore(b).compareTo(_trendingScore(a));
-      }
-
-      if (_selectedSort == 'Top Rated') {
-        final ratingCompare = b.rating.compareTo(a.rating);
-        if (ratingCompare != 0) return ratingCompare;
-        return b.reviewCount.compareTo(a.reviewCount);
-      }
-
-      if (_selectedSort == 'Newest') {
-        final aTime = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-        final bTime = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-        return bTime.compareTo(aTime);
-      }
-
-      final aPref = user?.preferences.contains(a.category) ?? false;
-      final bPref = user?.preferences.contains(b.category) ?? false;
-
-      if (aPref && !bPref) return -1;
-      if (!aPref && bPref) return 1;
-
-      final trendingCompare = _trendingScore(b).compareTo(_trendingScore(a));
-      if (trendingCompare != 0) return trendingCompare;
-
-      return b.rating.compareTo(a.rating);
+      return bScore.compareTo(aScore);
     });
 
-    return result;
+    return result.take(10).toList();
   }
 
-  String _subtitle(int count) {
-    if (widget.type == ExploreCollectionType.category &&
-        widget.category != null) {
-      return '$count places in ${widget.category}';
-    }
+  double? _getDistance(Place place) {
+    final pos = context.read<LocationProvider>().currentPosition;
 
-    if (_selectedSort == 'Nearby' && _currentPosition == null) {
-      return 'Allow location access to sort by distance';
-    }
+    if (pos == null) return null;
 
-    return '$count places · $_selectedSort';
+    return Geolocator.distanceBetween(
+      pos.latitude,
+      pos.longitude,
+      place.lat,
+      place.lng,
+    );
   }
 
   void _openPlaceDetails(Place place) {
+    _recommendationService.trackViewPlace(place.id, place.category,
+        budgetLevel: place.budgetLevel);
+
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -541,165 +558,503 @@ class _PlaceCollectionScreenState extends State<PlaceCollectionScreen> {
           distanceInMeters: _getDistance(place),
         ),
       ),
-    );
+    ).then((_) => _loadRecommendationProfile());
   }
 
-  Future<void> _openSortSheet() async {
-    final result = await showModalBottomSheet<String>(
-      context: context,
-      backgroundColor: ExploreScreen.cardColor,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 42,
-                  height: 5,
-                  decoration: BoxDecoration(
-                    color: ExploreScreen.borderColor,
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                const Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Sort places',
-                    style: TextStyle(
-                      color: ExploreScreen.textColor,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                ..._sortOptions.map((sort) {
-                  final selected = _selectedSort == sort;
+  int get _activeAdvancedFilterCount {
+    int count = 0;
 
-                  return ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(
-                      selected
-                          ? Icons.radio_button_checked
-                          : Icons.radio_button_off,
-                      color: selected
-                          ? ExploreScreen.primaryColor
-                          : ExploreScreen.mutedText,
-                    ),
-                    title: Text(
-                      sort,
-                      style: TextStyle(
-                        fontWeight:
-                            selected ? FontWeight.w900 : FontWeight.w600,
-                        color: ExploreScreen.textColor,
+    if (_selectedCategory != null) count++;
+    if (_selectedBudgetLevel != null) count++;
+    if (_sortMode != ExploreSortMode.recommended) count++;
+
+    return count;
+  }
+
+  String _feedTitle() {
+    if (_showNearby) return 'Places Near You';
+    if (_showForYou) return 'Picked For You';
+    if (_showNewestFirst) return 'Newest Places';
+
+    if (_selectedCategory != null || _selectedBudgetLevel != null) {
+      return 'Filtered Places';
+    }
+
+    return 'Explore Feed';
+  }
+
+  String _sortLabel(ExploreSortMode mode) {
+    switch (mode) {
+      case ExploreSortMode.recommended:
+        return 'Recommended';
+      case ExploreSortMode.newest:
+        return 'Newest First';
+      case ExploreSortMode.rating:
+        return 'Highest Rated';
+      case ExploreSortMode.mostReviewed:
+        return 'Most Reviewed';
+      case ExploreSortMode.budgetLowToHigh:
+        return 'Budget: \$ → \$\$\$\$';
+      case ExploreSortMode.budgetHighToLow:
+        return 'Budget: \$\$\$\$ → \$';
+    }
+  }
+
+  String _budgetLabel(int level) {
+    return List.filled(level, r'$').join();
+  }
+
+  Future<void> _openFiltersModal() async {
+    String? tempCategory = _selectedCategory;
+    int? tempBudget = _selectedBudgetLevel;
+    ExploreSortMode tempSort = _sortMode;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: cardColor,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+      ),
+      builder: (modalContext) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return SafeArea(
+              top: false,
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  12,
+                  20,
+                  MediaQuery.of(context).viewInsets.bottom + 20,
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 46,
+                          height: 5,
+                          decoration: BoxDecoration(
+                            color: borderColor,
+                            borderRadius: BorderRadius.circular(99),
+                          ),
+                        ),
                       ),
-                    ),
-                    subtitle: Text(
-                      _sortDescription(sort),
-                      style: const TextStyle(
-                        color: ExploreScreen.mutedText,
-                        fontSize: 12,
+                      const SizedBox(height: 18),
+                      Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              'Filter places',
+                              style: TextStyle(
+                                color: textColor,
+                                fontSize: 23,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: -0.4,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.pop(modalContext),
+                            icon: const Icon(Icons.close_rounded),
+                          ),
+                        ],
                       ),
-                    ),
-                    onTap: () => Navigator.pop(context, sort),
-                  );
-                }).toList(),
-              ],
-            ),
-          ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Refine your feed by category, budget, and sorting preference.',
+                        style: TextStyle(
+                          color: mutedText,
+                          height: 1.35,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 22),
+                      const _FilterSectionTitle(
+                        title: 'Categories',
+                        icon: Icons.category_rounded,
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          _ModalPill(
+                            label: 'All',
+                            selected: tempCategory == null,
+                            onTap: () {
+                              setModalState(() => tempCategory = null);
+                            },
+                          ),
+                          ...Categories.all.map((category) {
+                            return _ModalPill(
+                              label: category,
+                              selected: tempCategory == category,
+                              onTap: () {
+                                setModalState(() {
+                                  tempCategory = tempCategory == category
+                                      ? null
+                                      : category;
+                                });
+                              },
+                            );
+                          }),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      const _FilterSectionTitle(
+                        title: 'Budget',
+                        icon: Icons.payments_rounded,
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Choose the maximum budget level you want to see.',
+                        style: TextStyle(
+                          color: mutedText,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          _ModalPill(
+                            label: 'Any',
+                            selected: tempBudget == null,
+                            onTap: () {
+                              setModalState(() => tempBudget = null);
+                            },
+                          ),
+                          ...List.generate(4, (index) {
+                            final level = index + 1;
+
+                            return _ModalPill(
+                              label: _budgetLabel(level),
+                              selected: tempBudget == level,
+                              onTap: () {
+                                setModalState(() {
+                                  tempBudget =
+                                      tempBudget == level ? null : level;
+                                });
+                              },
+                            );
+                          }),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      const _FilterSectionTitle(
+                        title: 'Sort by',
+                        icon: Icons.sort_rounded,
+                      ),
+                      const SizedBox(height: 12),
+                      Column(
+                        children: ExploreSortMode.values.map((mode) {
+                          return _SortTile(
+                            label: _sortLabel(mode),
+                            selected: tempSort == mode,
+                            onTap: () {
+                              setModalState(() {
+                                tempSort = mode;
+                              });
+                            },
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 24),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () {
+                                setModalState(() {
+                                  tempCategory = null;
+                                  tempBudget = null;
+                                  tempSort = ExploreSortMode.recommended;
+                                });
+                              },
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: textColor,
+                                side: const BorderSide(color: borderColor),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(18),
+                                ),
+                              ),
+                              child: const Text(
+                                'Reset',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            flex: 2,
+                            child: ElevatedButton(
+                              onPressed: () {
+                                setState(() {
+                                  _selectedCategory = tempCategory;
+                                  _selectedBudgetLevel = tempBudget;
+                                  _sortMode = tempSort;
+
+                                  if (_sortMode !=
+                                      ExploreSortMode.recommended) {
+                                    _showForYou = false;
+                                  }
+
+                                  if (_sortMode != ExploreSortMode.newest) {
+                                    _showNewestFirst = false;
+                                  }
+                                });
+
+                                Navigator.pop(modalContext);
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: primaryColor,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(18),
+                                ),
+                              ),
+                              child: const Text(
+                                'Apply Filters',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
         );
       },
     );
-
-    if (result == null) return;
-
-    await _selectSort(result);
   }
 
-  String _sortDescription(String sort) {
-    switch (sort) {
-      case 'Nearby':
-        return 'Closest places based on your current location';
-      case 'Trending':
-        return 'Rating, reviews, and recency';
-      case 'Top Rated':
-        return 'Highest rated places first';
-      case 'Newest':
-        return 'Recently added places first';
-      default:
-        return 'Balanced discovery using preferences and place activity';
-    }
+  void _clearAdvancedFilters() {
+    setState(() {
+      _selectedCategory = null;
+      _selectedBudgetLevel = null;
+      _sortMode = ExploreSortMode.recommended;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    final userProvider = context.watch<UserProvider>();
+    final user = userProvider.user;
+
     return Scaffold(
-      backgroundColor: ExploreScreen.bgColor,
+      backgroundColor: bgColor,
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedScale(
+            scale: _showScrollToTop ? 1 : 0,
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOutBack,
+            child: AnimatedOpacity(
+              opacity: _showScrollToTop ? 1 : 0,
+              duration: const Duration(milliseconds: 180),
+              child: FloatingActionButton.small(
+                heroTag: 'scroll_to_top',
+                onPressed: _showScrollToTop ? _scrollToTop : null,
+                backgroundColor: cardColor,
+                elevation: 4,
+                child: const Icon(
+                  Icons.keyboard_arrow_up_rounded,
+                  color: textColor,
+                  size: 28,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          FloatingActionButton(
+            heroTag: 'ai_chat',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AiChatbotScreen()),
+              );
+            },
+            backgroundColor: primaryColor,
+            child: const Icon(Icons.smart_toy_rounded, color: Colors.white),
+          ),
+        ],
+      ),
       body: SafeArea(
         bottom: false,
-        child: Consumer2<PlaceProvider, UserProvider>(
-          builder: (context, placeProvider, userProvider, child) {
-            if (placeProvider.isLoading) {
+        child: StreamBuilder<List<Place>>(
+          stream: _placesStream,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting &&
+                !snapshot.hasData) {
               return const Center(
-                child: CircularProgressIndicator(
-                  color: ExploreScreen.primaryColor,
-                ),
+                child: CircularProgressIndicator(color: primaryColor),
               );
             }
 
-            final base = _basePlaces(placeProvider.places);
-            final searched = _applySearch(base);
-            final displayPlaces = _sortPlaces(searched, userProvider.user);
+            final allPlaces = snapshot.data ?? [];
+            _latestPlaces = allPlaces;
+            if (allPlaces.isNotEmpty) {
+              _loadCreators(allPlaces);
+            }
+
+            final filtered = _filterPlaces(allPlaces, user);
+            final trending = _getTrending(allPlaces);
+
+            final firstName = user?.name.split(' ').first ?? 'there';
+
+            final showTrending = _searchQuery.isEmpty &&
+                _selectedCategory == null &&
+                _selectedBudgetLevel == null &&
+                !_showForYou &&
+                !_showNearby;
 
             return CustomScrollView(
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              controller: _scrollController,
               slivers: [
                 SliverToBoxAdapter(
-                  child: _CollectionHeader(
-                    title: widget.title,
-                    subtitle: _subtitle(displayPlaces.length),
-                    sort: _selectedSort,
-                    isFetchingLocation: _isFetchingLocation,
-                    onSortTap: _openSortSheet,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                    child: _ExploreHeader(firstName: firstName),
                   ),
                 ),
                 SliverToBoxAdapter(
                   child: SearchBarWidget(
                     controller: _searchController,
-                    onChanged: (value) {
-                      setState(() {
-                        _searchQuery = value.trim().toLowerCase();
-                      });
-                    },
+                    onChanged: _onSearchChanged,
                     onClear: () {
-                      _searchController.clear();
                       setState(() {
                         _searchQuery = '';
                       });
                     },
+                    isListening: _isListening,
+                    onMicTap: _toggleVoiceSearch,
                   ),
                 ),
-                if (displayPlaces.isEmpty)
-                  const SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(24),
-                        child: Text(
-                          'No places found here.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: ExploreScreen.mutedText,
-                            fontSize: 15,
+                if (_isListening)
+                  const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(20, 4, 20, 8),
+                      child: _VoiceListeningBanner(),
+                    ),
+                  ),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: _QuickFilterStrip(
+                                showNewestFirst: _showNewestFirst,
+                                showNearby: _showNearby,
+                                showForYou: _showForYou,
+                                onNewestTap: _toggleNewestFirst,
+                                onNearbyTap: _toggleNearby,
+                                onForYouTap: _toggleForYou,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            _AdvancedFilterButton(
+                              count: _activeAdvancedFilterCount,
+                              onTap: _openFiltersModal,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (_activeAdvancedFilterCount > 0)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 2),
+                      child: _ActiveFiltersSummary(
+                        category: _selectedCategory,
+                        budget: _selectedBudgetLevel == null
+                            ? null
+                            : _budgetLabel(_selectedBudgetLevel!),
+                        sort: _sortMode == ExploreSortMode.recommended
+                            ? null
+                            : _sortLabel(_sortMode),
+                        onClear: _clearAdvancedFilters,
+                      ),
+                    ),
+                  ),
+                if (showTrending)
+                  SliverToBoxAdapter(
+                    child: TrendingSection(
+                      trendingPlaces: trending,
+                      getDistance: _getDistance,
+                    ),
+                  ),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _feedTitle(),
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
+                              color: textColor,
+                              letterSpacing: -0.5,
+                            ),
                           ),
                         ),
-                      ),
+                        Text(
+                          '${filtered.length} places',
+                          style: const TextStyle(
+                            color: mutedText,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (filtered.isEmpty)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: _EmptyExploreState(
+                      onClear: () {
+                        _searchController.clear();
+
+                        setState(() {
+                          _searchQuery = '';
+                          _showForYou = false;
+                          _showNearby = false;
+                          _showNewestFirst = true;
+                          _selectedCategory = null;
+                          _selectedBudgetLevel = null;
+                          _sortMode = ExploreSortMode.recommended;
+                        });
+                      },
                     ),
                   )
                 else
@@ -708,21 +1063,22 @@ class _PlaceCollectionScreenState extends State<PlaceCollectionScreen> {
                     sliver: SliverList(
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
-                          final place = displayPlaces[index];
+                          final place = filtered[index];
+                          final creator = _creators[place.createdBy];
 
                           return PlaceCard(
                             place: place,
                             distanceInMeters: _getDistance(place),
+                            creatorName: creator?.name,
+                            isSuperUser: creator?.isSuperUser ?? false,
                             onTap: () => _openPlaceDetails(place),
                           );
                         },
-                        childCount: displayPlaces.length,
+                        childCount: filtered.length,
                       ),
                     ),
                   ),
-                const SliverToBoxAdapter(
-                  child: SizedBox(height: 28),
-                ),
+                const SliverToBoxAdapter(child: SizedBox(height: 90)),
               ],
             );
           },
@@ -733,539 +1089,215 @@ class _PlaceCollectionScreenState extends State<PlaceCollectionScreen> {
 }
 
 class _ExploreHeader extends StatelessWidget {
-  const _ExploreHeader();
+  final String firstName;
 
-  @override
-  Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.fromLTRB(20, 18, 20, 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Explore',
-            style: TextStyle(
-              color: ExploreScreen.textColor,
-              fontSize: 30,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -0.7,
-            ),
-          ),
-          SizedBox(height: 4),
-          Text(
-            'Curated ways to discover local places.',
-            style: TextStyle(
-              color: ExploreScreen.mutedText,
-              fontSize: 14,
-              height: 1.35,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SearchEntryCard extends StatelessWidget {
-  final VoidCallback onTap;
-
-  const _SearchEntryCard({
-    required this.onTap,
+  const _ExploreHeader({
+    required this.firstName,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: ExploreScreen.cardColor,
-      borderRadius: BorderRadius.circular(24),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(24),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: ExploreScreen.borderColor),
-          ),
-          child: const Row(
-            children: [
-              Icon(
-                Icons.search_rounded,
-                color: ExploreScreen.primaryColor,
-              ),
-              SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Search local places...',
+    const textColor = _ExploreScreenState.textColor;
+    const mutedText = _ExploreScreenState.mutedText;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Good ${DateTime.now().hour < 12 ? 'morning' : DateTime.now().hour < 17 ? 'afternoon' : 'evening'}, $firstName 👋',
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                    color: textColor,
+                    letterSpacing: -0.5,
+                    height: 1.08,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Discover local gems tonight',
                   style: TextStyle(
-                    color: ExploreScreen.mutedText,
                     fontSize: 15,
-                    fontWeight: FontWeight.w600,
+                    color: mutedText,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-              ),
-              Icon(
-                Icons.arrow_forward_ios_rounded,
-                size: 15,
-                color: ExploreScreen.mutedText,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AllPlacesHeroCard extends StatelessWidget {
-  final int totalPlaces;
-  final List<Place> previewPlaces;
-  final VoidCallback onTap;
-
-  const _AllPlacesHeroCard({
-    required this.totalPlaces,
-    required this.previewPlaces,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final imageUrls = previewPlaces
-        .where(
-            (place) => place.images.isNotEmpty && place.images.first.isNotEmpty)
-        .map((place) => place.images.first)
-        .take(3)
-        .toList();
-
-    return Material(
-      color: ExploreScreen.primaryColor,
-      borderRadius: BorderRadius.circular(32),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(32),
-        onTap: onTap,
-        child: Container(
-          height: 185,
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(32),
-            gradient: const LinearGradient(
-              colors: [
-                Color(0xFFE26D45),
-                Color(0xFFB94F32),
               ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
             ),
-            boxShadow: [
-              BoxShadow(
-                color: ExploreScreen.primaryColor.withOpacity(0.22),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Icon(
-                        Icons.explore_rounded,
-                        color: Colors.white,
-                        size: 32,
-                      ),
-                      const Spacer(),
-                      const Text(
-                        'All local places',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: -0.6,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        '$totalPlaces places shared by locals',
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.82),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              SizedBox(
-                width: 116,
-                child: Stack(
-                  children: [
-                    if (imageUrls.isEmpty)
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: Container(
-                          width: 98,
-                          height: 130,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.16),
-                            borderRadius: BorderRadius.circular(26),
-                          ),
-                          child: const Icon(
-                            Icons.place_rounded,
-                            color: Colors.white,
-                            size: 42,
-                          ),
-                        ),
-                      )
-                    else
-                      ...imageUrls.asMap().entries.map((entry) {
-                        final index = entry.key;
-                        final url = entry.value;
-
-                        return Positioned(
-                          right: index * 18.0,
-                          top: 16 + index * 12.0,
-                          child: Container(
-                            width: 76,
-                            height: 98,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(22),
-                              border: Border.all(
-                                color: Colors.white.withOpacity(0.75),
-                                width: 2,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.18),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 6),
-                                ),
-                              ],
-                            ),
-                            clipBehavior: Clip.antiAlias,
-                            child: CachedNetworkImage(
-                              imageUrl: url,
-                              fit: BoxFit.cover,
-                              errorWidget: (_, __, ___) => Container(
-                                color: Colors.white.withOpacity(0.16),
-                                child: const Icon(
-                                  Icons.place_rounded,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                  ],
-                ),
-              ),
-            ],
           ),
         ),
-      ),
+        const SizedBox(width: 8),
+        _HeaderIconButton(
+          icon: Icons.notifications_none_rounded,
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+            );
+          },
+        ),
+        const SizedBox(width: 8),
+        _HeaderIconButton(
+          icon: Icons.chat_bubble_outline_rounded,
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ChatScreen()),
+            );
+          },
+        ),
+      ],
     );
   }
 }
 
-class _CategoryCollectionCard extends StatelessWidget {
-  final _CategoryCollectionData data;
-  final int count;
-  final List<Place> places;
-  final VoidCallback onTap;
-
-  const _CategoryCollectionCard({
-    required this.data,
-    required this.count,
-    required this.places,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final categoryPlaces = places.where((place) {
-      return place.category == data.category &&
-          place.images.isNotEmpty &&
-          place.images.first.isNotEmpty;
-    }).toList();
-
-    final imageUrl =
-        categoryPlaces.isNotEmpty ? categoryPlaces.first.images.first : null;
-
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(28),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(28),
-        onTap: onTap,
-        child: Container(
-          width: 170,
-          decoration: BoxDecoration(
-            color: ExploreScreen.cardColor,
-            borderRadius: BorderRadius.circular(28),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.08),
-                blurRadius: 16,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: imageUrl == null
-                    ? Container(
-                        decoration: const BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              Color(0xFFFFEEE6),
-                              Color(0xFFFFFBF7),
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                        ),
-                      )
-                    : CachedNetworkImage(
-                        imageUrl: imageUrl,
-                        fit: BoxFit.cover,
-                        placeholder: (_, __) => Container(
-                          color: ExploreScreen.softPrimary,
-                        ),
-                        errorWidget: (_, __, ___) => Container(
-                          color: ExploreScreen.softPrimary,
-                        ),
-                      ),
-              ),
-              Positioned.fill(
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: imageUrl == null
-                          ? [
-                              Colors.white.withOpacity(0.10),
-                              Colors.white.withOpacity(0.20),
-                            ]
-                          : [
-                              Colors.black.withOpacity(0.12),
-                              Colors.black.withOpacity(0.62),
-                            ],
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                top: 14,
-                left: 14,
-                child: Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: imageUrl == null
-                        ? ExploreScreen.primaryColor
-                        : Colors.white.withOpacity(0.92),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Icon(
-                    data.icon,
-                    color: imageUrl == null
-                        ? Colors.white
-                        : ExploreScreen.primaryColor,
-                    size: 23,
-                  ),
-                ),
-              ),
-              Positioned(
-                left: 14,
-                right: 14,
-                bottom: 14,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      data.label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: imageUrl == null
-                            ? ExploreScreen.textColor
-                            : Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -0.4,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '$count places',
-                      style: TextStyle(
-                        color: imageUrl == null
-                            ? ExploreScreen.mutedText
-                            : Colors.white.withOpacity(0.86),
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DiscoveryRowCard extends StatelessWidget {
-  final String title;
-  final String subtitle;
+class _HeaderIconButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
 
-  const _DiscoveryRowCard({
-    required this.title,
-    required this.subtitle,
+  const _HeaderIconButton({
     required this.icon,
     required this.onTap,
   });
 
-  LinearGradient get _gradient {
-    if (title.contains('Trending')) {
-      return const LinearGradient(
-        colors: [
-          Color(0xFFFFEEE6),
-          Color(0xFFFFD6C2),
-        ],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      );
-    }
-
-    if (title.contains('Near')) {
-      return const LinearGradient(
-        colors: [
-          Color(0xFFFFEEE6),
-          Color(0xFFFFD6C2),
-        ],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      );
-    }
-
-    if (title.contains('Top')) {
-      return const LinearGradient(
-        colors: [
-          Color(0xFFFFEEE6),
-          Color(0xFFFFD6C2),
-        ],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      );
-    }
-
-    return const LinearGradient(
-      colors: [
-        Color(0xFFFFEEE6),
-        Color(0xFFFFD6C2),
-      ],
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: _ExploreScreenState.cardColor,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: _ExploreScreenState.borderColor),
+          ),
+          child: Icon(
+            icon,
+            color: _ExploreScreenState.textColor,
+            size: 21,
+          ),
+        ),
+      ),
     );
   }
+}
 
-  Color get _accentColor {
-    return ExploreScreen.primaryColor;
+class _QuickFilterStrip extends StatelessWidget {
+  final bool showNewestFirst;
+  final bool showNearby;
+  final bool showForYou;
+  final VoidCallback onNewestTap;
+  final VoidCallback onNearbyTap;
+  final VoidCallback onForYouTap;
+
+  const _QuickFilterStrip({
+    required this.showNewestFirst,
+    required this.showNearby,
+    required this.showForYou,
+    required this.onNewestTap,
+    required this.onNearbyTap,
+    required this.onForYouTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
+      child: Row(
+        children: [
+          _QuickFilterChip(
+            label: 'For You',
+            isSelected: showForYou,
+            icon: Icons.auto_awesome_rounded,
+            onTap: onForYouTap,
+          ),
+          const SizedBox(width: 8),
+          _QuickFilterChip(
+            label: 'Near Me',
+            isSelected: showNearby,
+            icon: Icons.near_me_rounded,
+            onTap: onNearbyTap,
+          ),
+          const SizedBox(width: 8),
+          _QuickFilterChip(
+            label: 'Newest',
+            isSelected: showNewestFirst,
+            icon: Icons.schedule_rounded,
+            onTap: onNewestTap,
+          ),
+        ],
+      ),
+    );
   }
+}
+
+class _QuickFilterChip extends StatelessWidget {
+  final String label;
+  final bool isSelected;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _QuickFilterChip({
+    required this.label,
+    required this.isSelected,
+    required this.icon,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(28),
+      color: isSelected
+          ? _ExploreScreenState.primaryColor
+          : _ExploreScreenState.softPrimary,
+      borderRadius: BorderRadius.circular(99),
       child: InkWell(
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(99),
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.all(18),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
-            gradient: _gradient,
-            borderRadius: BorderRadius.circular(28),
-            border: Border.all(
-              color: Colors.white.withOpacity(0.55),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: _accentColor.withOpacity(0.12),
-                blurRadius: 18,
-                offset: const Offset(0, 8),
-              ),
-            ],
+            borderRadius: BorderRadius.circular(99),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: _ExploreScreenState.primaryColor.withOpacity(0.24),
+                      blurRadius: 9,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]
+                : null,
           ),
           child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 54,
-                height: 54,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.78),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Icon(
-                  icon,
-                  color: _accentColor,
-                  size: 27,
-                ),
+              Icon(
+                icon,
+                size: 16,
+                color: isSelected
+                    ? Colors.white
+                    : _ExploreScreenState.primaryColor,
               ),
-              const SizedBox(width: 15),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        color: ExploreScreen.textColor,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -0.3,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      subtitle,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: ExploreScreen.textColor.withOpacity(0.62),
-                        fontSize: 12.5,
-                        height: 1.3,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 10),
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.7),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.arrow_forward_rounded,
-                  color: _accentColor,
-                  size: 18,
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isSelected
+                      ? Colors.white
+                      : _ExploreScreenState.primaryColor,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 12.8,
                 ),
               ),
             ],
@@ -1276,111 +1308,34 @@ class _DiscoveryRowCard extends StatelessWidget {
   }
 }
 
-class _SectionHeader extends StatelessWidget {
-  final String title;
-  final String subtitle;
-
-  const _SectionHeader({
-    required this.title,
-    required this.subtitle,
-  });
+class _VoiceListeningBanner extends StatelessWidget {
+  const _VoiceListeningBanner();
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              color: ExploreScreen.textColor,
-              fontSize: 21,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -0.4,
-            ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            subtitle,
-            style: const TextStyle(
-              color: ExploreScreen.mutedText,
-              fontSize: 13,
-              height: 1.3,
-            ),
-          ),
-        ],
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+      decoration: BoxDecoration(
+        color: _ExploreScreenState.softPrimary,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _ExploreScreenState.borderColor),
       ),
-    );
-  }
-}
-
-class _CollectionHeader extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final String sort;
-  final bool isFetchingLocation;
-  final VoidCallback onSortTap;
-
-  const _CollectionHeader({
-    required this.title,
-    required this.subtitle,
-    required this.sort,
-    required this.isFetchingLocation,
-    required this.onSortTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: const Row(
         children: [
-          Row(
-            children: [
-              IconButton(
-                style: IconButton.styleFrom(
-                  backgroundColor: ExploreScreen.cardColor,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.arrow_back_rounded),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    color: ExploreScreen.textColor,
-                    fontSize: 26,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.6,
-                  ),
-                ),
-              ),
-            ],
+          Icon(
+            Icons.graphic_eq_rounded,
+            color: _ExploreScreenState.primaryColor,
+            size: 20,
           ),
-          Padding(
-            padding: const EdgeInsets.only(left: 8, top: 6, bottom: 12),
+          SizedBox(width: 10),
+          Expanded(
             child: Text(
-              subtitle,
-              style: const TextStyle(
-                color: ExploreScreen.mutedText,
-                fontSize: 13,
-                height: 1.3,
+              'Listening... say a place, category, or area',
+              style: TextStyle(
+                color: _ExploreScreenState.primaryColor,
+                fontWeight: FontWeight.w800,
+                fontSize: 12.5,
               ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(left: 4, right: 4),
-            child: _SortButton(
-              label: sort,
-              isLoading: isFetchingLocation,
-              onTap: onSortTap,
             ),
           ),
         ],
@@ -1389,64 +1344,295 @@ class _CollectionHeader extends StatelessWidget {
   }
 }
 
-class _SortButton extends StatelessWidget {
-  final String label;
-  final bool isLoading;
+class _AdvancedFilterButton extends StatelessWidget {
+  final int count;
   final VoidCallback onTap;
 
-  const _SortButton({
-    required this.label,
-    required this.isLoading,
+  const _AdvancedFilterButton({
+    required this.count,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: ExploreScreen.cardColor,
-      borderRadius: BorderRadius.circular(20),
+      color: _ExploreScreenState.cardColor,
+      borderRadius: BorderRadius.circular(18),
       child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: isLoading ? null : onTap,
+        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+          width: 46,
+          height: 42,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: ExploreScreen.borderColor),
-          ),
-          child: Row(
-            children: [
-              if (isLoading)
-                const SizedBox(
-                  width: 19,
-                  height: 19,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: ExploreScreen.primaryColor,
-                  ),
-                )
-              else
-                const Icon(
-                  Icons.swap_vert_rounded,
-                  color: ExploreScreen.primaryColor,
-                  size: 20,
-                ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  label,
-                  style: const TextStyle(
-                    color: ExploreScreen.textColor,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 13,
-                  ),
-                ),
-              ),
-              const Icon(
-                Icons.keyboard_arrow_down_rounded,
-                color: ExploreScreen.mutedText,
+            color: _ExploreScreenState.cardColor,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: _ExploreScreenState.borderColor),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.035),
+                blurRadius: 9,
+                offset: const Offset(0, 4),
               ),
             ],
+          ),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              const Center(
+                child: Icon(
+                  Icons.tune_rounded,
+                  color: _ExploreScreenState.textColor,
+                  size: 20,
+                ),
+              ),
+              if (count > 0)
+                Positioned(
+                  top: -5,
+                  right: -5,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2.5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _ExploreScreenState.primaryColor,
+                      borderRadius: BorderRadius.circular(99),
+                      border: Border.all(
+                        color: _ExploreScreenState.bgColor,
+                        width: 2,
+                      ),
+                    ),
+                    child: Text(
+                      '$count',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ActiveFiltersSummary extends StatelessWidget {
+  final String? category;
+  final String? budget;
+  final String? sort;
+  final VoidCallback onClear;
+
+  const _ActiveFiltersSummary({
+    required this.category,
+    required this.budget,
+    required this.sort,
+    required this.onClear,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final labels = [
+      if (category != null) category!,
+      if (budget != null) 'Budget ≤ $budget',
+      if (sort != null) sort!,
+    ];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: _ExploreScreenState.cardColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _ExploreScreenState.borderColor),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Wrap(
+              spacing: 7,
+              runSpacing: 7,
+              children: labels.map((label) {
+                return Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _ExploreScreenState.softPrimary,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                  child: Text(
+                    label,
+                    style: const TextStyle(
+                      color: _ExploreScreenState.primaryColor,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          TextButton(
+            onPressed: onClear,
+            child: const Text(
+              'Clear',
+              style: TextStyle(
+                color: _ExploreScreenState.primaryColor,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FilterSectionTitle extends StatelessWidget {
+  final String title;
+  final IconData icon;
+
+  const _FilterSectionTitle({
+    required this.title,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          color: _ExploreScreenState.primaryColor,
+          size: 20,
+        ),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          style: const TextStyle(
+            color: _ExploreScreenState.textColor,
+            fontSize: 16.5,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ModalPill extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _ModalPill({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color:
+          selected ? _ExploreScreenState.primaryColor : const Color(0xFFEDEDE6),
+      borderRadius: BorderRadius.circular(99),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(99),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (selected) ...[
+                const Icon(
+                  Icons.check_rounded,
+                  color: Colors.white,
+                  size: 16,
+                ),
+                const SizedBox(width: 5),
+              ],
+              Text(
+                label,
+                style: TextStyle(
+                  color:
+                      selected ? Colors.white : _ExploreScreenState.textColor,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SortTile extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _SortTile({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 9),
+      child: Material(
+        color: selected
+            ? _ExploreScreenState.softPrimary
+            : const Color(0xFFF7F4EF),
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: selected
+                    ? _ExploreScreenState.primaryColor.withOpacity(0.30)
+                    : _ExploreScreenState.borderColor,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  selected
+                      ? Icons.radio_button_checked_rounded
+                      : Icons.radio_button_off_rounded,
+                  color: selected
+                      ? _ExploreScreenState.primaryColor
+                      : _ExploreScreenState.mutedText,
+                  size: 20,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      color: selected
+                          ? _ExploreScreenState.primaryColor
+                          : _ExploreScreenState.textColor,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13.5,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -1455,34 +1641,62 @@ class _SortButton extends StatelessWidget {
 }
 
 class _EmptyExploreState extends StatelessWidget {
-  const _EmptyExploreState();
+  final VoidCallback onClear;
+
+  const _EmptyExploreState({
+    required this.onClear,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: Padding(
-        padding: EdgeInsets.all(24),
-        child: Text(
-          'No places yet. Add the first local gem!',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: ExploreScreen.mutedText,
-            fontSize: 16,
-          ),
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.search_off_rounded,
+              size: 42,
+              color: _ExploreScreenState.primaryColor.withOpacity(0.88),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'No places found',
+              style: TextStyle(
+                color: _ExploreScreenState.textColor,
+                fontWeight: FontWeight.w900,
+                fontSize: 18,
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Try changing your search, budget, or category filters.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: _ExploreScreenState.mutedText,
+                height: 1.35,
+              ),
+            ),
+            const SizedBox(height: 14),
+            ElevatedButton(
+              onPressed: onClear,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _ExploreScreenState.primaryColor,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+              ),
+              child: const Text(
+                'Reset Filters',
+                style: TextStyle(fontWeight: FontWeight.w900),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
-}
-
-class _CategoryCollectionData {
-  final String label;
-  final String category;
-  final IconData icon;
-
-  const _CategoryCollectionData({
-    required this.label,
-    required this.category,
-    required this.icon,
-  });
 }

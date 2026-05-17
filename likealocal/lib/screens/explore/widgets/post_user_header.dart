@@ -7,12 +7,14 @@ class PostUserHeader extends StatelessWidget {
   final String? userId;
   final String subtitle;
   final VoidCallback? onMorePressed;
+  final Widget? trailing;
 
   const PostUserHeader({
     Key? key,
     required this.userId,
     required this.subtitle,
     this.onMorePressed,
+    this.trailing,
   }) : super(key: key);
 
   Future<AppUser?> _fetchUser() async {
@@ -61,7 +63,9 @@ class PostUserHeader extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           const Expanded(child: Text('Loading...', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
-          if (onMorePressed != null)
+          if (trailing != null)
+            trailing!
+          else if (onMorePressed != null)
             IconButton(
               icon: const Icon(Icons.more_vert),
               onPressed: onMorePressed,
@@ -141,7 +145,9 @@ class PostUserHeader extends StatelessWidget {
               ],
             ),
           ),
-          if (onMorePressed != null)
+          if (trailing != null)
+            trailing!
+          else if (onMorePressed != null)
             IconButton(
               icon: const Icon(Icons.more_horiz, color: Color(0xFF777777)),
               onPressed: onMorePressed,

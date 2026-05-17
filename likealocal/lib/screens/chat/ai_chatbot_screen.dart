@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../providers/ai_provider.dart';
-import '../../providers/user_provider.dart';
 
 class AiChatbotScreen extends StatefulWidget {
   const AiChatbotScreen({super.key});
@@ -11,174 +11,289 @@ class AiChatbotScreen extends StatefulWidget {
 }
 
 class _AiChatbotScreenState extends State<AiChatbotScreen> {
-  final _controller = TextEditingController();
-  final _scroll = ScrollController();
+  static const Color bgColor = Color(0xFFFAF7F2);
+  static const Color primaryColor = Color(0xFFE26D45);
+  static const Color softPrimary = Color(0xFFFFEEE6);
+  static const Color textColor = Color(0xFF1F1F28);
+  static const Color mutedText = Color(0xFF777777);
+
+  final TextEditingController _controller = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void dispose() {
     _controller.dispose();
-    _scroll.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
-  void _send() async {
-    final text = _controller.text.trim();
-    if (text.isEmpty) return;
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      );
+    });
+  }
+
+  Future<void> _handleSend() async {
+    final text = _controller.text;
+    if (text.trim().isEmpty) return;
     _controller.clear();
-
-    final userPrefs = context.read<UserProvider>().user?.preferences ?? [];
-
-    try {
-      await context
-          .read<AiProvider>()
-          .sendMessage(text, userPreferences: userPrefs);
-    } catch (_) {}
-
-    await Future.delayed(const Duration(milliseconds: 100));
-    if (_scroll.hasClients) {
-      _scroll.animateTo(_scroll.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 200), curve: Curves.easeOut);
-    }
+    await context.read<AiChatProvider>().sendMessage(text);
+    _scrollToBottom();
   }
 
   @override
   Widget build(BuildContext context) {
-    const primary = Color(0xFFE26D45);
-    final ai = context.watch<AiProvider>();
-    final history = ai.chatHistory;
-
     return Scaffold(
+      backgroundColor: bgColor,
       appBar: AppBar(
-        title: const Text('AI Local Guide',
-            style: TextStyle(fontWeight: FontWeight.w900)),
+        backgroundColor: bgColor,
+        foregroundColor: textColor,
+        elevation: 0,
+        title: const Text(
+          'LikeALocal Assistant',
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: () => context.read<AiProvider>().clearHistory(),
-            tooltip: 'New conversation',
+          Consumer<AiChatProvider>(
+            builder: (context, chat, _) {
+              if (chat.messages.isEmpty) return const SizedBox.shrink();
+              return IconButton(
+                icon: const Icon(Icons.refresh_rounded),
+                tooltip: 'New chat',
+                onPressed: chat.clear,
+              );
+            },
           ),
         ],
       ),
       body: Column(
         children: [
-          if (history.isEmpty)
-            Expanded(
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(32),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.smart_toy_rounded,
-                          size: 64, color: primary),
-                      const SizedBox(height: 16),
-                      const Text('AI Local Guide',
-                          style: TextStyle(
-                              fontSize: 20, fontWeight: FontWeight.w900)),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Ask me anything about places to visit!\nTry: "Any hidden cafés?" or "What\'s trending?"',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.grey.shade600),
-                      ),
-                    ],
-                  ),
-                ),
+          Expanded(
+            child: Consumer<AiChatProvider>(
+              builder: (context, chat, _) {
+                if (chat.messages.isEmpty) {
+                  return const _EmptyState();
+                }
+
+                _scrollToBottom();
+
+                return ListView.builder(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                  itemCount: chat.messages.length + (chat.isSending ? 1 : 0),
+                  itemBuilder: (context, index) {
+                    if (index == chat.messages.length) {
+                      return const _TypingBubble();
+                    }
+                    final msg = chat.messages[index];
+                    return _MessageBubble(
+                      text: msg.text,
+                      isUser: msg.role == ChatRole.user,
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+          _Composer(
+            controller: _controller,
+            onSend: _handleSend,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: const BoxDecoration(
+                color: _AiChatbotScreenState.softPrimary,
+                shape: BoxShape.circle,
               ),
-            )
-          else
-            Expanded(
-              child: ListView.builder(
-                controller: _scroll,
-                padding: const EdgeInsets.all(16),
-                itemCount: history.length,
-                itemBuilder: (context, i) {
-                  final msg = history[i];
-                  final isUser = msg['role'] == 'user';
-                  return Align(
-                    alignment:
-                        isUser ? Alignment.centerRight : Alignment.centerLeft,
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.all(14),
-                      constraints: BoxConstraints(
-                          maxWidth: MediaQuery.of(context).size.width * 0.78),
-                      decoration: BoxDecoration(
-                        color: isUser ? primary : Colors.white,
-                        borderRadius: BorderRadius.circular(18),
-                        boxShadow: [
-                          BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
-                              blurRadius: 6)
-                        ],
-                      ),
-                      child: Text(
-                        msg['content'] ?? '',
-                        style: TextStyle(
-                          color: isUser ? Colors.white : Colors.black87,
-                          height: 1.5,
-                        ),
-                      ),
-                    ),
-                  );
-                },
+              child: const Icon(
+                Icons.auto_awesome_rounded,
+                size: 36,
+                color: _AiChatbotScreenState.primaryColor,
               ),
             ),
-          if (ai.isThinking)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: primary)),
-                  SizedBox(width: 8),
-                  Text('Thinking...', style: TextStyle(color: Colors.grey)),
-                ],
+            const SizedBox(height: 18),
+            const Text(
+              'Ask me anything about Cairo',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+                color: _AiChatbotScreenState.textColor,
               ),
             ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            color: Colors.white,
-            child: SafeArea(
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _controller,
-                      decoration: InputDecoration(
-                        hintText: 'Ask the AI guide...',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(24),
-                          borderSide: BorderSide.none,
-                        ),
-                        filled: true,
-                        fillColor: Colors.grey.shade100,
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 10),
-                      ),
-                      onSubmitted: (_) => _send(),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: _send,
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: const BoxDecoration(
-                          color: primary, shape: BoxShape.circle),
-                      child: const Icon(Icons.send_rounded,
-                          color: Colors.white, size: 20),
-                    ),
-                  ),
-                ],
+            const SizedBox(height: 6),
+            const Text(
+              'Places to try, neighborhoods to explore, or how to use the app.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: _AiChatbotScreenState.mutedText),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MessageBubble extends StatelessWidget {
+  const _MessageBubble({required this.text, required this.isUser});
+  final String text;
+  final bool isUser;
+
+  @override
+  Widget build(BuildContext context) {
+    final alignment = isUser ? Alignment.centerRight : Alignment.centerLeft;
+    final bg = isUser ? _AiChatbotScreenState.primaryColor : Colors.white;
+    final fg = isUser ? Colors.white : _AiChatbotScreenState.textColor;
+    final radius = BorderRadius.only(
+      topLeft: const Radius.circular(20),
+      topRight: const Radius.circular(20),
+      bottomLeft: Radius.circular(isUser ? 20 : 4),
+      bottomRight: Radius.circular(isUser ? 4 : 20),
+    );
+
+    return Align(
+      alignment: alignment,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.78,
+        ),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: radius,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: SelectableText(
+          text,
+          style: TextStyle(color: fg, height: 1.4),
+        ),
+      ),
+    );
+  }
+}
+
+class _TypingBubble extends StatelessWidget {
+  const _TypingBubble();
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const SizedBox(
+          width: 24,
+          height: 16,
+          child: Center(
+            child: SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: _AiChatbotScreenState.primaryColor,
               ),
             ),
           ),
-        ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Composer extends StatelessWidget {
+  const _Composer({required this.controller, required this.onSend});
+  final TextEditingController controller;
+  final Future<void> Function() onSend;
+
+  @override
+  Widget build(BuildContext context) {
+    final isSending = context.watch<AiChatProvider>().isSending;
+
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+        decoration: BoxDecoration(
+          color: _AiChatbotScreenState.bgColor,
+          border: Border(
+            top: BorderSide(color: Colors.black.withOpacity(0.05)),
+          ),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: controller,
+                enabled: !isSending,
+                textInputAction: TextInputAction.send,
+                onSubmitted: (_) => onSend(),
+                decoration: InputDecoration(
+                  hintText: 'Ask about Cairo or this app...',
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(24),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Material(
+              color: _AiChatbotScreenState.primaryColor,
+              shape: const CircleBorder(),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: isSending ? null : onSend,
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Icon(
+                    isSending ? Icons.hourglass_top_rounded : Icons.send_rounded,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
