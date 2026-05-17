@@ -3,18 +3,23 @@ import 'package:flutter/material.dart';
 import 'package:like_a_local/screens/explore/widgets/place_map_preview.dart';
 
 import '../../../models/place.dart';
+import '../../../widgets/pin_button.dart';
 import '../../map/map_screen.dart';
 
 class PlaceCard extends StatelessWidget {
   final Place place;
   final VoidCallback? onTap;
   final double? distanceInMeters;
+  final String? creatorName;
+  final bool isSuperUser;
 
   const PlaceCard({
     super.key,
     required this.place,
     this.onTap,
     this.distanceInMeters,
+    this.creatorName,
+    this.isSuperUser = false,
   });
 
   String _formatDistance(double meters) {
@@ -59,35 +64,49 @@ class PlaceCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(28),
-              ),
-              child: SizedBox(
-                height: 190,
-                child: hasImage
-                    ? Hero(
-                        tag: 'place_image_${place.id}',
-                        child: CachedNetworkImage(
-                          imageUrl: place.images.first,
-                          fit: BoxFit.cover,
-                          placeholder: (_, __) =>
-                              Container(color: lightPrimary),
-                          errorWidget: (_, __, ___) => PlaceMapPreview(
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(28),
+                  ),
+                  child: SizedBox(
+                    height: 190,
+                    width: double.infinity,
+                    child: hasImage
+                        ? Hero(
+                            tag: 'place_image_${place.id}',
+                            child: CachedNetworkImage(
+                              imageUrl: place.images.first,
+                              fit: BoxFit.cover,
+                              placeholder: (_, __) =>
+                                  Container(color: lightPrimary),
+                              errorWidget: (_, __, ___) => PlaceMapPreview(
+                                lat: place.lat,
+                                lng: place.lng,
+                                placeName: place.name,
+                                onTap: () => _openMap(context),
+                              ),
+                            ),
+                          )
+                        : PlaceMapPreview(
                             lat: place.lat,
                             lng: place.lng,
                             placeName: place.name,
                             onTap: () => _openMap(context),
                           ),
-                        ),
-                      )
-                    : PlaceMapPreview(
-                        lat: place.lat,
-                        lng: place.lng,
-                        placeName: place.name,
-                        onTap: () => _openMap(context),
-                      ),
-              ),
+                  ),
+                ),
+                Positioned(
+                  top: 12,
+                  right: 12,
+                  child: PinButton(
+                    placeId: place.id,
+                    activeColor: primaryColor,
+                    inactiveColor: textColor,
+                  ),
+                ),
+              ],
             ),
             Padding(
               padding: const EdgeInsets.all(16),
@@ -134,29 +153,49 @@ class PlaceCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      _smallChip(
-                        icon: Icons.category_rounded,
-                        label:
-                            place.category.isEmpty ? 'General' : place.category,
-                        color: primaryColor,
-                        bg: lightPrimary,
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          _smallChip(
+                            icon: Icons.category_rounded,
+                            label:
+                                place.category.isEmpty ? 'General' : place.category,
+                            color: primaryColor,
+                            bg: lightPrimary,
+                          ),
+                          if (distanceInMeters != null)
+                            _smallChip(
+                              icon: Icons.location_on_rounded,
+                              label: _formatDistance(distanceInMeters!),
+                              color: mutedText,
+                              bg: Colors.grey.shade100,
+                            ),
+                        ],
                       ),
-                      _smallChip(
-                        icon: Icons.rate_review_rounded,
-                        label: '${place.reviewCount} reviews',
-                        color: mutedText,
-                        bg: Colors.grey.shade100,
-                      ),
-                      if (distanceInMeters != null)
-                        _smallChip(
-                          icon: Icons.location_on_rounded,
-                          label: _formatDistance(distanceInMeters!),
-                          color: mutedText,
-                          bg: Colors.grey.shade100,
+                      if (creatorName != null)
+                        Row(
+                          children: [
+                            Text(
+                              'by $creatorName',
+                              style: const TextStyle(
+                                color: mutedText,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            if (isSuperUser) ...[
+                              const SizedBox(width: 4),
+                              const Icon(
+                                Icons.stars_rounded,
+                                color: primaryColor,
+                                size: 16,
+                              ),
+                            ],
+                          ],
                         ),
                     ],
                   ),
@@ -199,3 +238,4 @@ class PlaceCard extends StatelessWidget {
     );
   }
 }
+

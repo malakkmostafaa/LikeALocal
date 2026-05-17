@@ -1,6 +1,4 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:like_a_local/screens/chat/chat_screen.dart';
 import 'package:provider/provider.dart';
@@ -10,12 +8,19 @@ import '../../models/user_model.dart';
 import '../../providers/place_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../services/user_service.dart';
+import '../../services/recommendation_service.dart';
+import '../../widgets/pin_button.dart';
 import '../explore/widgets/social_place_card.dart';
 import '../place/place_details_screen.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
   static const Color bgColor = Color(0xFFFAF7F2);
   static const Color cardColor = Color(0xFFFFFBF7);
   static const Color borderColor = Color(0xFFF0E4DC);
@@ -23,6 +28,32 @@ class HomeScreen extends StatelessWidget {
   static const Color softPrimary = Color(0xFFFFEEE6);
   static const Color textColor = Color(0xFF1F1F28);
   static const Color mutedText = Color(0xFF777777);
+
+  final RecommendationService _recommendationService = RecommendationService();
+  Map<String, dynamic>? _recommendationProfile;
+  bool _isLoadingProfile = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRecommendationProfile();
+  }
+
+  Future<void> _loadRecommendationProfile() async {
+    try {
+      final profile = await _recommendationService.getRecommendationProfile();
+      if (mounted) {
+        setState(() {
+          _recommendationProfile = profile;
+          _isLoadingProfile = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _isLoadingProfile = false);
+      }
+    }
+  }
 
   Future<Map<String, AppUser>> _loadCreators(List<Place> places) async {
     final creatorIds = places
@@ -35,59 +66,100 @@ class HomeScreen extends StatelessWidget {
     return UserService().getUsersByIds(creatorIds);
   }
 
-  List<Place> _getSuperUserPlaces(
+  double _calculateScore({
+    required Place place,
+    required AppUser? user,
+    required List<String> likedCategories,
+    required Map<String, dynamic> interactionScores,
+    required AppUser? creator,
+  }) {
+    double score = 0;
+
+    // User preference boost (+10)
+    if (user?.preferences.contains(place.category) == true) {
+      score += 10;
+    }
+
+    // Liked categories boost (+8)
+    if (likedCategories.contains(place.category)) {
+      score += 8;
+    }
+
+    // Interaction score boost
+    score += (interactionScores[place.category] ?? 0).toDouble();
+
+    // Super User boost (+3)
+    if (creator?.isSuperUser == true) {
+      score += 3;
+    }
+
+    // Rating
+    score += place.rating;
+
+    // Review count (+0.1 per review)
+    score += place.reviewCount * 0.1;
+
+    return score;
+  }
+
+  List<Place> _getRecommendedPlaces(
     List<Place> places,
     Map<String, AppUser> creators,
+    AppUser? user,
   ) {
-    final result = places.where((place) {
-      final creatorId = place.createdBy;
-      if (creatorId == null || creatorId.isEmpty) return false;
-      return creators[creatorId]?.isSuperUser == true;
-    }).toList();
+    final result = List<Place>.from(places);
+
+    final likedCategories =
+        List<String>.from(_recommendationProfile?['likedCategories'] ?? []);
+    final interactionScores = Map<String, dynamic>.from(
+        _recommendationProfile?['interactionScore'] ?? {});
 
     result.sort((a, b) {
-      final ratingCompare = b.rating.compareTo(a.rating);
-      if (ratingCompare != 0) return ratingCompare;
+      final scoreA = _calculateScore(
+        place: a,
+        user: user,
+        likedCategories: likedCategories,
+        interactionScores: interactionScores,
+        creator: creators[a.createdBy],
+      );
+      final scoreB = _calculateScore(
+        place: b,
+        user: user,
+        likedCategories: likedCategories,
+        interactionScores: interactionScores,
+        creator: creators[b.createdBy],
+      );
 
-      final reviewsCompare = b.reviewCount.compareTo(a.reviewCount);
-      if (reviewsCompare != 0) return reviewsCompare;
+      if (scoreA == scoreB) {
+        final aTime = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final bTime = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return bTime.compareTo(aTime);
+      }
 
-      final aTime = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-      final bTime = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-
-      return bTime.compareTo(aTime);
+      return scoreB.compareTo(scoreA);
     });
 
-    return result;
+    return result.take(10).toList();
   }
 
   List<Place> _getFeedPlaces(
     List<Place> places,
-    List<Place> superUserPlaces,
+    Map<String, AppUser> creators,
+    AppUser? user,
   ) {
-    final superIds = superUserPlaces.map((place) => place.id).toSet();
+    final result = List<Place>.from(places);
 
-    final result = places.where((place) {
-      return !superIds.contains(place.id);
-    }).toList();
+    // Filter out some if needed, or just sort.
+    // Usually main feed is just recent/trending if not "Recommended" section,
+    // but here we keep it sorted by the same logic as requested before or just latest.
+    // User requested "Keep Latest local posts section below it".
 
     result.sort((a, b) {
+      // Latest logic as requested for main feed
       final aTime = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
       final bTime = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-
       return bTime.compareTo(aTime);
     });
-
-    if (result.isEmpty) {
-      final fallback = List<Place>.from(places);
-      fallback.sort((a, b) {
-        final aTime = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-        final bTime = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-        return bTime.compareTo(aTime);
-      });
-
-      return fallback;
-    }
 
     return result;
   }
@@ -98,7 +170,7 @@ class HomeScreen extends StatelessWidget {
       backgroundColor: bgColor,
       body: Consumer2<PlaceProvider, UserProvider>(
         builder: (context, placeProvider, userProvider, child) {
-          if (placeProvider.isLoading) {
+          if (placeProvider.isLoading || _isLoadingProfile) {
             return const Center(
               child: CircularProgressIndicator(color: primaryColor),
             );
@@ -115,13 +187,14 @@ class HomeScreen extends StatelessWidget {
             future: _loadCreators(places),
             builder: (context, snapshot) {
               final creators = snapshot.data ?? {};
-              final superUserPlaces = _getSuperUserPlaces(places, creators);
-              final feedPlaces = _getFeedPlaces(places, superUserPlaces);
+              final recommendedPlaces =
+                  _getRecommendedPlaces(places, creators, currentUser);
+              final feedPlaces = _getFeedPlaces(places, creators, currentUser);
 
               return RefreshIndicator(
                 color: primaryColor,
                 onRefresh: () async {
-                  await Future.delayed(const Duration(milliseconds: 500));
+                  await _loadRecommendationProfile();
                 },
                 child: CustomScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
@@ -129,10 +202,10 @@ class HomeScreen extends StatelessWidget {
                     SliverToBoxAdapter(
                       child: _HomeHeader(user: currentUser),
                     ),
-                    if (superUserPlaces.isNotEmpty)
+                    if (recommendedPlaces.isNotEmpty)
                       SliverToBoxAdapter(
-                        child: _SuperUserPicksSection(
-                          places: superUserPlaces.take(8).toList(),
+                        child: _RecommendedPlacesSection(
+                          places: recommendedPlaces,
                           creators: creators,
                         ),
                       ),
@@ -195,14 +268,13 @@ class _HomeHeader extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Top row: brand + actions
             Row(
               children: [
                 const Expanded(
                   child: Text(
                     'LikeALocal',
                     style: TextStyle(
-                      color: HomeScreen.primaryColor,
+                      color: _HomeScreenState.primaryColor,
                       fontSize: 15,
                       fontWeight: FontWeight.w900,
                       letterSpacing: -0.2,
@@ -228,30 +300,25 @@ class _HomeHeader extends StatelessWidget {
                 ),
               ],
             ),
-
             const SizedBox(height: 24),
-
-            // Greeting area
             Text(
               'Hey, $firstName',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                color: HomeScreen.textColor,
+                color: _HomeScreenState.textColor,
                 fontSize: 30,
                 fontWeight: FontWeight.w900,
                 letterSpacing: -0.8,
               ),
             ),
-
             const SizedBox(height: 6),
-
             const Text(
               'Trusted local recommendations, curated for you.',
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color: HomeScreen.mutedText,
+                color: _HomeScreenState.mutedText,
                 fontSize: 14,
                 height: 1.35,
                 fontWeight: FontWeight.w500,
@@ -278,7 +345,9 @@ class _HeaderIconButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: isPrimary ? HomeScreen.primaryColor : HomeScreen.cardColor,
+      color: isPrimary
+          ? _HomeScreenState.primaryColor
+          : _HomeScreenState.cardColor,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
@@ -291,12 +360,12 @@ class _HeaderIconButton extends StatelessWidget {
             border: isPrimary
                 ? null
                 : Border.all(
-                    color: HomeScreen.borderColor,
+                    color: _HomeScreenState.borderColor,
                   ),
             boxShadow: [
               BoxShadow(
                 color: isPrimary
-                    ? HomeScreen.primaryColor.withOpacity(0.22)
+                    ? _HomeScreenState.primaryColor.withOpacity(0.22)
                     : Colors.black.withOpacity(0.035),
                 blurRadius: 12,
                 offset: const Offset(0, 6),
@@ -305,7 +374,7 @@ class _HeaderIconButton extends StatelessWidget {
           ),
           child: Icon(
             icon,
-            color: isPrimary ? Colors.white : HomeScreen.textColor,
+            color: isPrimary ? Colors.white : _HomeScreenState.textColor,
             size: 21,
           ),
         ),
@@ -314,11 +383,11 @@ class _HeaderIconButton extends StatelessWidget {
   }
 }
 
-class _SuperUserPicksSection extends StatelessWidget {
+class _RecommendedPlacesSection extends StatelessWidget {
   final List<Place> places;
   final Map<String, AppUser> creators;
 
-  const _SuperUserPicksSection({
+  const _RecommendedPlacesSection({
     required this.places,
     required this.creators,
   });
@@ -331,8 +400,8 @@ class _SuperUserPicksSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const _SectionHeader(
-            title: 'Super User picks',
-            subtitle: 'Curated by trusted local contributors',
+            title: 'Recommended for You',
+            subtitle: 'Based on your preferences and activity',
           ),
           SizedBox(
             height: 235,
@@ -347,7 +416,7 @@ class _SuperUserPicksSection extends StatelessWidget {
                 final creator =
                     place.createdBy == null ? null : creators[place.createdBy!];
 
-                return _SuperPickCard(
+                return _RecommendedPlaceCard(
                   place: place,
                   creator: creator,
                 );
@@ -360,123 +429,26 @@ class _SuperUserPicksSection extends StatelessWidget {
   }
 }
 
-class _SuperPickCard extends StatefulWidget {
+class _RecommendedPlaceCard extends StatefulWidget {
   final Place place;
   final AppUser? creator;
 
-  const _SuperPickCard({
+  const _RecommendedPlaceCard({
     required this.place,
     required this.creator,
   });
 
   @override
-  State<_SuperPickCard> createState() => _SuperPickCardState();
+  State<_RecommendedPlaceCard> createState() => _RecommendedPlaceCardState();
 }
 
-class _SuperPickCardState extends State<_SuperPickCard> {
-  bool _isSaved = false;
-  bool _isLoadingSaved = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _checkIfSaved();
-  }
-
-  Future<void> _checkIfSaved() async {
-    final user = FirebaseAuth.instance.currentUser;
-
-    if (user == null) {
-      if (mounted) {
-        setState(() => _isLoadingSaved = false);
-      }
-      return;
-    }
-
-    try {
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('pins')
-          .doc(widget.place.id)
-          .get();
-
-      if (!mounted) return;
-
-      setState(() {
-        _isSaved = doc.exists;
-        _isLoadingSaved = false;
-      });
-    } catch (_) {
-      if (mounted) {
-        setState(() => _isLoadingSaved = false);
-      }
-    }
-  }
-
-  Future<void> _toggleSave() async {
-    final user = FirebaseAuth.instance.currentUser;
-
-    if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please log in first')),
-      );
-      return;
-    }
-
-    final previous = _isSaved;
-
-    setState(() {
-      _isSaved = !_isSaved;
-    });
-
-    try {
-      final docRef = FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('pins')
-          .doc(widget.place.id);
-
-      if (_isSaved) {
-        await docRef.set({
-          'placeId': widget.place.id,
-          'savedAt': FieldValue.serverTimestamp(),
-        });
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Saved to pins'),
-              duration: Duration(seconds: 1),
-            ),
-          );
-        }
-      } else {
-        await docRef.delete();
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Removed from pins'),
-              duration: Duration(seconds: 1),
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (!mounted) return;
-
-      setState(() {
-        _isSaved = previous;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
-    }
-  }
+class _RecommendedPlaceCardState extends State<_RecommendedPlaceCard> {
+  final RecommendationService _recommendationService = RecommendationService();
 
   void _openDetails() {
+    _recommendationService.trackViewPlace(
+        widget.place.id, widget.place.category,
+        budgetLevel: widget.place.budgetLevel);
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -503,7 +475,7 @@ class _SuperPickCardState extends State<_SuperPickCard> {
                   height: 155,
                   width: 220,
                   decoration: BoxDecoration(
-                    color: HomeScreen.softPrimary,
+                    color: _HomeScreenState.softPrimary,
                     borderRadius: BorderRadius.circular(28),
                     boxShadow: [
                       BoxShadow(
@@ -519,7 +491,7 @@ class _SuperPickCardState extends State<_SuperPickCard> {
                           imageUrl: place.images.first,
                           fit: BoxFit.cover,
                           placeholder: (_, __) => Container(
-                            color: HomeScreen.softPrimary,
+                            color: _HomeScreenState.softPrimary,
                           ),
                           errorWidget: (_, __, ___) => const _ImageFallback(),
                         )
@@ -534,7 +506,7 @@ class _SuperPickCardState extends State<_SuperPickCard> {
                       vertical: 7,
                     ),
                     decoration: BoxDecoration(
-                      color: HomeScreen.cardColor.withOpacity(0.94),
+                      color: _HomeScreenState.cardColor.withOpacity(0.94),
                       borderRadius: BorderRadius.circular(99),
                       boxShadow: [
                         BoxShadow(
@@ -547,7 +519,7 @@ class _SuperPickCardState extends State<_SuperPickCard> {
                     child: Text(
                       place.category.isEmpty ? 'General' : place.category,
                       style: const TextStyle(
-                        color: HomeScreen.textColor,
+                        color: _HomeScreenState.textColor,
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
                       ),
@@ -557,41 +529,20 @@ class _SuperPickCardState extends State<_SuperPickCard> {
                 Positioned(
                   top: 12,
                   right: 12,
-                  child: InkWell(
-                    onTap: _isLoadingSaved ? null : _toggleSave,
-                    customBorder: const CircleBorder(),
-                    child: Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: HomeScreen.cardColor.withOpacity(0.94),
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.08),
-                            blurRadius: 8,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: _isLoadingSaved
-                          ? const Padding(
-                              padding: EdgeInsets.all(10),
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: HomeScreen.primaryColor,
-                              ),
-                            )
-                          : Icon(
-                              _isSaved
-                                  ? Icons.bookmark_rounded
-                                  : Icons.bookmark_border_rounded,
-                              color: _isSaved
-                                  ? HomeScreen.primaryColor
-                                  : HomeScreen.textColor,
-                              size: 21,
-                            ),
-                    ),
+                  child: PinButton(
+                    placeId: widget.place.id,
+                    backgroundColor: _HomeScreenState.cardColor,
+                    activeColor: _HomeScreenState.primaryColor,
+                    inactiveColor: _HomeScreenState.textColor,
+                    onChanged: (pinned) {
+                      if (pinned) {
+                        _recommendationService.trackSavePlace(
+                          widget.place.id,
+                          widget.place.category,
+                          budgetLevel: widget.place.budgetLevel,
+                        );
+                      }
+                    },
                   ),
                 ),
               ],
@@ -602,7 +553,7 @@ class _SuperPickCardState extends State<_SuperPickCard> {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                color: HomeScreen.textColor,
+                color: _HomeScreenState.textColor,
                 fontSize: 17,
                 fontWeight: FontWeight.w900,
                 letterSpacing: -0.3,
@@ -620,7 +571,7 @@ class _SuperPickCardState extends State<_SuperPickCard> {
                 Text(
                   place.rating.toStringAsFixed(1),
                   style: const TextStyle(
-                    color: HomeScreen.mutedText,
+                    color: _HomeScreenState.mutedText,
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                   ),
@@ -629,13 +580,13 @@ class _SuperPickCardState extends State<_SuperPickCard> {
                 Icon(
                   Icons.rate_review_outlined,
                   size: 15,
-                  color: HomeScreen.mutedText.withOpacity(0.75),
+                  color: _HomeScreenState.mutedText.withOpacity(0.75),
                 ),
                 const SizedBox(width: 3),
                 Text(
                   '${place.reviewCount}',
                   style: const TextStyle(
-                    color: HomeScreen.mutedText,
+                    color: _HomeScreenState.mutedText,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                   ),
@@ -672,7 +623,7 @@ class _SectionHeader extends StatelessWidget {
                 Text(
                   title,
                   style: const TextStyle(
-                    color: HomeScreen.textColor,
+                    color: _HomeScreenState.textColor,
                     fontSize: 21,
                     fontWeight: FontWeight.w900,
                     letterSpacing: -0.5,
@@ -682,7 +633,7 @@ class _SectionHeader extends StatelessWidget {
                 Text(
                   subtitle,
                   style: const TextStyle(
-                    color: HomeScreen.mutedText,
+                    color: _HomeScreenState.mutedText,
                     fontSize: 13,
                     height: 1.25,
                   ),
@@ -702,11 +653,11 @@ class _ImageFallback extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: HomeScreen.softPrimary,
+      color: _HomeScreenState.softPrimary,
       child: const Center(
         child: Icon(
           Icons.place_rounded,
-          color: HomeScreen.primaryColor,
+          color: _HomeScreenState.primaryColor,
           size: 44,
         ),
       ),
@@ -733,7 +684,7 @@ class _EmptyHomeState extends StatelessWidget {
                 'No places yet. Add the first local gem!',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: HomeScreen.mutedText,
+                  color: _HomeScreenState.mutedText,
                   fontSize: 16,
                 ),
               ),

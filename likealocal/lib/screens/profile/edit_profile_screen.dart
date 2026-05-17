@@ -5,8 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../models/user_model.dart';
-import '../../services/user_service.dart';
-import '../../services/storage_service.dart';
+import '../../providers/user_provider.dart';
 
 import 'package:provider/provider.dart';
 import '../../providers/connectivity_provider.dart';
@@ -24,13 +23,8 @@ class EditProfileScreen extends StatefulWidget {
 }
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
-  final UserService _userService = UserService();
-  final StorageService _storageService = StorageService();
-
   late TextEditingController nameController;
   late TextEditingController bioController;
-
-  bool isLoading = false;
 
   final List<String> allPreferences = [
     'Food',
@@ -91,50 +85,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
-  Future<String> _getUpdatedProfileImageUrl() async {
-    if (_imageFile == null) {
-      return widget.user.profileImageUrl;
-    }
-
+  Future<void> saveProfile() async {
     final isOffline = context.read<ConnectivityProvider>().isOffline;
 
-    if (isOffline) {
-      throw Exception(
-        'Profile image upload is not available offline. Please reconnect.',
-      );
-    }
-
-    final imageUrl = await _storageService.uploadCurrentUserProfileImage(
-      _imageFile!,
-    );
-
-    return imageUrl;
-  }
-
-  Future<void> saveProfile() async {
-    setState(() {
-      isLoading = true;
-    });
-
     try {
-      if (nameController.text.trim().isEmpty) {
-        throw Exception('Name cannot be empty');
-      }
-
-      if (selectedPreferences.isEmpty) {
-        throw Exception('Please select at least one interest');
-      }
-
-      final imageUrl = await _getUpdatedProfileImageUrl();
-
-      await _userService.updateCurrentUser({
-        'name': nameController.text.trim(),
-        'bio': bioController.text.trim(),
-        'preferences': selectedPreferences,
-        'maxDistance': maxDistance,
-        'priceRange': priceRange,
-        'profileImageUrl': imageUrl,
-      });
+      await context.read<UserProvider>().updateProfile(
+            name: nameController.text,
+            bio: bioController.text,
+            preferences: selectedPreferences,
+            maxDistance: maxDistance,
+            priceRange: priceRange,
+            profileImageFile: _imageFile,
+            isOffline: isOffline,
+          );
 
       if (!mounted) return;
 
@@ -150,21 +113,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(e.toString()),
+          content: Text(
+            e.toString().replaceFirst('Exception: ', ''),
+          ),
         ),
       );
-    } finally {
-      if (mounted) {
-        setState(() {
-          isLoading = false;
-        });
-      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     const primaryColor = Color(0xFFD96B41);
+    final isLoading = context.watch<UserProvider>().isUpdating;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F6F3),

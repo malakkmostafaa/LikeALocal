@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
 
 import 'firebase_options.dart';
@@ -14,12 +15,16 @@ import 'providers/user_provider.dart';
 import 'providers/place_provider.dart';
 import 'providers/review_provider.dart';
 import 'providers/location_provider.dart';
+import 'providers/pin_provider.dart';
+import 'providers/chat_provider.dart';
 
 import 'screens/auth/login_screen.dart';
 import 'screens/main_navigation.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await dotenv.load(fileName: '.env');
 
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
@@ -37,6 +42,8 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => PlaceProvider()),
         ChangeNotifierProvider(create: (_) => ReviewProvider()),
+        ChangeNotifierProvider(create: (_) => PinProvider()),
+        ChangeNotifierProvider(create: (_) => ChatProvider()),
         ChangeNotifierProvider(create: (_) => ConnectivityProvider()),
         ChangeNotifierProvider(
           create: (_) => LocationProvider()..fetchLocation(),
@@ -87,15 +94,10 @@ class MyApp extends StatelessWidget {
         ),
       ),
 
-      // This places the offline banner above every screen.
+      // This places the offline banner globally without overlapping or double-padding.
       builder: (context, child) {
-        return Column(
-          children: [
-            const OfflineBanner(),
-            Expanded(
-              child: child ?? const SizedBox.shrink(),
-            ),
-          ],
+        return OfflineBanner(
+          child: child ?? const SizedBox.shrink(),
         );
       },
 

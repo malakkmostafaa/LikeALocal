@@ -5,11 +5,17 @@ class SearchBarWidget extends StatefulWidget {
   final ValueChanged<String> onChanged;
   final VoidCallback? onClear;
 
+  // Voice search
+  final VoidCallback? onMicTap;
+  final bool isListening;
+
   const SearchBarWidget({
     super.key,
     required this.controller,
     required this.onChanged,
     this.onClear,
+    this.onMicTap,
+    this.isListening = false,
   });
 
   @override
@@ -19,10 +25,25 @@ class SearchBarWidget extends StatefulWidget {
 class _SearchBarWidgetState extends State<SearchBarWidget> {
   late FocusNode _focusNode;
 
+  static const Color primaryColor = Color(0xFFE26D45);
+  static const Color textColor = Color(0xFF1F1F28);
+  static const Color mutedText = Color(0xFF777777);
+
   @override
   void initState() {
     super.initState();
     _focusNode = FocusNode();
+  }
+
+  @override
+  void didUpdateWidget(covariant SearchBarWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // Ensures the clear/mic UI refreshes when text is changed from voice input.
+    if (oldWidget.controller.text != widget.controller.text ||
+        oldWidget.isListening != widget.isListening) {
+      setState(() {});
+    }
   }
 
   @override
@@ -31,8 +52,26 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
     super.dispose();
   }
 
+  void _clearSearch() {
+    widget.controller.clear();
+    widget.onClear?.call();
+
+    setState(() {});
+
+    Future.delayed(
+      const Duration(milliseconds: 50),
+      () {
+        if (mounted) {
+          _focusNode.requestFocus();
+        }
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final hasText = widget.controller.text.trim().isNotEmpty;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       child: Container(
@@ -57,11 +96,22 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
 
             setState(() {});
           },
-          style: const TextStyle(color: Color(0xFF1F1F28)),
+          style: const TextStyle(
+            color: textColor,
+            fontWeight: FontWeight.w600,
+          ),
           decoration: InputDecoration(
-            hintText: 'Search local places...',
-            hintStyle: const TextStyle(color: Color(0xFF777777)),
-            prefixIcon: const Icon(Icons.search, color: Color(0xFFE26D45)),
+            hintText: widget.isListening
+                ? 'Listening... speak now'
+                : 'Search local places...',
+            hintStyle: const TextStyle(
+              color: mutedText,
+              fontWeight: FontWeight.w500,
+            ),
+            prefixIcon: const Icon(
+              Icons.search_rounded,
+              color: primaryColor,
+            ),
             filled: true,
             fillColor: Colors.white,
             contentPadding: const EdgeInsets.symmetric(
@@ -80,22 +130,50 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
               borderRadius: BorderRadius.circular(30),
               borderSide: BorderSide.none,
             ),
-            suffixIcon: widget.controller.text.isNotEmpty
-                ? IconButton(
-                    icon: const Icon(Icons.clear, color: Color(0xFF777777)),
-                    onPressed: () {
-                      widget.controller.clear();
-                      widget.onClear?.call();
+            suffixIcon: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (hasText)
+                  IconButton(
+                    tooltip: 'Clear search',
+                    icon: const Icon(
+                      Icons.clear_rounded,
+                      color: mutedText,
+                    ),
+                    onPressed: _clearSearch,
+                  ),
 
-                      setState(() {});
-
-                      Future.delayed(
-                        const Duration(milliseconds: 50),
-                        () => _focusNode.requestFocus(),
-                      );
-                    },
-                  )
-                : null,
+                // Mic button
+                Container(
+                  margin: const EdgeInsets.only(right: 6),
+                  decoration: BoxDecoration(
+                    color: widget.isListening
+                        ? primaryColor.withOpacity(0.12)
+                        : Colors.transparent,
+                    shape: BoxShape.circle,
+                  ),
+                  child: IconButton(
+                    tooltip:
+                        widget.isListening ? 'Stop listening' : 'Voice search',
+                    onPressed: widget.onMicTap,
+                    icon: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 180),
+                      child: widget.isListening
+                          ? const Icon(
+                              Icons.mic_rounded,
+                              key: ValueKey('mic_on'),
+                              color: primaryColor,
+                            )
+                          : const Icon(
+                              Icons.mic_none_rounded,
+                              key: ValueKey('mic_off'),
+                              color: mutedText,
+                            ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

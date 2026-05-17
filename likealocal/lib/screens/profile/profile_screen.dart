@@ -3,18 +3,22 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:like_a_local/providers/connectivity_provider.dart';
+import 'package:like_a_local/providers/pin_provider.dart';
 import 'package:like_a_local/providers/place_provider.dart';
 import 'package:like_a_local/providers/review_provider.dart';
+import 'package:like_a_local/screens/chat/chat_screen.dart';
 
 import 'package:provider/provider.dart';
 
 import '../../models/place.dart';
 import '../../models/user_model.dart';
+import '../../services/place_service.dart';
 import 'edit_profile_screen.dart';
 import 'settings_screen.dart';
 import 'super_user_screen.dart';
 import 'subscription_plans_screen.dart';
 import '../place/place_details_screen.dart';
+import '../add_place/add_place_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -106,10 +110,11 @@ class _ProfileActionsPanel extends StatelessWidget {
                 child: _ProfileActionTile(
                   icon: Icons.smart_toy_outlined,
                   title: 'AI Guide',
-                  subtitle: 'Coming soon',
+                  subtitle: 'Local assistant',
                   onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('AI Guide coming soon')),
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ChatScreen()),
                     );
                   },
                 ),
@@ -235,7 +240,7 @@ class _PanelDivider extends StatelessWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   int _selectedTab = 0;
 
-  static const Color bgColor = Color(0xFFF7EFE8);
+  static const Color bgColor = Color(0xFFFAF7F2);
   static const Color cardColor = Color(0xFFFFFBF7);
   static const Color surfaceColor = Color(0xFFFFF3EC);
 
@@ -358,8 +363,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     if (_selectedTab == 1) {
-      return const _SavedPinsSection(
-        key: ValueKey('saved_pins'),
+      return _SavedPinsSection(
+        key: const ValueKey('saved_pins'),
+        uid: uid,
+        onOpenPlace: _openPlaceDetails,
       );
     }
 
@@ -413,8 +420,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (confirmed != true) return;
 
     try {
-      await context.read<PlaceProvider>().deletePlace(place.id,
-          isOffline: context.read<ConnectivityProvider>().isOffline);
+      await context.read<PlaceProvider>().deletePlace(
+            place,
+            isOffline: context.read<ConnectivityProvider>().isOffline,
+          );
 
       if (!mounted) return;
 
@@ -1363,9 +1372,10 @@ class _MyPlacesSection extends StatelessWidget {
                   } else if (value == 'delete') {
                     onDeletePlace(place);
                   } else if (value == 'edit') {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Edit place screen coming soon'),
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => AddPlaceScreen(placeToEdit: place),
                       ),
                     );
                   }
@@ -1399,15 +1409,91 @@ class _MyPlacesSection extends StatelessWidget {
 }
 
 class _SavedPinsSection extends StatelessWidget {
-  const _SavedPinsSection({super.key});
+  final String uid;
+  final ValueChanged<Place> onOpenPlace;
+
+  const _SavedPinsSection({
+    super.key,
+    required this.uid,
+    required this.onOpenPlace,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return const _EmptySectionCard(
-      icon: Icons.bookmark_border_rounded,
-      title: 'Saved pins coming soon',
-      message:
-          'This section is ready for your pinned places. We can connect it to users/{uid}/pins next.',
+    return StreamBuilder<List<String>>(
+      stream: context.read<PinProvider>().pinnedPlaceIdsStream(uid),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const _SectionLoadingCard();
+        }
+
+        final placeIds = snapshot.data ?? <String>[];
+
+        if (placeIds.isEmpty) {
+          return const _EmptySectionCard(
+            icon: Icons.bookmark_border_rounded,
+            title: 'No pinned places yet',
+            message: 'Tap the bookmark on any place to save it here.',
+          );
+        }
+
+        return Column(
+          children: placeIds.map((placeId) {
+            return _PinnedPlaceTile(
+              key: ValueKey('pin_$placeId'),
+              placeId: placeId,
+              onOpenPlace: onOpenPlace,
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+}
+
+class _PinnedPlaceTile extends StatefulWidget {
+  final String placeId;
+  final ValueChanged<Place> onOpenPlace;
+
+  const _PinnedPlaceTile({
+    super.key,
+    required this.placeId,
+    required this.onOpenPlace,
+  });
+
+  @override
+  State<_PinnedPlaceTile> createState() => _PinnedPlaceTileState();
+}
+
+class _PinnedPlaceTileState extends State<_PinnedPlaceTile> {
+  final PlaceService _placeService = PlaceService();
+  late final Future<Place?> _placeFuture =
+      _placeService.getPlaceByIdOnce(widget.placeId);
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Place?>(
+      future: _placeFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Padding(
+            padding: EdgeInsets.only(bottom: 14),
+            child: _SectionLoadingCard(),
+          );
+        }
+
+        final place = snapshot.data;
+        if (place == null) return const SizedBox.shrink();
+
+        return _ProfilePlaceCard(
+          place: place,
+          onTap: () => widget.onOpenPlace(place),
+          trailing: const Icon(
+            Icons.chevron_right_rounded,
+            color: _ProfileScreenState.mutedText,
+          ),
+        );
+      },
     );
   }
 }
