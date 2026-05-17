@@ -6,6 +6,7 @@ import 'package:like_a_local/providers/connectivity_provider.dart';
 import 'package:like_a_local/providers/pin_provider.dart';
 import 'package:like_a_local/providers/place_provider.dart';
 import 'package:like_a_local/providers/review_provider.dart';
+import 'package:like_a_local/screens/chat/chat_screen.dart';
 
 import 'package:provider/provider.dart';
 
@@ -109,10 +110,11 @@ class _ProfileActionsPanel extends StatelessWidget {
                 child: _ProfileActionTile(
                   icon: Icons.smart_toy_outlined,
                   title: 'AI Guide',
-                  subtitle: 'Coming soon',
+                  subtitle: 'Local assistant',
                   onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('AI Guide coming soon')),
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ChatScreen()),
                     );
                   },
                 ),
@@ -238,7 +240,7 @@ class _PanelDivider extends StatelessWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   int _selectedTab = 0;
 
-  static const Color bgColor = Color(0xFFF7EFE8);
+  static const Color bgColor = Color(0xFFFAF7F2);
   static const Color cardColor = Color(0xFFFFFBF7);
   static const Color surfaceColor = Color(0xFFFFF3EC);
 
@@ -419,9 +421,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     try {
       await context.read<PlaceProvider>().deletePlace(
-        place,
-        isOffline: context.read<ConnectivityProvider>().isOffline,
-      );
+            place,
+            isOffline: context.read<ConnectivityProvider>().isOffline,
+          );
 
       if (!mounted) return;
 

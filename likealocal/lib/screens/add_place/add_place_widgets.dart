@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class AddPlaceColors {
-  static const Color background = Color(0xFFF7F4EF);
+  static const Color background = Color(0xFFFAF7F2);
   static const Color card = Color(0xFFFFFBF7);
   static const Color inputFill = Color(0xFFEDEDE6);
   static const Color primary = Color(0xFFD45A38);
