@@ -109,8 +109,10 @@ class _HomeScreenState extends State<HomeScreen> {
   ) {
     final result = List<Place>.from(places);
 
-    final likedCategories = List<String>.from(_recommendationProfile?['likedCategories'] ?? []);
-    final interactionScores = Map<String, dynamic>.from(_recommendationProfile?['interactionScore'] ?? {});
+    final likedCategories =
+        List<String>.from(_recommendationProfile?['likedCategories'] ?? []);
+    final interactionScores = Map<String, dynamic>.from(
+        _recommendationProfile?['interactionScore'] ?? {});
 
     result.sort((a, b) {
       final scoreA = _calculateScore(
@@ -147,11 +149,11 @@ class _HomeScreenState extends State<HomeScreen> {
   ) {
     final result = List<Place>.from(places);
 
-    // Filter out some if needed, or just sort. 
-    // Usually main feed is just recent/trending if not "Recommended" section, 
+    // Filter out some if needed, or just sort.
+    // Usually main feed is just recent/trending if not "Recommended" section,
     // but here we keep it sorted by the same logic as requested before or just latest.
     // User requested "Keep Latest local posts section below it".
-    
+
     result.sort((a, b) {
       // Latest logic as requested for main feed
       final aTime = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
@@ -185,7 +187,8 @@ class _HomeScreenState extends State<HomeScreen> {
             future: _loadCreators(places),
             builder: (context, snapshot) {
               final creators = snapshot.data ?? {};
-              final recommendedPlaces = _getRecommendedPlaces(places, creators, currentUser);
+              final recommendedPlaces =
+                  _getRecommendedPlaces(places, creators, currentUser);
               final feedPlaces = _getFeedPlaces(places, creators, currentUser);
 
               return RefreshIndicator(
@@ -342,7 +345,9 @@ class _HeaderIconButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: isPrimary ? _HomeScreenState.primaryColor : _HomeScreenState.cardColor,
+      color: isPrimary
+          ? _HomeScreenState.primaryColor
+          : _HomeScreenState.cardColor,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
@@ -441,7 +446,9 @@ class _RecommendedPlaceCardState extends State<_RecommendedPlaceCard> {
   final RecommendationService _recommendationService = RecommendationService();
 
   void _openDetails() {
-    _recommendationService.trackViewPlace(widget.place.id, widget.place.category);
+    _recommendationService.trackViewPlace(
+        widget.place.id, widget.place.category,
+        budgetLevel: widget.place.budgetLevel);
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -532,6 +539,7 @@ class _RecommendedPlaceCardState extends State<_RecommendedPlaceCard> {
                         _recommendationService.trackSavePlace(
                           widget.place.id,
                           widget.place.category,
+                          budgetLevel: widget.place.budgetLevel,
                         );
                       }
                     },

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
-
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 import '../../models/place.dart';
 import '../../providers/place_provider.dart';
 import '../place/place_details_screen.dart';
@@ -19,6 +20,8 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> {
+  final Map<String, BitmapDescriptor> _markerIconCache = {};
+  bool _isPreparingMarkers = false;
   GoogleMapController? _mapController;
   final TextEditingController _searchController = TextEditingController();
 
@@ -105,16 +108,231 @@ class _MapScreenState extends State<MapScreen> {
     }).toList();
   }
 
+  IconData _categoryIcon(String category) {
+    final clean = category.toLowerCase().trim();
+
+    if (clean.contains('cafe') || clean.contains('café')) {
+      return Icons.local_cafe_rounded;
+    }
+
+    if (clean.contains('food') || clean.contains('restaurant')) {
+      return Icons.restaurant_rounded;
+    }
+
+    if (clean.contains('park') || clean.contains('nature')) {
+      return Icons.park_rounded;
+    }
+
+    if (clean.contains('museum') || clean.contains('history')) {
+      return Icons.museum_rounded;
+    }
+
+    if (clean.contains('shop') || clean.contains('shopping')) {
+      return Icons.shopping_bag_rounded;
+    }
+
+    if (clean.contains('bar') || clean.contains('night')) {
+      return Icons.nightlife_rounded;
+    }
+
+    if (clean.contains('art')) {
+      return Icons.palette_rounded;
+    }
+
+    return Icons.place_rounded;
+  }
+
+  String _markerCacheKey(Place place, bool selected) {
+    return '${place.category}_${selected ? 'selected' : 'normal'}';
+  }
+
+  Future<void> _prepareMarkerIcons(List<Place> places) async {
+    if (_isPreparingMarkers) return;
+
+    _isPreparingMarkers = true;
+
+    try {
+      bool addedNewIcon = false;
+
+      for (final place in places) {
+        for (final selected in [false, true]) {
+          final key = _markerCacheKey(place, selected);
+
+          if (_markerIconCache.containsKey(key)) continue;
+
+          final icon = await _createFunMarkerIcon(
+            iconData: _categoryIcon(place.category),
+            selected: selected,
+          );
+
+          _markerIconCache[key] = icon;
+          addedNewIcon = true;
+        }
+      }
+
+      if (addedNewIcon && mounted) {
+        setState(() {});
+      }
+    } finally {
+      _isPreparingMarkers = false;
+    }
+  }
+
+  Future<BitmapDescriptor> _createFunMarkerIcon({
+    required IconData iconData,
+    required bool selected,
+  }) async {
+    final double size = selected ? 126 : 104;
+    final double circleRadius = selected ? 40 : 33;
+    final double centerX = size / 2;
+    final double centerY = selected ? 43 : 38;
+
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+
+    final primaryPaint = Paint()
+      ..color = selected ? primaryColor : cardColor
+      ..style = PaintingStyle.fill;
+
+    final borderPaint = Paint()
+      ..color = selected ? Colors.white : primaryColor.withOpacity(0.95)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = selected ? 7 : 5;
+
+    final shadowPaint = Paint()
+      ..color = Colors.black.withOpacity(0.18)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+
+    final tailPath = Path()
+      ..moveTo(centerX - 15, centerY + circleRadius - 3)
+      ..quadraticBezierTo(
+        centerX,
+        size - 16,
+        centerX + 15,
+        centerY + circleRadius - 3,
+      )
+      ..close();
+
+    // Shadow
+    canvas.drawCircle(
+      Offset(centerX, centerY + 5),
+      circleRadius,
+      shadowPaint,
+    );
+    canvas.drawPath(
+      tailPath.shift(const Offset(0, 5)),
+      shadowPaint,
+    );
+
+    // Pin body
+    canvas.drawCircle(
+      Offset(centerX, centerY),
+      circleRadius,
+      primaryPaint,
+    );
+    canvas.drawPath(tailPath, primaryPaint);
+
+    // Border
+    canvas.drawCircle(
+      Offset(centerX, centerY),
+      circleRadius,
+      borderPaint,
+    );
+
+    // Inner circle
+    final innerPaint = Paint()
+      ..color = selected
+          ? Colors.white.withOpacity(0.18)
+          : primaryColor.withOpacity(0.10)
+      ..style = PaintingStyle.fill;
+
+    canvas.drawCircle(
+      Offset(centerX, centerY),
+      circleRadius - 10,
+      innerPaint,
+    );
+
+    // Material icon
+    final iconPainter = TextPainter(
+      text: TextSpan(
+        text: String.fromCharCode(iconData.codePoint),
+        style: TextStyle(
+          fontFamily: iconData.fontFamily,
+          package: iconData.fontPackage,
+          fontSize: selected ? 34 : 29,
+          color: selected ? Colors.white : primaryColor,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+
+    iconPainter.layout();
+
+    iconPainter.paint(
+      canvas,
+      Offset(
+        centerX - iconPainter.width / 2,
+        centerY - iconPainter.height / 2,
+      ),
+    );
+
+    // Selected badge
+    if (selected) {
+      final badgePaint = Paint()
+        ..color = const Color(0xFFE5A11A)
+        ..style = PaintingStyle.fill;
+
+      canvas.drawCircle(
+        Offset(centerX + 30, centerY - 28),
+        14,
+        badgePaint,
+      );
+
+      final starPainter = TextPainter(
+        text: TextSpan(
+          text: String.fromCharCode(Icons.star_rounded.codePoint),
+          style: const TextStyle(
+            fontFamily: 'MaterialIcons',
+            color: Colors.white,
+            fontSize: 17,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      );
+
+      starPainter.layout();
+
+      starPainter.paint(
+        canvas,
+        Offset(
+          centerX + 30 - starPainter.width / 2,
+          centerY - 28 - starPainter.height / 2,
+        ),
+      );
+    }
+
+    final picture = recorder.endRecording();
+    final image = await picture.toImage(size.toInt(), size.toInt());
+    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+
+    final bytes = byteData!.buffer.asUint8List();
+
+    return BitmapDescriptor.fromBytes(bytes);
+  }
+
   Set<Marker> _markers(List<Place> places) {
     return places.map((place) {
       final isSelected = place.id == _selectedPlaceId;
+      final cacheKey = _markerCacheKey(place, isSelected);
+
+      final fallbackIcon = BitmapDescriptor.defaultMarkerWithHue(
+        isSelected ? BitmapDescriptor.hueOrange : BitmapDescriptor.hueRose,
+      );
 
       return Marker(
         markerId: MarkerId(place.id),
         position: LatLng(place.lat, place.lng),
-        icon: BitmapDescriptor.defaultMarkerWithHue(
-          isSelected ? BitmapDescriptor.hueOrange : BitmapDescriptor.hueRed,
-        ),
+        icon: _markerIconCache[cacheKey] ?? fallbackIcon,
         infoWindow: InfoWindow(
           title: place.name,
           snippet: '${place.category} • ${place.rating.toStringAsFixed(1)} ★',
@@ -389,7 +607,9 @@ class _MapScreenState extends State<MapScreen> {
 
           final filteredPlaces = _filterPlaces(validPlaces);
           final categories = _categories(validPlaces);
-
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _prepareMarkerIcons(validPlaces);
+          });
           return Stack(
             children: [
               GoogleMap(

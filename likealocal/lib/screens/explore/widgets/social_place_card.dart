@@ -34,7 +34,9 @@ class _SocialPlaceCardState extends State<SocialPlaceCard> {
   static const Color mutedText = Color(0xFF777777);
 
   void _openDetails() {
-    _recommendationService.trackViewPlace(widget.place.id, widget.place.category);
+    _recommendationService.trackViewPlace(
+        widget.place.id, widget.place.category,
+        budgetLevel: widget.place.budgetLevel);
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -242,6 +244,7 @@ class _SocialPlaceCardState extends State<SocialPlaceCard> {
                           _recommendationService.trackSavePlace(
                             widget.place.id,
                             widget.place.category,
+                            budgetLevel: widget.place.budgetLevel,
                           );
                         }
                       },

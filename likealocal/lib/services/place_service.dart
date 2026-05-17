@@ -361,6 +361,7 @@ class PlaceService {
       'name': place.name,
       'description': place.description,
       'category': place.category,
+      'budgetLevel': place.budgetLevel,
       'location': GeoPoint(place.lat, place.lng),
       'tips': place.tips.map((tip) => tip.toMap()).toList(),
       'recommendedDishes':

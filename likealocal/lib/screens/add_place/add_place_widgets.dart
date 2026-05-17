@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class AddPlaceColors {
-  static const Color background = Color(0xFFF7F4EF);
+  static const Color background = Color(0xFFFAF7F2);
   static const Color card = Color(0xFFFFFBF7);
   static const Color inputFill = Color(0xFFEDEDE6);
   static const Color primary = Color(0xFFD45A38);
@@ -404,6 +404,7 @@ class VideoThumbnail extends StatelessWidget {
 class SummaryCard extends StatelessWidget {
   final String name;
   final String category;
+  final int budgetLevel;
   final int imagesCount;
   final int videosCount;
   final int tipsCount;
@@ -413,6 +414,7 @@ class SummaryCard extends StatelessWidget {
     super.key,
     required this.name,
     required this.category,
+    required this.budgetLevel,
     required this.imagesCount,
     required this.videosCount,
     required this.tipsCount,
@@ -439,6 +441,10 @@ class SummaryCard extends StatelessWidget {
         SummaryRow(
           label: 'Category',
           value: category,
+        ),
+        SummaryRow(
+          label: 'Budget',
+          value: List.filled(budgetLevel, r'$').join(),
         ),
         SummaryRow(
           label: 'Photos',

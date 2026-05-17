@@ -17,6 +17,7 @@ class Place {
   final List<Dish> recommendedDishes;
   final double rating;
   final int reviewCount;
+  final int budgetLevel;
 
   Place({
     required this.id,
@@ -32,8 +33,10 @@ class Place {
     this.recommendedDishes = const [],
     this.rating = 0.0,
     this.reviewCount = 0,
+    this.budgetLevel = 1,
   });
 
+  String get budgetLabel => List.filled(budgetLevel, r'$').join();
   double get lat => location.latitude;
   double get lng => location.longitude;
 
@@ -99,7 +102,9 @@ class Place {
       tips: parsedTips,
       recommendedDishes: parsedDishes,
       rating: (map['rating'] is num) ? (map['rating'] as num).toDouble() : 0.0,
-      reviewCount: (map['reviewCount'] is num) ? (map['reviewCount'] as num).toInt() : 0,
+      reviewCount:
+          (map['reviewCount'] is num) ? (map['reviewCount'] as num).toInt() : 0,
+      budgetLevel: (map['budgetLevel'] as num?)?.toInt().clamp(1, 4) ?? 1,
     );
   }
 
@@ -117,6 +122,7 @@ class Place {
       'recommendedDishes': recommendedDishes.map((d) => d.toMap()).toList(),
       'rating': rating,
       'reviewCount': reviewCount,
+      'budgetLevel': budgetLevel,
     };
   }
 }

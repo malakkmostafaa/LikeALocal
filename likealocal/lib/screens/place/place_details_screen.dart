@@ -53,6 +53,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
     _recommendationService.trackViewPlace(
       widget.place.id,
       widget.place.category,
+      budgetLevel: widget.place.budgetLevel,
     );
   }
 
@@ -88,6 +89,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
                               _recommendationService.trackSavePlace(
                                 place.id,
                                 place.category,
+                                budgetLevel: place.budgetLevel,
                               );
                             }
                           },
@@ -456,6 +458,21 @@ class _PlaceIdentityBlock extends StatelessWidget {
                   fontSize: 13,
                 ),
               ),
+              const SizedBox(width: 14),
+              const Icon(
+                Icons.payments_rounded,
+                color: _PlaceDetailsScreenState.mutedText,
+                size: 18,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                place.budgetLabel,
+                style: const TextStyle(
+                  color: _PlaceDetailsScreenState.mutedText,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
               if (distanceInMeters != null) ...[
                 const SizedBox(width: 14),
                 const Icon(
@@ -577,8 +594,6 @@ class _OverviewSection extends StatelessWidget {
           ),
           const SizedBox(height: 16),
         ],
-        _LocationPreviewButton(place: place),
-        const SizedBox(height: 18),
         if (place.images.length > 1) ...[
           const _SectionTitle('Photos'),
           const SizedBox(height: 12),
