@@ -24,52 +24,77 @@ class RecommendationService {
     );
   }
 
-  Future<void> trackViewPlace(String placeId, String category) async {
+  Future<void> trackViewPlace(
+    String placeId,
+    String category, {
+    int? budgetLevel,
+  }) async {
     if (_uid == null || placeId.trim().isEmpty) return;
+
+    final cleanBudget = _normalizeBudgetLevel(budgetLevel);
 
     await _trackActivity(
       type: 'view',
       placeId: placeId,
       category: category,
+      budgetLevel: cleanBudget,
       points: 2,
     );
 
     await _updateProfile(
       placeId: placeId,
       category: category,
+      budgetLevel: cleanBudget,
       points: 2,
     );
   }
 
-  Future<void> trackLikePlace(String placeId, String category) async {
+  Future<void> trackLikePlace(
+    String placeId,
+    String category, {
+    int? budgetLevel,
+  }) async {
     if (_uid == null || placeId.trim().isEmpty) return;
+
+    final cleanBudget = _normalizeBudgetLevel(budgetLevel);
 
     await _trackActivity(
       type: 'like',
       placeId: placeId,
       category: category,
+      budgetLevel: cleanBudget,
       points: 3,
     );
 
     await _updateProfile(
+      placeId: placeId,
       category: category,
+      budgetLevel: cleanBudget,
       points: 3,
     );
   }
 
-  Future<void> trackSavePlace(String placeId, String category) async {
+  Future<void> trackSavePlace(
+    String placeId,
+    String category, {
+    int? budgetLevel,
+  }) async {
     if (_uid == null || placeId.trim().isEmpty) return;
+
+    final cleanBudget = _normalizeBudgetLevel(budgetLevel);
 
     await _trackActivity(
       type: 'save',
       placeId: placeId,
       category: category,
+      budgetLevel: cleanBudget,
       points: 4,
     );
 
     await _updateProfile(
       placeId: placeId,
       category: category,
+      budgetLevel: cleanBudget,
       points: 4,
     );
   }
@@ -87,23 +112,30 @@ class RecommendationService {
     return doc.data() ?? {};
   }
 
+  int? _normalizeBudgetLevel(int? budgetLevel) {
+    if (budgetLevel == null) return null;
+
+    if (budgetLevel < 1) return 1;
+    if (budgetLevel > 4) return 4;
+
+    return budgetLevel;
+  }
+
   Future<void> _trackActivity({
     required String type,
     String? placeId,
     String? category,
+    int? budgetLevel,
     String? query,
     required int points,
   }) async {
     if (_uid == null) return;
 
-    await _firestore
-        .collection('users')
-        .doc(_uid)
-        .collection('activity')
-        .add({
+    await _firestore.collection('users').doc(_uid).collection('activity').add({
       'type': type,
       'placeId': placeId,
       'category': category,
+      'budgetLevel': budgetLevel,
       'query': query,
       'points': points,
       'createdAt': FieldValue.serverTimestamp(),
@@ -113,6 +145,7 @@ class RecommendationService {
   Future<void> _updateProfile({
     String? placeId,
     String? category,
+    int? budgetLevel,
     String? query,
     required int points,
   }) async {
@@ -126,6 +159,7 @@ class RecommendationService {
 
     final cleanCategory = category?.trim();
     final cleanQuery = query?.trim().toLowerCase();
+    final cleanBudget = _normalizeBudgetLevel(budgetLevel);
 
     final updates = <String, dynamic>{
       'updatedAt': FieldValue.serverTimestamp(),
@@ -142,6 +176,16 @@ class RecommendationService {
     if (cleanCategory != null && cleanCategory.isNotEmpty) {
       updates['likedCategories'] = FieldValue.arrayUnion([cleanCategory]);
       updates['interactionScore.$cleanCategory'] = FieldValue.increment(points);
+    }
+
+    if (cleanBudget != null) {
+      updates['likedBudgetLevels'] = FieldValue.arrayUnion([cleanBudget]);
+      updates['budgetInteractionScore.$cleanBudget'] =
+          FieldValue.increment(points);
+
+      // This is the latest strong signal. Your Explore scoring can use it
+      // together with user.priceRange.
+      updates['preferredBudgetLevel'] = cleanBudget;
     }
 
     await profileRef.set(updates, SetOptions(merge: true));

@@ -14,7 +14,8 @@ class AddPlaceMainInfoStep extends StatelessWidget {
   final String selectedCategory;
   final ValueChanged<String?> onCategoryChanged;
   final VoidCallback onPickLocation;
-
+  final int selectedBudgetLevel;
+  final ValueChanged<int> onBudgetChanged;
   const AddPlaceMainInfoStep({
     super.key,
     required this.nameController,
@@ -24,6 +25,8 @@ class AddPlaceMainInfoStep extends StatelessWidget {
     required this.selectedCategory,
     required this.onCategoryChanged,
     required this.onPickLocation,
+    required this.selectedBudgetLevel,
+    required this.onBudgetChanged,
   });
 
   @override
@@ -125,6 +128,60 @@ class AddPlaceMainInfoStep extends StatelessWidget {
                       ),
                     );
                   }).toList(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              LabeledField(
+                label: 'Budget',
+                child: Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: List.generate(4, (index) {
+                    final level = index + 1;
+                    final label = List.filled(level, r'$').join();
+                    final isSelected = selectedBudgetLevel == level;
+
+                    return GestureDetector(
+                      onTap: () => onBudgetChanged(level),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 11,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? AddPlaceColors.primary
+                              : AddPlaceColors.inputFill,
+                          borderRadius: BorderRadius.circular(99),
+                          border: Border.all(
+                            color: isSelected
+                                ? AddPlaceColors.primary
+                                : AddPlaceColors.border,
+                          ),
+                          boxShadow: isSelected
+                              ? [
+                                  BoxShadow(
+                                    color: AddPlaceColors.primary
+                                        .withOpacity(0.22),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ]
+                              : null,
+                        ),
+                        child: Text(
+                          label,
+                          style: TextStyle(
+                            color:
+                                isSelected ? Colors.white : AddPlaceColors.text,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
                 ),
               ),
             ],
@@ -364,6 +421,7 @@ class AddPlaceMediaStep extends StatelessWidget {
   final String summaryCategory;
   final int tipsCount;
   final int dishesCount;
+  final int summaryBudgetLevel;
 
   const AddPlaceMediaStep({
     super.key,
@@ -380,6 +438,7 @@ class AddPlaceMediaStep extends StatelessWidget {
     required this.onRemoveNewVideo,
     required this.summaryName,
     required this.summaryCategory,
+    required this.summaryBudgetLevel,
     required this.tipsCount,
     required this.dishesCount,
   });
@@ -527,6 +586,7 @@ class AddPlaceMediaStep extends StatelessWidget {
           SummaryCard(
             name: summaryName,
             category: summaryCategory,
+            budgetLevel: summaryBudgetLevel,
             imagesCount: imagesCount,
             videosCount: videosCount,
             tipsCount: tipsCount,

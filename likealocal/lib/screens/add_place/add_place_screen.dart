@@ -44,6 +44,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
   final List<DishDraftControllers> dishControllers = [];
 
   String selectedCategory = Categories.all.first;
+  int selectedBudgetLevel = 1;
   int currentStep = 0;
   bool isLoading = false;
 
@@ -72,7 +73,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
       if (Categories.all.contains(p.category)) {
         selectedCategory = p.category;
       }
-
+      selectedBudgetLevel = p.budgetLevel;
       existingImages = List<String>.from(p.images);
       existingVideos = List<String>.from(p.videos);
 
@@ -544,6 +545,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
           recommendedDishes: dishes,
           rating: oldPlace.rating,
           reviewCount: oldPlace.reviewCount,
+          budgetLevel: selectedBudgetLevel,
         );
 
         await provider.updatePlace(
@@ -575,6 +577,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
           createdAt: DateTime.now(),
           tips: tips,
           recommendedDishes: dishes,
+          budgetLevel: selectedBudgetLevel,
         );
 
         await provider.addPlace(
@@ -634,6 +637,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
       lngController.clear();
 
       selectedCategory = Categories.all.first;
+      selectedBudgetLevel = 1;
 
       selectedImages.clear();
       selectedVideos.clear();
@@ -750,9 +754,13 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
                     latController: latController,
                     lngController: lngController,
                     selectedCategory: selectedCategory,
+                    selectedBudgetLevel: selectedBudgetLevel,
                     onCategoryChanged: (value) {
                       if (value == null) return;
                       setState(() => selectedCategory = value);
+                    },
+                    onBudgetChanged: (value) {
+                      setState(() => selectedBudgetLevel = value);
                     },
                     onPickLocation: pickLocationFromMap,
                   ),
@@ -778,6 +786,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
                     onRemoveNewVideo: removeNewVideo,
                     summaryName: nameController.text.trim(),
                     summaryCategory: selectedCategory,
+                    summaryBudgetLevel: selectedBudgetLevel,
                     tipsCount: buildTips().length,
                     dishesCount: buildDishes().length,
                   ),

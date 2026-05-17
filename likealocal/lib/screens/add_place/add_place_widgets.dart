@@ -404,6 +404,7 @@ class VideoThumbnail extends StatelessWidget {
 class SummaryCard extends StatelessWidget {
   final String name;
   final String category;
+  final int budgetLevel;
   final int imagesCount;
   final int videosCount;
   final int tipsCount;
@@ -413,6 +414,7 @@ class SummaryCard extends StatelessWidget {
     super.key,
     required this.name,
     required this.category,
+    required this.budgetLevel,
     required this.imagesCount,
     required this.videosCount,
     required this.tipsCount,
@@ -439,6 +441,10 @@ class SummaryCard extends StatelessWidget {
         SummaryRow(
           label: 'Category',
           value: category,
+        ),
+        SummaryRow(
+          label: 'Budget',
+          value: List.filled(budgetLevel, r'$').join(),
         ),
         SummaryRow(
           label: 'Photos',
