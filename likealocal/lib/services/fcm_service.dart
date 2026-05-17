@@ -1,13 +1,15 @@
 import 'dart:convert';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:googleapis_auth/auth_io.dart' as gauth;
 import 'package:http/http.dart' as http;
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
 class FcmService {
   static const _scopes = [
-    'https://www.googleapis.com/auth/firebase.messaging'
+    'https://www.googleapis.com/auth/firebase.messaging',
   ];
 
   static Future<String?> _getAccessToken() async {
@@ -30,10 +32,12 @@ class FcmService {
       httpClient.close();
       return token;
     } catch (e) {
+      debugPrint('FcmService: access token error: $e');
       return null;
     }
   }
 
+  /// Best-effort remote push. Primary delivery uses [IncomingNotificationService].
   static Future<void> sendToUser({
     required String recipientUid,
     required String title,
@@ -44,26 +48,29 @@ class FcmService {
     if (recipientUid == myUid) return;
 
     try {
-      // 1. Get recipient FCM token
       final userDoc = await FirebaseFirestore.instance
           .collection('users')
           .doc(recipientUid)
           .get();
 
-      final fcmToken = userDoc.data()?['fcmToken']?.toString();
-      if (fcmToken == null || fcmToken.isEmpty) return;
+      final userData = userDoc.data();
+      final fcmToken = userData?['fcmToken']?.toString();
+      if (fcmToken == null || fcmToken.isEmpty) {
+        debugPrint('FcmService: no token for $recipientUid');
+        return;
+      }
 
-      // 2. Get OAuth2 token
+      final notificationsEnabled = userData?['notificationsEnabled'] ?? true;
+      if (notificationsEnabled != true) return;
+
       final accessToken = await _getAccessToken();
       if (accessToken == null) return;
 
-      // 3. Get project ID from service account
       final jsonStr =
           await rootBundle.loadString('assets/service_account.json');
       final jsonMap = jsonDecode(jsonStr) as Map<String, dynamic>;
       final projectId = jsonMap['project_id'] as String;
 
-      // 4. Call FCM HTTP v1 API
       final url =
           'https://fcm.googleapis.com/v1/projects/$projectId/messages:send';
 
@@ -77,19 +84,20 @@ class FcmService {
           'android': {
             'notification': {
               'channel_id': 'likealocal_channel',
-              'priority': 'high',
-            }
+              'priority': 'HIGH',
+            },
           },
           'apns': {
             'payload': {
-              'aps': {'sound': 'default'}
-            }
+              'aps': {'sound': 'default'},
+            },
           },
-          if (data != null) 'data': data,
-        }
+          if (data != null)
+            'data': data.map((k, v) => MapEntry(k, v.toString())),
+        },
       };
 
-      await http.post(
+      final response = await http.post(
         Uri.parse(url),
         headers: {
           'Authorization': 'Bearer $accessToken',
@@ -97,8 +105,14 @@ class FcmService {
         },
         body: jsonEncode(payload),
       );
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        debugPrint(
+          'FcmService: send failed (${response.statusCode}): ${response.body}',
+        );
+      }
     } catch (e) {
-      // Fail silently — push is non-critical
+      debugPrint('FcmService: send error: $e');
     }
   }
 }

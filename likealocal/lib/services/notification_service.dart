@@ -4,12 +4,19 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
+/// Handles FCM when the app is in the background or terminated.
+@pragma('vm:entry-point')
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  // System tray already shows the notification payload; no extra work needed.
+}
+
 class NotificationService {
   static final _fln = FlutterLocalNotificationsPlugin();
   static const _channelId = 'likealocal_channel';
   static const _channelName = 'LikeALocal';
 
   static Future<void> init() async {
+    if (kIsWeb) return;
     // 1. flutter_local_notifications setup
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
     const ios = DarwinInitializationSettings(
@@ -28,15 +35,23 @@ class NotificationService {
       importance: Importance.high,
     );
     await _fln
-      .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>()
-      ?.createNotificationChannel(channel);
-      
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(channel);
+
     // 3. Request permission
     await FirebaseMessaging.instance.requestPermission();
 
     // 4. Handle foreground FCM messages — show as local notification
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid != null) {
+        final doc =
+            await FirebaseFirestore.instance.collection('users').doc(uid).get();
+        final enabled = doc.data()?['notificationsEnabled'] ?? true;
+        if (!enabled) return;
+      }
+
       final n = message.notification;
       if (n == null) return;
       _fln.show(
@@ -65,17 +80,17 @@ class NotificationService {
       final token = await FirebaseMessaging.instance.getToken();
       if (token == null) return;
 
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .update({'fcmToken': token});
+      await FirebaseFirestore.instance.collection('users').doc(uid).set(
+        {'fcmToken': token},
+        SetOptions(merge: true),
+      );
 
       // Refresh token when it rotates
       FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
-        FirebaseFirestore.instance
-            .collection('users')
-            .doc(uid)
-            .update({'fcmToken': newToken});
+        FirebaseFirestore.instance.collection('users').doc(uid).set(
+          {'fcmToken': newToken},
+          SetOptions(merge: true),
+        );
       });
     } catch (e) {
       debugPrint('Error saving FCM token: $e');

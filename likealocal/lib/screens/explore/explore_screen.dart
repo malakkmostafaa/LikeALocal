@@ -10,6 +10,8 @@ import '../../providers/place_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../utils/categories.dart';
 import '../place/place_details_screen.dart';
+import '../main_navigation.dart'; 
+import '../../widgets/notification_bell.dart';
 
 import 'widgets/place_card.dart';
 import 'widgets/search_bar_widget.dart';
@@ -130,7 +132,25 @@ class ExploreScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: bgColor,
+        backgroundColor: bgColor,
+        appBar: AppBar(
+          backgroundColor: bgColor,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          titleSpacing: 20,
+          title: const Text(
+            'Explore',
+            style: TextStyle(
+              color: textColor,
+              fontSize: 26,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.5,
+            ),
+          ),
+          actions: const [
+            NotificationBell(),
+          ],
+        ),
       body: SafeArea(
         bottom: false,
         child: Consumer<PlaceProvider>(
@@ -151,9 +171,6 @@ class ExploreScreen extends StatelessWidget {
 
             return CustomScrollView(
               slivers: [
-                const SliverToBoxAdapter(
-                  child: _ExploreHeader(),
-                ),
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 10, 16, 18),

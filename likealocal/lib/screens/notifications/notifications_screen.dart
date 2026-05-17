@@ -21,6 +21,7 @@ class NotificationsScreen extends StatelessWidget {
       case 'badge':
         return Icons.military_tech_rounded;
       case 'place':
+      case 'reminder':
         return Icons.place_rounded;
       default:
         return Icons.notifications_outlined;
@@ -63,6 +64,10 @@ class NotificationsScreen extends StatelessWidget {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(
                 child: CircularProgressIndicator(color: _primary));
+          }
+
+          if (snapshot.hasError) {
+            return Center(child: Text('Error: ${snapshot.error}'));
           }
 
           final notifs = snapshot.data ?? [];

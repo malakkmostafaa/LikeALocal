@@ -13,7 +13,7 @@ import '../../services/user_service.dart';
 import '../explore/widgets/social_place_card.dart';
 import '../place/place_details_screen.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   static const Color bgColor = Color(0xFFFAF7F2);
@@ -24,6 +24,11 @@ class HomeScreen extends StatelessWidget {
   static const Color textColor = Color(0xFF1F1F28);
   static const Color mutedText = Color(0xFF777777);
 
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
   Future<Map<String, AppUser>> _loadCreators(List<Place> places) async {
     final creatorIds = places
         .map((place) => place.createdBy)
@@ -74,7 +79,6 @@ class HomeScreen extends StatelessWidget {
     result.sort((a, b) {
       final aTime = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
       final bTime = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-
       return bTime.compareTo(aTime);
     });
 
@@ -85,7 +89,6 @@ class HomeScreen extends StatelessWidget {
         final bTime = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
         return bTime.compareTo(aTime);
       });
-
       return fallback;
     }
 
@@ -95,12 +98,12 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: bgColor,
+      backgroundColor: HomeScreen.bgColor,
       body: Consumer2<PlaceProvider, UserProvider>(
         builder: (context, placeProvider, userProvider, child) {
           if (placeProvider.isLoading) {
             return const Center(
-              child: CircularProgressIndicator(color: primaryColor),
+              child: CircularProgressIndicator(color: HomeScreen.primaryColor),
             );
           }
 
@@ -119,7 +122,7 @@ class HomeScreen extends StatelessWidget {
               final feedPlaces = _getFeedPlaces(places, superUserPlaces);
 
               return RefreshIndicator(
-                color: primaryColor,
+                color: HomeScreen.primaryColor,
                 onRefresh: () async {
                   await Future.delayed(const Duration(milliseconds: 500));
                 },
@@ -168,64 +171,66 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
-  class _HomeHeader extends StatelessWidget {
-    final AppUser? user;
+// ─────────────────────────────────────────────────────────────────────────────
+// All widgets below are UNCHANGED from your original file
+// ─────────────────────────────────────────────────────────────────────────────
 
-    const _HomeHeader({required this.user});
+class _HomeHeader extends StatelessWidget {
+  final AppUser? user;
+  const _HomeHeader({required this.user});
 
-    @override
-    Widget build(BuildContext context) {
-      final firstName = user?.name.trim().isNotEmpty == true
-          ? user!.name.trim().split(' ').first
-          : 'there';
+  @override
+  Widget build(BuildContext context) {
+    final firstName = user?.name.trim().isNotEmpty == true
+        ? user!.name.trim().split(' ').first
+        : 'there';
 
-      return SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Brand name only — no buttons (bell lives in MainNavigation)
-              const Text(
-                'LikeALocal',
-                style: TextStyle(
-                  color: HomeScreen.primaryColor,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -0.2,
-                ),
+    return SafeArea(
+      bottom: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'LikeALocal',
+              style: TextStyle(
+                color: HomeScreen.primaryColor,
+                fontSize: 15,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.2,
               ),
-              const SizedBox(height: 24),
-              Text(
-                'Hey, $firstName',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: HomeScreen.textColor,
-                  fontSize: 30,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -0.8,
-                ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Hey, $firstName',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: HomeScreen.textColor,
+                fontSize: 30,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.8,
               ),
-              const SizedBox(height: 6),
-              const Text(
-                'Trusted local recommendations, curated for you.',
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: HomeScreen.mutedText,
-                  fontSize: 14,
-                  height: 1.35,
-                  fontWeight: FontWeight.w500,
-                ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Trusted local recommendations, curated for you.',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: HomeScreen.mutedText,
+                fontSize: 14,
+                height: 1.35,
+                fontWeight: FontWeight.w500,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-      );
-    }
+      ),
+    );
   }
+}
 
 class _HeaderIconButton extends StatelessWidget {
   final IconData icon;
@@ -253,9 +258,7 @@ class _HeaderIconButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             border: isPrimary
                 ? null
-                : Border.all(
-                    color: HomeScreen.borderColor,
-                  ),
+                : Border.all(color: HomeScreen.borderColor),
             boxShadow: [
               BoxShadow(
                 color: isPrimary
@@ -307,13 +310,10 @@ class _SuperUserPicksSection extends StatelessWidget {
               separatorBuilder: (_, __) => const SizedBox(width: 16),
               itemBuilder: (context, index) {
                 final place = places[index];
-                final creator =
-                    place.createdBy == null ? null : creators[place.createdBy!];
-
-                return _SuperPickCard(
-                  place: place,
-                  creator: creator,
-                );
+                final creator = place.createdBy == null
+                    ? null
+                    : creators[place.createdBy!];
+                return _SuperPickCard(place: place, creator: creator);
               },
             ),
           ),
@@ -327,10 +327,7 @@ class _SuperPickCard extends StatefulWidget {
   final Place place;
   final AppUser? creator;
 
-  const _SuperPickCard({
-    required this.place,
-    required this.creator,
-  });
+  const _SuperPickCard({required this.place, required this.creator});
 
   @override
   State<_SuperPickCard> createState() => _SuperPickCardState();
@@ -348,14 +345,10 @@ class _SuperPickCardState extends State<_SuperPickCard> {
 
   Future<void> _checkIfSaved() async {
     final user = FirebaseAuth.instance.currentUser;
-
     if (user == null) {
-      if (mounted) {
-        setState(() => _isLoadingSaved = false);
-      }
+      if (mounted) setState(() => _isLoadingSaved = false);
       return;
     }
-
     try {
       final doc = await FirebaseFirestore.instance
           .collection('users')
@@ -363,23 +356,18 @@ class _SuperPickCardState extends State<_SuperPickCard> {
           .collection('pins')
           .doc(widget.place.id)
           .get();
-
       if (!mounted) return;
-
       setState(() {
         _isSaved = doc.exists;
         _isLoadingSaved = false;
       });
     } catch (_) {
-      if (mounted) {
-        setState(() => _isLoadingSaved = false);
-      }
+      if (mounted) setState(() => _isLoadingSaved = false);
     }
   }
 
   Future<void> _toggleSave() async {
     final user = FirebaseAuth.instance.currentUser;
-
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please log in first')),
@@ -388,10 +376,7 @@ class _SuperPickCardState extends State<_SuperPickCard> {
     }
 
     final previous = _isSaved;
-
-    setState(() {
-      _isSaved = !_isSaved;
-    });
+    setState(() => _isSaved = !_isSaved);
 
     try {
       final docRef = FirebaseFirestore.instance
@@ -405,34 +390,26 @@ class _SuperPickCardState extends State<_SuperPickCard> {
           'placeId': widget.place.id,
           'savedAt': FieldValue.serverTimestamp(),
         });
-
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Saved to pins'),
-              duration: Duration(seconds: 1),
-            ),
+                content: Text('Saved to pins'),
+                duration: Duration(seconds: 1)),
           );
         }
       } else {
         await docRef.delete();
-
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Removed from pins'),
-              duration: Duration(seconds: 1),
-            ),
+                content: Text('Removed from pins'),
+                duration: Duration(seconds: 1)),
           );
         }
       }
     } catch (e) {
       if (!mounted) return;
-
-      setState(() {
-        _isSaved = previous;
-      });
-
+      setState(() => _isSaved = previous);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e')),
       );
@@ -443,8 +420,7 @@ class _SuperPickCardState extends State<_SuperPickCard> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => PlaceDetailsScreen(place: widget.place),
-      ),
+          builder: (_) => PlaceDetailsScreen(place: widget.place)),
     );
   }
 
@@ -481,9 +457,8 @@ class _SuperPickCardState extends State<_SuperPickCard> {
                       ? CachedNetworkImage(
                           imageUrl: place.images.first,
                           fit: BoxFit.cover,
-                          placeholder: (_, __) => Container(
-                            color: HomeScreen.softPrimary,
-                          ),
+                          placeholder: (_, __) =>
+                              Container(color: HomeScreen.softPrimary),
                           errorWidget: (_, __, ___) => const _ImageFallback(),
                         )
                       : const _ImageFallback(),
@@ -493,9 +468,7 @@ class _SuperPickCardState extends State<_SuperPickCard> {
                   bottom: 12,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 7,
-                    ),
+                        horizontal: 12, vertical: 7),
                     decoration: BoxDecoration(
                       color: HomeScreen.cardColor.withOpacity(0.94),
                       borderRadius: BorderRadius.circular(99),
@@ -574,11 +547,8 @@ class _SuperPickCardState extends State<_SuperPickCard> {
             const SizedBox(height: 7),
             Row(
               children: [
-                const Icon(
-                  Icons.star_rounded,
-                  color: Color(0xFFE5A11A),
-                  size: 18,
-                ),
+                const Icon(Icons.star_rounded,
+                    color: Color(0xFFE5A11A), size: 18),
                 const SizedBox(width: 3),
                 Text(
                   place.rating.toStringAsFixed(1),
@@ -589,11 +559,9 @@ class _SuperPickCardState extends State<_SuperPickCard> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Icon(
-                  Icons.rate_review_outlined,
-                  size: 15,
-                  color: HomeScreen.mutedText.withOpacity(0.75),
-                ),
+                Icon(Icons.rate_review_outlined,
+                    size: 15,
+                    color: HomeScreen.mutedText.withOpacity(0.75)),
                 const SizedBox(width: 3),
                 Text(
                   '${place.reviewCount}',
@@ -616,10 +584,7 @@ class _SectionHeader extends StatelessWidget {
   final String title;
   final String subtitle;
 
-  const _SectionHeader({
-    required this.title,
-    required this.subtitle,
-  });
+  const _SectionHeader({required this.title, required this.subtitle});
 
   @override
   Widget build(BuildContext context) {
@@ -667,11 +632,8 @@ class _ImageFallback extends StatelessWidget {
     return Container(
       color: HomeScreen.softPrimary,
       child: const Center(
-        child: Icon(
-          Icons.place_rounded,
-          color: HomeScreen.primaryColor,
-          size: 44,
-        ),
+        child: Icon(Icons.place_rounded,
+            color: HomeScreen.primaryColor, size: 44),
       ),
     );
   }
@@ -679,7 +641,6 @@ class _ImageFallback extends StatelessWidget {
 
 class _EmptyHomeState extends StatelessWidget {
   final AppUser? user;
-
   const _EmptyHomeState({required this.user});
 
   @override
@@ -696,9 +657,7 @@ class _EmptyHomeState extends StatelessWidget {
                 'No places yet. Add the first local gem!',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: HomeScreen.mutedText,
-                  fontSize: 16,
-                ),
+                    color: HomeScreen.mutedText, fontSize: 16),
               ),
             ),
           ),

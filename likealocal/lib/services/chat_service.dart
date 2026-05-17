@@ -146,14 +146,18 @@ class ChatService {
 
     await batch.commit();
 
-    await _db.collection('notifications').add({
-      'userId': receiverId,
-      'title': 'New message',
-      'body': trimmed.length > 60 ? '${trimmed.substring(0, 60)}…' : trimmed,
-      'type': 'message',
-      'read': false,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
+    try {
+      await _db.collection('notifications').add({
+        'userId': receiverId,
+        'title': 'New message',
+        'body': trimmed.length > 60 ? '${trimmed.substring(0, 60)}…' : trimmed,
+        'type': 'message',
+        'read': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      debugPrint('ChatService: notification write failed: $e');
+    }
 
     await FcmService.sendToUser(
       recipientUid: receiverId,

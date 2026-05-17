@@ -3,6 +3,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 
 import 'firebase_options.dart';
 import 'providers/connectivity_provider.dart';
@@ -16,6 +18,7 @@ import 'providers/chat_provider.dart';
 import 'providers/notification_provider.dart';
 import 'providers/ai_provider.dart';
 import 'services/notification_service.dart';
+import 'services/reminder_geofence_service.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/main_navigation.dart';
 
@@ -31,8 +34,13 @@ Future<void> main() async {
     cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
   );
 
-  // Initialize local notifications + FCM foreground handler
+  // Initialize local notifications + FCM handlers
   await NotificationService.init();
+  await ReminderGeofenceService.initialize();
+
+  if (!kIsWeb) {
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  }
 
   runApp(
     MultiProvider(

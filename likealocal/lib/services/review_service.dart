@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
+
 import 'fcm_service.dart';
 
 class ReviewService {
@@ -194,16 +196,20 @@ class ReviewService {
     // Notify the place owner
     final ownerId = placeData['createdBy']?.toString();
     if (ownerId != null && ownerId.isNotEmpty && ownerId != uid) {
-      await _firestore.collection('notifications').add({
-        'userId': ownerId,
-        'title': 'New review on your place',
-        'body': cleanText.length > 60
-            ? '${cleanText.substring(0, 60)}…'
-            : cleanText,
-        'type': 'place',
-        'read': false,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+      try {
+        await _firestore.collection('notifications').add({
+          'userId': ownerId,
+          'title': 'New review on your place',
+          'body': cleanText.length > 60
+              ? '${cleanText.substring(0, 60)}…'
+              : cleanText,
+          'type': 'place',
+          'read': false,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      } catch (e) {
+        debugPrint('ReviewService: notification write failed: $e');
+      }
     }
 
     if (ownerId != null && ownerId.isNotEmpty && ownerId != uid) {
