@@ -50,3 +50,6 @@ local.properties
 
 # Secrets
 .env
+
+.assets/service_account.json
+
