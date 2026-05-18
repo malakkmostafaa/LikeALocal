@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
@@ -58,8 +59,8 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
   }
 
   String _formatDistance(double meters) {
-    if (meters < 1000) return '${meters.round()} m away';
-    return '${(meters / 1000).toStringAsFixed(1)} km away';
+    if (meters < 1000) return 'place.distance_m'.tr(namedArgs: {'meters': meters.round().toString()});
+    return 'place.distance_km'.tr(namedArgs: {'km': (meters / 1000).toStringAsFixed(1)});
   }
 
   @override
@@ -175,20 +176,20 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
           ),
-          title: const Text('Delete Place'),
-          content: const Text(
+          title: Text('common.delete'.tr()),
+          content: Text(
             'Are you sure you want to delete this place? This cannot be undone.',
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Cancel'),
+              child: Text('common.cancel'.tr()),
             ),
             TextButton(
               onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text(
-                'Delete',
-                style: TextStyle(color: Colors.red),
+              child: Text(
+                'common.delete'.tr(),
+                style: const TextStyle(color: Colors.red),
               ),
             ),
           ],
@@ -222,7 +223,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
       Navigator.pop(context); // details
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Place deleted successfully.')),
+        SnackBar(content: Text('Place deleted successfully.')),
       );
     } catch (e) {
       if (!context.mounted) return;
@@ -232,7 +233,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Failed to delete: ${e.toString().replaceFirst('Exception: ', '')}',
+            'common.error_prefix'.tr(namedArgs: {'error': e.toString().replaceFirst('Exception: ', '')}),
           ),
         ),
       );
@@ -427,7 +428,7 @@ class _PlaceIdentityBlock extends StatelessWidget {
               ),
               child: PostUserHeader(
                 userId: place.createdBy,
-                subtitle: 'Place Contributor',
+                subtitle: 'place.contributor'.tr(),
                 onMorePressed: () {},
               ),
             ),
@@ -510,10 +511,10 @@ class _DetailsTabBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tabs = [
-      _DetailsTabData('Overview', Icons.info_outline_rounded),
-      _DetailsTabData('Reviews', Icons.star_border_rounded),
-      _DetailsTabData('Tips', Icons.lightbulb_outline_rounded),
-      _DetailsTabData('Dishes', Icons.restaurant_menu_rounded),
+      _DetailsTabData('place.about_short'.tr(), Icons.info_outline_rounded),
+      _DetailsTabData('place.reviews_title'.tr(), Icons.star_border_rounded),
+      _DetailsTabData('place.tips_title'.tr(), Icons.lightbulb_outline_rounded),
+      _DetailsTabData('place.local_favorites'.tr(), Icons.restaurant_menu_rounded),
     ];
 
     return Container(
@@ -595,7 +596,7 @@ class _OverviewSection extends StatelessWidget {
           const SizedBox(height: 16),
         ],
         if (place.images.length > 1) ...[
-          const _SectionTitle('Photos'),
+          _SectionTitle('add_place.section_photos'.tr()),
           const SizedBox(height: 12),
           _PhotosStrip(place: place),
           const SizedBox(height: 18),
@@ -635,7 +636,7 @@ class _ReviewsSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionTitle('Reviews'),
+        _SectionTitle('place.reviews_title'.tr()),
         const SizedBox(height: 12),
         ReviewForm(placeId: place.id),
         const SizedBox(height: 16),
@@ -656,7 +657,7 @@ class _TipsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (place.tips.isEmpty) {
-      return const _EmptyStateCard(
+      return _EmptyStateCard(
         icon: Icons.lightbulb_outline_rounded,
         title: 'No tips yet',
         message: 'Local tips added by contributors will appear here.',
@@ -666,7 +667,7 @@ class _TipsSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionTitle('Locals’ tips'),
+        _SectionTitle('place.tips_title'.tr()),
         const SizedBox(height: 12),
         ...place.tips.map((tip) {
           return Container(
@@ -727,7 +728,7 @@ class _DishesSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (place.recommendedDishes.isEmpty) {
-      return const _EmptyStateCard(
+      return _EmptyStateCard(
         icon: Icons.restaurant_menu_rounded,
         title: 'No dishes added',
         message: 'Recommended dishes will appear here for food places.',
@@ -737,7 +738,7 @@ class _DishesSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionTitle('Local favorites'),
+        _SectionTitle('place.local_favorites'.tr()),
         const SizedBox(height: 12),
         ...place.recommendedDishes.map((dish) {
           return Container(
@@ -898,22 +899,22 @@ class _LocationPreviewButton extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 14),
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'View on Google Maps',
-                    style: TextStyle(
+                    'place.view_on_maps'.tr(),
+                    style: const TextStyle(
                       fontWeight: FontWeight.w900,
                       fontSize: 15.5,
                       color: _PlaceDetailsScreenState.textColor,
                     ),
                   ),
-                  SizedBox(height: 4),
+                  const SizedBox(height: 4),
                   Text(
-                    'Open the map centered on this place',
-                    style: TextStyle(
+                    'place.view_on_maps_sub'.tr(),
+                    style: const TextStyle(
                       color: _PlaceDetailsScreenState.mutedText,
                       fontSize: 12.5,
                     ),
@@ -966,7 +967,7 @@ class _BottomActionBar extends StatelessWidget {
                   );
                 },
                 icon: const Icon(Icons.map_rounded),
-                label: const Text('View Map'),
+                label: Text('map_screen.view_details'.tr()),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _PlaceDetailsScreenState.primaryColor,
                   foregroundColor: Colors.white,
@@ -1026,18 +1027,18 @@ class _OwnerMenuButton extends StatelessWidget {
           }
         },
         itemBuilder: (context) {
-          return const [
+          return [
             PopupMenuItem(
               value: 'edit',
               child: Row(
                 children: [
-                  Icon(
+                  const Icon(
                     Icons.edit_rounded,
                     size: 20,
                     color: _PlaceDetailsScreenState.textColor,
                   ),
-                  SizedBox(width: 10),
-                  Text('Edit Post'),
+                  const SizedBox(width: 10),
+                  Text('common.edit'.tr()),
                 ],
               ),
             ),
@@ -1045,15 +1046,15 @@ class _OwnerMenuButton extends StatelessWidget {
               value: 'delete',
               child: Row(
                 children: [
-                  Icon(
+                  const Icon(
                     Icons.delete_rounded,
                     size: 20,
                     color: Colors.red,
                   ),
-                  SizedBox(width: 10),
+                  const SizedBox(width: 10),
                   Text(
-                    'Delete Post',
-                    style: TextStyle(color: Colors.red),
+                    'common.delete'.tr(),
+                    style: const TextStyle(color: Colors.red),
                   ),
                 ],
               ),

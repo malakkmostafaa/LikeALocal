@@ -23,6 +23,29 @@ class AppUser {
 
   final String profileImageUrl;
   final String bio;
+
+  // Trivia game
+  final int triviaStreak;
+  final String lastTriviaDate; // YYYY-MM-DD of last completed daily
+
+  /// Returns triviaStreak only if the streak is still alive (played today or
+  /// yesterday). Otherwise returns 0, since the chain has been broken.
+  int get activeStreak {
+    if (triviaStreak == 0 || lastTriviaDate.isEmpty) return 0;
+    // Test mode keys start with 'test-' — skip the date check.
+    if (lastTriviaDate.startsWith('test-')) return triviaStreak;
+    final now = DateTime.now();
+    String fmt(DateTime d) =>
+        '${d.year.toString().padLeft(4, '0')}-'
+        '${d.month.toString().padLeft(2, '0')}-'
+        '${d.day.toString().padLeft(2, '0')}';
+    final today = fmt(now);
+    final yesterday = fmt(now.subtract(const Duration(days: 1)));
+    return (lastTriviaDate == today || lastTriviaDate == yesterday)
+        ? triviaStreak
+        : 0;
+  }
+
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -43,6 +66,8 @@ class AppUser {
     required this.badges,
     required this.profileImageUrl,
     required this.bio,
+    this.triviaStreak = 0,
+    this.lastTriviaDate = '',
     required this.createdAt,
     required this.updatedAt,
   });
@@ -69,6 +94,8 @@ class AppUser {
       badges: const [],
       profileImageUrl: '',
       bio: '',
+      triviaStreak: 0,
+      lastTriviaDate: '',
       createdAt: null,
       updatedAt: null,
     );
@@ -92,6 +119,8 @@ class AppUser {
       badges: List<String>.from(map['badges'] ?? []),
       profileImageUrl: map['profileImageUrl'] ?? '',
       bio: map['bio'] ?? '',
+      triviaStreak: (map['triviaStreak'] as num?)?.toInt() ?? 0,
+      lastTriviaDate: map['lastTriviaDate']?.toString() ?? '',
       createdAt: _dateFromValue(map['createdAt']),
       updatedAt: _dateFromValue(map['updatedAt']),
     );
@@ -133,6 +162,8 @@ class AppUser {
       'badges': badges,
       'profileImageUrl': profileImageUrl,
       'bio': bio,
+      'triviaStreak': triviaStreak,
+      'lastTriviaDate': lastTriviaDate,
       'createdAt': createdAt,
       'updatedAt': updatedAt,
     };
@@ -156,6 +187,8 @@ class AppUser {
       'badges': badges,
       'profileImageUrl': profileImageUrl,
       'bio': bio,
+      'triviaStreak': triviaStreak,
+      'lastTriviaDate': lastTriviaDate,
       'createdAt': createdAt ?? FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     };
@@ -179,6 +212,8 @@ class AppUser {
       'badges': badges,
       'profileImageUrl': profileImageUrl,
       'bio': bio,
+      'triviaStreak': triviaStreak,
+      'lastTriviaDate': lastTriviaDate,
       'createdAt': createdAt?.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
     };

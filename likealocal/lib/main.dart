@@ -1,28 +1,31 @@
-import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
 
 import 'firebase_options.dart';
 
-import 'providers/connectivity_provider.dart';
-import 'widgets/offline_banner.dart';
-
 import 'providers/auth_provider.dart' as app_auth;
-import 'providers/user_provider.dart';
-import 'providers/place_provider.dart';
-import 'providers/review_provider.dart';
+import 'providers/chat_provider.dart';
+import 'providers/connectivity_provider.dart';
 import 'providers/location_provider.dart';
 import 'providers/pin_provider.dart';
-import 'providers/chat_provider.dart';
+import 'providers/place_provider.dart';
+import 'providers/review_provider.dart';
+import 'providers/trivia_provider.dart';
+import 'providers/user_provider.dart';
 
 import 'screens/auth/login_screen.dart';
 import 'screens/main_navigation.dart';
+import 'widgets/locale_sync.dart';
+import 'widgets/offline_banner.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await EasyLocalization.ensureInitialized();
 
   await dotenv.load(fileName: '.env');
 
@@ -36,20 +39,30 @@ Future<void> main() async {
   );
 
   runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => app_auth.AuthProvider()),
-        ChangeNotifierProvider(create: (_) => UserProvider()),
-        ChangeNotifierProvider(create: (_) => PlaceProvider()),
-        ChangeNotifierProvider(create: (_) => ReviewProvider()),
-        ChangeNotifierProvider(create: (_) => PinProvider()),
-        ChangeNotifierProvider(create: (_) => ChatProvider()),
-        ChangeNotifierProvider(create: (_) => ConnectivityProvider()),
-        ChangeNotifierProvider(
-          create: (_) => LocationProvider()..fetchLocation(),
-        ),
+    EasyLocalization(
+      supportedLocales: const [
+        Locale('en'),
+        Locale('ar'),
       ],
-      child: const MyApp(),
+      path: 'assets/translations',
+      fallbackLocale: const Locale('en'),
+      saveLocale: true,
+      child: MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => app_auth.AuthProvider()),
+          ChangeNotifierProvider(create: (_) => UserProvider()),
+          ChangeNotifierProvider(create: (_) => PlaceProvider()),
+          ChangeNotifierProvider(create: (_) => ReviewProvider()),
+          ChangeNotifierProvider(create: (_) => PinProvider()),
+          ChangeNotifierProvider(create: (_) => ChatProvider()),
+          ChangeNotifierProvider(create: (_) => TriviaProvider()),
+          ChangeNotifierProvider(create: (_) => ConnectivityProvider()),
+          ChangeNotifierProvider(
+            create: (_) => LocationProvider()..fetchLocation(),
+          ),
+        ],
+        child: const MyApp(),
+      ),
     ),
   );
 }
@@ -66,6 +79,9 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'LikeALocal',
       debugShowCheckedModeBanner: false,
+      localizationsDelegates: context.localizationDelegates,
+      supportedLocales: context.supportedLocales,
+      locale: context.locale,
       theme: ThemeData(
         useMaterial3: true,
         scaffoldBackgroundColor: backgroundColor,
@@ -94,10 +110,13 @@ class MyApp extends StatelessWidget {
         ),
       ),
 
-      // This places the offline banner globally without overlapping or double-padding.
+      // Offline banner globally + applies the signed-in user's saved language
+      // across devices via LocaleSync.
       builder: (context, child) {
-        return OfflineBanner(
-          child: child ?? const SizedBox.shrink(),
+        return LocaleSync(
+          child: OfflineBanner(
+            child: child ?? const SizedBox.shrink(),
+          ),
         );
       },
 

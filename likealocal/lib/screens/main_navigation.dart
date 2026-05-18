@@ -1,7 +1,9 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 import 'explore/explore_screen.dart';
 import 'add_place/add_place_screen.dart';
+import 'game/game_screen.dart';
 import 'map/map_screen.dart';
 import 'profile/profile_screen.dart';
 
@@ -19,6 +21,7 @@ class _MainNavigationState extends State<MainNavigation> {
     ExploreScreen(),
     AddPlaceScreen(),
     MapScreen(),
+    GameScreen(),
     ProfileScreen(),
   ];
 
@@ -39,22 +42,26 @@ class _MainNavigationState extends State<MainNavigation> {
         type: BottomNavigationBarType.fixed,
         selectedFontSize: 11,
         unselectedFontSize: 11,
-        items: const [
+        items: [
           BottomNavigationBarItem(
-            icon: Icon(Icons.explore_rounded),
-            label: 'Explore',
+            icon: const Icon(Icons.explore_rounded),
+            label: 'nav.explore'.tr(),
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.add_circle_outline_rounded),
-            label: 'Add',
+            icon: const Icon(Icons.add_circle_outline_rounded),
+            label: 'nav.add'.tr(),
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.map_rounded),
-            label: 'Map',
+            icon: const Icon(Icons.map_rounded),
+            label: 'nav.map'.tr(),
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.person_rounded),
-            label: 'Profile',
+            icon: const Icon(Icons.sports_esports_rounded),
+            label: 'nav.game'.tr(),
+          ),
+          BottomNavigationBarItem(
+            icon: const Icon(Icons.person_rounded),
+            label: 'nav.profile'.tr(),
           ),
         ],
       ),

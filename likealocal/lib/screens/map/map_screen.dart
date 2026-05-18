@@ -1,7 +1,7 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 import '../../models/place.dart';
 import '../../providers/place_provider.dart';
@@ -195,12 +195,12 @@ class _MapScreenState extends State<MapScreen> {
       ..style = PaintingStyle.fill;
 
     final borderPaint = Paint()
-      ..color = selected ? Colors.white : primaryColor.withOpacity(0.95)
+      ..color = selected ? Colors.white : primaryColor.withValues(alpha: 0.95)
       ..style = PaintingStyle.stroke
       ..strokeWidth = selected ? 7 : 5;
 
     final shadowPaint = Paint()
-      ..color = Colors.black.withOpacity(0.18)
+      ..color = Colors.black.withValues(alpha: 0.18)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
 
     final tailPath = Path()
@@ -242,8 +242,8 @@ class _MapScreenState extends State<MapScreen> {
     // Inner circle
     final innerPaint = Paint()
       ..color = selected
-          ? Colors.white.withOpacity(0.18)
-          : primaryColor.withOpacity(0.10)
+          ? Colors.white.withValues(alpha: 0.18)
+          : primaryColor.withValues(alpha: 0.10)
       ..style = PaintingStyle.fill;
 
     canvas.drawCircle(
@@ -263,7 +263,7 @@ class _MapScreenState extends State<MapScreen> {
           color: selected ? Colors.white : primaryColor,
         ),
       ),
-      textDirection: TextDirection.ltr,
+      textDirection: ui.TextDirection.ltr,
     );
 
     iconPainter.layout();
@@ -297,7 +297,7 @@ class _MapScreenState extends State<MapScreen> {
             fontSize: 17,
           ),
         ),
-        textDirection: TextDirection.ltr,
+        textDirection: ui.TextDirection.ltr,
       );
 
       starPainter.layout();
@@ -317,7 +317,7 @@ class _MapScreenState extends State<MapScreen> {
 
     final bytes = byteData!.buffer.asUint8List();
 
-    return BitmapDescriptor.fromBytes(bytes);
+    return BitmapDescriptor.bytes(bytes);
   }
 
   Set<Marker> _markers(List<Place> places) {
@@ -527,7 +527,7 @@ class _MapScreenState extends State<MapScreen> {
                           _moveToPlace(place);
                         },
                         icon: const Icon(Icons.center_focus_strong_rounded),
-                        label: const Text('Center'),
+                        label: Text('map_screen.center'.tr()),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: primaryColor,
                           side: const BorderSide(color: primaryColor),
@@ -546,7 +546,7 @@ class _MapScreenState extends State<MapScreen> {
                           _openDetails(place);
                         },
                         icon: const Icon(Icons.info_outline_rounded),
-                        label: const Text('Details'),
+                        label: Text('map_screen.details'.tr()),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: primaryColor,
                           foregroundColor: Colors.white,
@@ -597,10 +597,10 @@ class _MapScreenState extends State<MapScreen> {
               .toList();
 
           if (validPlaces.isEmpty) {
-            return const Center(
+            return Center(
               child: Text(
-                'No valid place locations found',
-                style: TextStyle(color: mutedText),
+                'map_screen.no_valid_places'.tr(),
+                style: const TextStyle(color: mutedText),
               ),
             );
           }
@@ -659,7 +659,7 @@ class _MapScreenState extends State<MapScreen> {
                         itemBuilder: (context, index) {
                           if (index == 0) {
                             return _CategoryChip(
-                              label: 'All',
+                              label: 'map_screen.all'.tr(),
                               selected: _selectedCategory == null,
                               onTap: () {
                                 setState(() {
@@ -777,7 +777,7 @@ class _MapSearchBar extends StatelessWidget {
         border: Border.all(color: _MapScreenState.borderColor),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.09),
+            color: Colors.black.withValues(alpha: 0.09),
             blurRadius: 18,
             offset: const Offset(0, 8),
           ),
@@ -791,7 +791,7 @@ class _MapSearchBar extends StatelessWidget {
           fontWeight: FontWeight.w600,
         ),
         decoration: InputDecoration(
-          hintText: 'Search places on map...',
+          hintText: 'map_screen.search_hint'.tr(),
           hintStyle: const TextStyle(
             color: _MapScreenState.mutedText,
             fontWeight: FontWeight.w500,
@@ -863,7 +863,7 @@ class _CategoryChip extends StatelessWidget {
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.045),
+                color: Colors.black.withValues(alpha: 0.045),
                 blurRadius: 8,
                 offset: const Offset(0, 4),
               ),
@@ -908,7 +908,7 @@ class _FloatingMapButton extends StatelessWidget {
             border: Border.all(color: _MapScreenState.borderColor),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.08),
+                color: Colors.black.withValues(alpha: 0.08),
                 blurRadius: 12,
                 offset: const Offset(0, 6),
               ),
@@ -958,7 +958,7 @@ class _MapPlaceCard extends StatelessWidget {
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.10),
+              color: Colors.black.withValues(alpha: 0.10),
               blurRadius: 16,
               offset: const Offset(0, 8),
             ),
@@ -1048,8 +1048,8 @@ class _MapPlaceCard extends StatelessWidget {
                           color: _MapScreenState.softPrimary,
                           borderRadius: BorderRadius.circular(99),
                         ),
-                        child: const Text(
-                          'View details',
+                        child: Text(
+                          'map_screen.view_details'.tr(),
                           style: TextStyle(
                             color: _MapScreenState.primaryColor,
                             fontSize: 12,
@@ -1148,7 +1148,7 @@ class _EmptySearchCard extends StatelessWidget {
         border: Border.all(color: _MapScreenState.borderColor),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 16,
             offset: const Offset(0, 8),
           ),
@@ -1162,19 +1162,19 @@ class _EmptySearchCard extends StatelessWidget {
             size: 34,
           ),
           const SizedBox(height: 8),
-          const Text(
-            'No places found on the map',
-            style: TextStyle(
+          Text(
+            'map_screen.no_places_on_map'.tr(),
+            style: const TextStyle(
               color: _MapScreenState.textColor,
               fontWeight: FontWeight.w900,
               fontSize: 15,
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
-            'Try another search or clear your filters.',
+          Text(
+            'map_screen.try_another'.tr(),
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               color: _MapScreenState.mutedText,
               fontSize: 13,
             ),
@@ -1182,9 +1182,9 @@ class _EmptySearchCard extends StatelessWidget {
           const SizedBox(height: 12),
           TextButton(
             onPressed: onClear,
-            child: const Text(
-              'Clear filters',
-              style: TextStyle(
+            child: Text(
+              'map_screen.clear_filters'.tr(),
+              style: const TextStyle(
                 color: _MapScreenState.primaryColor,
                 fontWeight: FontWeight.w900,
               ),

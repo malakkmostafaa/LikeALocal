@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -29,8 +30,8 @@ class _PaymobLinkPaymentScreenState extends State<PaymobLinkPaymentScreen> {
 
       if (!launched && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Could not open Paymob payment page.'),
+          SnackBar(
+            content: Text('payment.could_not_open'.tr()),
           ),
         );
       }
@@ -39,7 +40,7 @@ class _PaymobLinkPaymentScreenState extends State<PaymobLinkPaymentScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Could not open payment page: $e'),
+          content: Text('payment.could_not_open_dynamic'.tr(namedArgs: {'error': '$e'})),
         ),
       );
     }
@@ -72,18 +73,18 @@ class _PaymobLinkPaymentScreenState extends State<PaymobLinkPaymentScreen> {
                   size: 60,
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  'Premium Activated!',
-                  style: TextStyle(
+                Text(
+                  'payment.premium_activated'.tr(),
+                  style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'Demo mode: payment was marked as completed.',
+                Text(
+                  'payment.demo_marked'.tr(),
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey),
+                  style: const TextStyle(color: Colors.grey),
                 ),
                 const SizedBox(height: 24),
                 SizedBox(
@@ -100,9 +101,9 @@ class _PaymobLinkPaymentScreenState extends State<PaymobLinkPaymentScreen> {
                       ),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
-                    child: const Text(
-                      'Awesome',
-                      style: TextStyle(
+                    child: Text(
+                      'payment.awesome'.tr(),
+                      style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
                       ),
@@ -118,7 +119,7 @@ class _PaymobLinkPaymentScreenState extends State<PaymobLinkPaymentScreen> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not activate premium: $e')),
+        SnackBar(content: Text('payment.could_not_activate'.tr(namedArgs: {'error': '$e'}))),
       );
     } finally {
       if (mounted) {
@@ -134,9 +135,9 @@ class _PaymobLinkPaymentScreenState extends State<PaymobLinkPaymentScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text(
-          'Paymob Checkout',
-          style: TextStyle(fontWeight: FontWeight.bold),
+        title: Text(
+          'payment.paymob_checkout'.tr(),
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,

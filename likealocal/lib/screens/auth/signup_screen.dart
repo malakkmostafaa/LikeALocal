@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:like_a_local/screens/auth/onboarding_screen_1.dart';
 import 'package:like_a_local/screens/main_navigation.dart';
@@ -24,12 +25,12 @@ class _SignupScreenState extends State<SignupScreen> {
     if (nameController.text.trim().isEmpty ||
         emailController.text.trim().isEmpty ||
         passwordController.text.trim().isEmpty) {
-      showMessage('Please fill all fields');
+      showMessage('auth.fill_all_fields'.tr());
       return;
     }
 
     if (passwordController.text.trim().length < 6) {
-      showMessage('Password must be at least 6 characters');
+      showMessage('auth.password_too_short'.tr());
       return;
     }
 
@@ -63,19 +64,19 @@ class _SignupScreenState extends State<SignupScreen> {
     final message = error.toString();
 
     if (message.contains('email-already-in-use')) {
-      return 'This email is already registered.';
+      return 'auth.email_in_use'.tr();
     }
 
     if (message.contains('invalid-email')) {
-      return 'Please enter a valid email address.';
+      return 'auth.invalid_email'.tr();
     }
 
     if (message.contains('weak-password')) {
-      return 'Password is too weak.';
+      return 'auth.weak_password'.tr();
     }
 
     if (message.contains('network-request-failed')) {
-      return 'Network error. Please check your internet connection.';
+      return 'auth.network_error'.tr();
     }
 
     return message;
@@ -123,34 +124,34 @@ class _SignupScreenState extends State<SignupScreen> {
                   ),
                 ),
                 const SizedBox(height: 28),
-                const Text(
-                  'Create Account',
-                  style: TextStyle(
+                Text(
+                  'auth.create_account'.tr(),
+                  style: const TextStyle(
                     fontSize: 30,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 6),
-                const Text(
-                  'Join the community of local explorers',
-                  style: TextStyle(color: Colors.grey),
+                Text(
+                  'auth.signup_subtitle'.tr(),
+                  style: const TextStyle(color: Colors.grey),
                 ),
                 const SizedBox(height: 28),
                 TextField(
                   controller: nameController,
-                  decoration: inputDecoration('Your full name'),
+                  decoration: inputDecoration('auth.full_name'.tr()),
                 ),
                 const SizedBox(height: 16),
                 TextField(
                   controller: emailController,
                   keyboardType: TextInputType.emailAddress,
-                  decoration: inputDecoration('Email'),
+                  decoration: inputDecoration('auth.email'.tr()),
                 ),
                 const SizedBox(height: 16),
                 TextField(
                   controller: passwordController,
                   obscureText: hidePassword,
-                  decoration: inputDecoration('Password').copyWith(
+                  decoration: inputDecoration('auth.password'.tr()).copyWith(
                     suffixIcon: IconButton(
                       icon: Icon(
                         hidePassword ? Icons.visibility_off : Icons.visibility,
@@ -177,9 +178,9 @@ class _SignupScreenState extends State<SignupScreen> {
                     onPressed: isLoading ? null : signUp,
                     child: isLoading
                         ? const CircularProgressIndicator(color: Colors.white)
-                        : const Text(
-                            'Create Account',
-                            style: TextStyle(fontSize: 16),
+                        : Text(
+                            'auth.create_account'.tr(),
+                            style: const TextStyle(fontSize: 16),
                           ),
                   ),
                 ),

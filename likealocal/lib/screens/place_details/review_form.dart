@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -34,7 +35,7 @@ class _ReviewFormState extends State<ReviewForm> {
 
     if (text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please write a review first')),
+        SnackBar(content: Text('review.write_first'.tr())),
       );
       return;
     }
@@ -58,7 +59,7 @@ class _ReviewFormState extends State<ReviewForm> {
       widget.onReviewAdded?.call();
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Review added successfully')),
+        SnackBar(content: Text('review.added'.tr())),
       );
     } catch (e) {
       if (!mounted) return;
@@ -143,7 +144,7 @@ class _ReviewFormState extends State<ReviewForm> {
             enabled: !isLoading,
             maxLines: 3,
             decoration: InputDecoration(
-              hintText: 'Share your experience...',
+              hintText: 'review.share_experience'.tr(),
               filled: true,
               fillColor: const Color(0xFFFFF3EC),
               border: OutlineInputBorder(

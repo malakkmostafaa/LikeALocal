@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 class SearchBarWidget extends StatefulWidget {
@@ -102,8 +103,8 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
           ),
           decoration: InputDecoration(
             hintText: widget.isListening
-                ? 'Listening... speak now'
-                : 'Search local places...',
+                ? 'explore.listening_speak'.tr()
+                : 'map_screen.search_hint'.tr(),
             hintStyle: const TextStyle(
               color: mutedText,
               fontWeight: FontWeight.w500,
@@ -135,7 +136,7 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
               children: [
                 if (hasText)
                   IconButton(
-                    tooltip: 'Clear search',
+                    tooltip: 'explore.clear_search'.tr(),
                     icon: const Icon(
                       Icons.clear_rounded,
                       color: mutedText,
@@ -154,7 +155,7 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
                   ),
                   child: IconButton(
                     tooltip:
-                        widget.isListening ? 'Stop listening' : 'Voice search',
+                        widget.isListening ? 'explore.stop_listening'.tr() : 'explore.voice_search'.tr(),
                     onPressed: widget.onMicTap,
                     icon: AnimatedSwitcher(
                       duration: const Duration(milliseconds: 180),

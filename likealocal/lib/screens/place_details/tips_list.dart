@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import '../../models/place.dart';
 import '../../services/place_service.dart';
@@ -44,7 +45,7 @@ class _TipsListState extends State<TipsList> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Tip added successfully!')),
+          SnackBar(content: Text('tips.added'.tr())),
         );
       }
     } catch (e) {
@@ -87,9 +88,9 @@ class _TipsListState extends State<TipsList> {
                 children: [
                   TextField(
                     controller: _tipController,
-                    decoration: const InputDecoration(
-                      labelText: 'Share your tip',
-                      border: OutlineInputBorder(),
+                    decoration: InputDecoration(
+                      labelText: 'tips.share_label'.tr(),
+                      border: const OutlineInputBorder(),
                     ),
                     maxLines: 2,
                   ),
@@ -111,7 +112,7 @@ class _TipsListState extends State<TipsList> {
                               width: 20,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Text('Add Tip'),
+                          : Text('tips.add_btn'.tr()),
                     ),
                   ),
                 ],
@@ -123,8 +124,8 @@ class _TipsListState extends State<TipsList> {
 
         // Tips list
         if (widget.place.tips.isEmpty) ...[
-          const Center(
-            child: Text('No tips yet. Be the first to share!'),
+          Center(
+            child: Text('tips.no_tips'.tr()),
           ),
         ] else ...[
           ListView.builder(

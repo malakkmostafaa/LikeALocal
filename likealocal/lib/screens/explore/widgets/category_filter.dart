@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 class CategoryFilter extends StatelessWidget {
@@ -21,7 +22,7 @@ class CategoryFilter extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         _buildChip(
-          label: 'All',
+          label: 'map_screen.all'.tr(),
           isSelected: selectedCategory == null,
           onTap: () => onCategorySelected(null),
           primaryColor: primaryColor,
@@ -29,7 +30,7 @@ class CategoryFilter extends StatelessWidget {
         ),
         ...categories.map((cat) {
           return _buildChip(
-            label: cat,
+            label: 'category.$cat'.tr(),
             isSelected: selectedCategory == cat,
             onTap: () => onCategorySelected(selectedCategory == cat ? null : cat),
             primaryColor: primaryColor,

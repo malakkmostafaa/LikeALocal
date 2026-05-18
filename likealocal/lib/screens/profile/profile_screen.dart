@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:like_a_local/providers/connectivity_provider.dart';
@@ -56,8 +57,8 @@ class _ProfileActionsPanel extends StatelessWidget {
               Expanded(
                 child: _ProfileActionTile(
                   icon: Icons.edit_outlined,
-                  title: 'Edit Profile',
-                  subtitle: 'Update info',
+                  title: 'profile.edit_profile'.tr(),
+                  subtitle: 'profile.update_info'.tr(),
                   isPrimary: true,
                   onTap: () {
                     Navigator.push(
@@ -73,8 +74,8 @@ class _ProfileActionsPanel extends StatelessWidget {
               Expanded(
                 child: _ProfileActionTile(
                   icon: Icons.workspace_premium_outlined,
-                  title: 'Super User',
-                  subtitle: user.isSuperUser ? 'Unlocked' : 'Progress',
+                  title: 'profile.super_user'.tr(),
+                  subtitle: user.isSuperUser ? 'profile.unlocked'.tr() : 'profile.progress'.tr(),
                   onTap: () {
                     Navigator.push(
                       context,
@@ -93,8 +94,8 @@ class _ProfileActionsPanel extends StatelessWidget {
               Expanded(
                 child: _ProfileActionTile(
                   icon: Icons.auto_awesome_rounded,
-                  title: 'Plans',
-                  subtitle: user.isPremium ? 'Premium' : 'Upgrade',
+                  title: 'profile.plans'.tr(),
+                  subtitle: user.isPremium ? 'profile.premium'.tr() : 'common.upgrade'.tr(),
                   onTap: () {
                     Navigator.push(
                       context,
@@ -109,8 +110,8 @@ class _ProfileActionsPanel extends StatelessWidget {
               Expanded(
                 child: _ProfileActionTile(
                   icon: Icons.smart_toy_outlined,
-                  title: 'AI Guide',
-                  subtitle: 'Local assistant',
+                  title: 'profile.ai_guide'.tr(),
+                  subtitle: 'profile.coming_soon'.tr(),
                   onTap: () {
                     Navigator.push(
                       context,
@@ -396,20 +397,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
           ),
-          title: const Text('Delete place?'),
+          title: Text('profile.delete_place_title'.tr()),
           content: Text(
-            'Are you sure you want to delete "${place.name}"? This cannot be undone.',
+            'profile.delete_place_confirm'.tr(namedArgs: {'name': place.name}),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
+              child: Text('common.cancel'.tr()),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text(
-                'Delete',
-                style: TextStyle(color: Colors.red),
+              child: Text(
+                'common.delete'.tr(),
+                style: const TextStyle(color: Colors.red),
               ),
             ),
           ],
@@ -428,13 +429,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Place deleted')),
+        SnackBar(content: Text('common.delete'.tr())),
       );
     } catch (e) {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not delete place: $e')),
+        SnackBar(content: Text('common.error_prefix'.tr(namedArgs: {'error': e.toString()}))),
       );
     }
   }
@@ -463,7 +464,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Review updated')),
+        SnackBar(content: Text('common.save'.tr())),
       );
 
       setState(() {});
@@ -496,13 +497,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
+              child: Text('common.cancel'.tr()),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text(
-                'Delete',
-                style: TextStyle(color: Colors.red),
+              child: Text(
+                'common.delete'.tr(),
+                style: const TextStyle(color: Colors.red),
               ),
             ),
           ],
@@ -524,7 +525,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Review deleted')),
+        SnackBar(content: Text('common.delete'.tr())),
       );
 
       setState(() {});
@@ -542,28 +543,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   static String _joinedText(DateTime? date) {
-    if (date == null) return 'Joined recently';
-    return 'Joined ${_monthName(date.month)} ${date.year}';
+    if (date == null) return 'profile.joined'.tr(namedArgs: {'month': '', 'year': ''});
+    final monthKey = _monthKey(date.month);
+    return 'profile.joined'.tr(namedArgs: {
+      'month': 'months.$monthKey'.tr(),
+      'year': date.year.toString(),
+    });
   }
 
-  static String _monthName(int month) {
-    const months = [
+  static String _monthKey(int month) {
+    const keys = [
       '',
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
+      'january',
+      'february',
+      'march',
+      'april',
+      'may',
+      'june',
+      'july',
+      'august',
+      'september',
+      'october',
+      'november',
+      'december',
     ];
-
-    return months[month];
+    return keys[month];
   }
 }
 
@@ -578,10 +582,10 @@ class _ProfileTopBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const Expanded(
+        Expanded(
           child: Text(
-            'Profile',
-            style: TextStyle(
+            'profile.title'.tr(),
+            style: const TextStyle(
               color: _ProfileScreenState.textColor,
               fontSize: 28,
               fontWeight: FontWeight.w900,
@@ -634,7 +638,7 @@ class _ProfileHeaderCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final displayName = user.name.trim().isEmpty ? 'Local User' : user.name;
     final bio = user.bio.trim().isEmpty
-        ? 'Exploring Cairo one hidden gem at a time'
+        ? 'profile.default_bio'.tr()
         : user.bio.trim();
 
     return Container(
@@ -733,18 +737,18 @@ class _ProfileHeaderCard extends StatelessWidget {
                           color: const Color(0xFFFFF4D8),
                           borderRadius: BorderRadius.circular(99),
                         ),
-                        child: const Row(
+                        child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(
+                            const Icon(
                               Icons.workspace_premium_rounded,
                               size: 13,
                               color: Color(0xFFC88412),
                             ),
-                            SizedBox(width: 3),
+                            const SizedBox(width: 3),
                             Text(
-                              'Super User',
-                              style: TextStyle(
+                              'profile.super_user'.tr(),
+                              style: const TextStyle(
                                 color: Color(0xFFC88412),
                                 fontSize: 11,
                                 fontWeight: FontWeight.w900,
@@ -809,19 +813,19 @@ class _StatsRow extends StatelessWidget {
         _StatCard(
           icon: Icons.place_outlined,
           value: user.placesAdded.toString(),
-          label: 'Places',
+          label: 'profile.places'.tr(),
         ),
         const SizedBox(width: 10),
         _StatCard(
           icon: Icons.star_outline_rounded,
           value: user.reviewsCount.toString(),
-          label: 'Reviews',
+          label: 'profile.reviews'.tr(),
         ),
         const SizedBox(width: 10),
         _StatCard(
           icon: Icons.bookmark_border_rounded,
           value: user.pinsCount.toString(),
-          label: 'Pins',
+          label: 'profile.pins'.tr(),
         ),
       ],
     );
@@ -1053,18 +1057,18 @@ class _EditProfileButton extends StatelessWidget {
               ),
             ],
           ),
-          child: const Row(
+          child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
+              const Icon(
                 Icons.edit_outlined,
                 color: _ProfileScreenState.primaryColor,
                 size: 19,
               ),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Text(
-                'Edit Profile',
-                style: TextStyle(
+                'profile.edit_profile'.tr(),
+                style: const TextStyle(
                   color: _ProfileScreenState.textColor,
                   fontWeight: FontWeight.w900,
                   fontSize: 15,
@@ -1107,7 +1111,7 @@ class _ShortcutGrid extends StatelessWidget {
               Expanded(
                 child: _ShortcutTile(
                   icon: Icons.workspace_premium_outlined,
-                  title: 'Super User',
+                  title: 'profile.super_user'.tr(),
                   onTap: () {
                     Navigator.push(
                       context,
@@ -1122,7 +1126,7 @@ class _ShortcutGrid extends StatelessWidget {
               Expanded(
                 child: _ShortcutTile(
                   icon: Icons.auto_awesome_rounded,
-                  title: 'Plans',
+                  title: 'profile.plans'.tr(),
                   onTap: () {
                     Navigator.push(
                       context,
@@ -1141,10 +1145,10 @@ class _ShortcutGrid extends StatelessWidget {
               Expanded(
                 child: _ShortcutTile(
                   icon: Icons.smart_toy_outlined,
-                  title: 'AI Guide',
+                  title: 'profile.ai_guide'.tr(),
                   onTap: () {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('AI Guide coming soon')),
+                      SnackBar(content: Text('profile.coming_soon'.tr())),
                     );
                   },
                 ),
@@ -1153,10 +1157,10 @@ class _ShortcutGrid extends StatelessWidget {
               Expanded(
                 child: _ShortcutTile(
                   icon: Icons.send_outlined,
-                  title: 'Messages',
+                  title: 'profile.coming_soon'.tr(),
                   onTap: () {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Messages coming soon')),
+                      SnackBar(content: Text('profile.coming_soon'.tr())),
                     );
                   },
                 ),
@@ -1255,7 +1259,7 @@ class _ProfileTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final labels = ['Places', 'Pins', 'Reviews'];
+    final labels = ['profile.places'.tr(), 'profile.pins'.tr(), 'profile.reviews'.tr()];
 
     return Container(
       padding: const EdgeInsets.all(5),
@@ -1339,10 +1343,10 @@ class _MyPlacesSection extends StatelessWidget {
         final docs = snapshot.data?.docs ?? [];
 
         if (docs.isEmpty) {
-          return const _EmptySectionCard(
+          return _EmptySectionCard(
             icon: Icons.place_outlined,
-            title: 'No places added yet',
-            message: 'Places you share with the community will appear here.',
+            title: 'profile.no_places'.tr(),
+            message: 'profile.no_places_msg'.tr(),
           );
         }
 
@@ -1381,20 +1385,20 @@ class _MyPlacesSection extends StatelessWidget {
                   }
                 },
                 itemBuilder: (_) {
-                  return const [
+                  return [
                     PopupMenuItem(
                       value: 'open',
-                      child: Text('View details'),
+                      child: Text('map_screen.view_details'.tr()),
                     ),
                     PopupMenuItem(
                       value: 'edit',
-                      child: Text('Edit place'),
+                      child: Text('common.edit'.tr()),
                     ),
                     PopupMenuItem(
                       value: 'delete',
                       child: Text(
-                        'Delete place',
-                        style: TextStyle(color: Colors.red),
+                        'common.delete'.tr(),
+                        style: const TextStyle(color: Colors.red),
                       ),
                     ),
                   ];
@@ -1430,10 +1434,10 @@ class _SavedPinsSection extends StatelessWidget {
         final placeIds = snapshot.data ?? <String>[];
 
         if (placeIds.isEmpty) {
-          return const _EmptySectionCard(
+          return _EmptySectionCard(
             icon: Icons.bookmark_border_rounded,
-            title: 'No pinned places yet',
-            message: 'Tap the bookmark on any place to save it here.',
+            title: 'profile.no_pins'.tr(),
+            message: 'profile.no_pins_msg'.tr(),
           );
         }
 
@@ -1586,7 +1590,7 @@ class _MyReviewsSectionState extends State<_MyReviewsSection> {
         if (snapshot.hasError) {
           return _EmptySectionCard(
             icon: Icons.error_outline_rounded,
-            title: 'Could not load reviews',
+            title: 'profile.cannot_load_reviews'.tr(),
             message: snapshot.error.toString(),
           );
         }
@@ -1594,10 +1598,10 @@ class _MyReviewsSectionState extends State<_MyReviewsSection> {
         final reviews = snapshot.data ?? [];
 
         if (reviews.isEmpty) {
-          return const _EmptySectionCard(
+          return _EmptySectionCard(
             icon: Icons.rate_review_outlined,
-            title: 'No reviews yet',
-            message: 'Reviews you write for places will appear here.',
+            title: 'profile.no_reviews'.tr(),
+            message: 'profile.no_reviews_msg'.tr(),
           );
         }
 
@@ -1845,16 +1849,16 @@ class _ProfileReviewCard extends StatelessWidget {
                   }
                 },
                 itemBuilder: (_) {
-                  return const [
+                  return [
                     PopupMenuItem(
                       value: 'edit',
-                      child: Text('Edit review'),
+                      child: Text('profile.edit_review'.tr()),
                     ),
                     PopupMenuItem(
                       value: 'delete',
                       child: Text(
-                        'Delete review',
-                        style: TextStyle(color: Colors.red),
+                        'profile.delete_review'.tr(),
+                        style: const TextStyle(color: Colors.red),
                       ),
                     ),
                   ];
@@ -2118,7 +2122,7 @@ class _EditReviewDialogState extends State<_EditReviewDialog> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(26),
       ),
-      title: const Text('Edit review'),
+      title: Text('review.edit_title'.tr()),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -2144,7 +2148,7 @@ class _EditReviewDialogState extends State<_EditReviewDialog> {
             controller: _controller,
             maxLines: 4,
             decoration: InputDecoration(
-              hintText: 'Update your review...',
+              hintText: 'review.update_hint'.tr(),
               filled: true,
               fillColor: Colors.white,
               border: OutlineInputBorder(
@@ -2158,7 +2162,7 @@ class _EditReviewDialogState extends State<_EditReviewDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: Text('common.cancel'.tr()),
         ),
         ElevatedButton(
           onPressed: _submit,
@@ -2166,7 +2170,7 @@ class _EditReviewDialogState extends State<_EditReviewDialog> {
             backgroundColor: _ProfileScreenState.primaryColor,
             foregroundColor: Colors.white,
           ),
-          child: const Text('Save'),
+          child: Text('common.save'.tr()),
         ),
       ],
     );

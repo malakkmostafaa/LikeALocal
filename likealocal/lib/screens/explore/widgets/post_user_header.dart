@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../models/user_model.dart';
@@ -60,7 +61,7 @@ class PostUserHeader extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          const Expanded(child: Text('Loading...', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+          Expanded(child: Text('common.loading'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
           if (onMorePressed != null)
             IconButton(
               icon: const Icon(Icons.more_vert),

@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/user_model.dart';
@@ -21,7 +22,6 @@ class SubscriptionPlansScreen extends StatelessWidget {
   static const Color textColor = Color(0xFF1F1F28);
   static const Color mutedText = Color(0xFF7A6D66);
   static const Color borderColor = Color(0xFFEEDDD2);
-  static const Color goldColor = Color(0xFFE5A11A);
 
   @override
   Widget build(BuildContext context) {
@@ -32,9 +32,9 @@ class SubscriptionPlansScreen extends StatelessWidget {
         backgroundColor: backgroundColor,
         elevation: 0,
         foregroundColor: textColor,
-        title: const Text(
-          'Plans & Upgrades',
-          style: TextStyle(
+        title: Text(
+          'subscription.title'.tr(),
+          style: const TextStyle(
             fontWeight: FontWeight.w900,
             letterSpacing: -0.2,
           ),
@@ -47,9 +47,9 @@ class SubscriptionPlansScreen extends StatelessWidget {
           children: [
             _PremiumHero(user: liveUser),
             const SizedBox(height: 22),
-            const Text(
-              'Choose your plan',
-              style: TextStyle(
+            Text(
+              'subscription.choose_plan'.tr(),
+              style: const TextStyle(
                 color: textColor,
                 fontSize: 21,
                 fontWeight: FontWeight.w900,
@@ -57,9 +57,9 @@ class SubscriptionPlansScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 6),
-            const Text(
-              'Start free, then upgrade when you want more flexibility.',
-              style: TextStyle(
+            Text(
+              'subscription.choose_plan_sub'.tr(),
+              style: const TextStyle(
                 color: mutedText,
                 fontSize: 13.5,
                 fontWeight: FontWeight.w600,
@@ -68,39 +68,41 @@ class SubscriptionPlansScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             _PlanCard(
-              title: 'Free',
-              subtitle: 'For casual discovery',
-              price: 'EGP 0',
-              duration: 'forever',
-              features: const [
-                'Up to 5 saved pins',
-                'Basic profile customization',
-                'Explore public local places',
-                'Standard discovery reach',
+              title: 'subscription.free_title'.tr(),
+              subtitle: 'subscription.free_subtitle'.tr(),
+              price: 'subscription.price_free'.tr(),
+              duration: 'subscription.duration_forever'.tr(),
+              features: [
+                'subscription.feat_5_pins'.tr(),
+                'subscription.feat_basic_profile'.tr(),
+                'subscription.feat_explore_places'.tr(),
+                'subscription.feat_standard_reach'.tr(),
               ],
               isCurrentPlan: !liveUser.isPremium,
-              buttonText: !liveUser.isPremium ? 'Current Plan' : 'Included',
+              buttonText: !liveUser.isPremium
+                  ? 'subscription.current_plan'.tr()
+                  : 'subscription.included'.tr(),
               onTap: null,
               icon: Icons.explore_rounded,
               accentColor: mutedText,
             ),
             const SizedBox(height: 16),
             _PlanCard(
-              title: 'Premium Plus',
-              subtitle: 'For active local explorers',
-              price: 'EGP 500',
-              duration: 'monthly',
-              features: const [
-                'Unlimited saved pins',
-                'Priority discovery boost',
-                'Premium profile badge',
-                'Advanced local recommendations',
-                'Early access to new features',
+              title: 'subscription.premium_plus'.tr(),
+              subtitle: 'subscription.premium_subtitle'.tr(),
+              price: 'subscription.price_premium'.tr(),
+              duration: 'subscription.duration_monthly'.tr(),
+              features: [
+                'subscription.feat_unlimited_pins'.tr(),
+                'subscription.feat_priority_boost'.tr(),
+                'subscription.feat_badge'.tr(),
+                'subscription.feat_advanced_reach'.tr(),
+                'subscription.feat_early_access'.tr(),
               ],
               isCurrentPlan: liveUser.isPremium,
               buttonText: liveUser.isPremium
-                  ? 'Active Subscription'
-                  : 'Upgrade with Paymob',
+                  ? 'subscription.active_sub'.tr()
+                  : 'subscription.upgrade_paymob'.tr(),
               onTap: liveUser.isPremium
                   ? null
                   : () {
@@ -127,9 +129,7 @@ class SubscriptionPlansScreen extends StatelessWidget {
 class _PremiumHero extends StatelessWidget {
   final AppUser user;
 
-  const _PremiumHero({
-    required this.user,
-  });
+  const _PremiumHero({required this.user});
 
   @override
   Widget build(BuildContext context) {
@@ -144,7 +144,7 @@ class _PremiumHero extends StatelessWidget {
         borderRadius: BorderRadius.circular(30),
         boxShadow: [
           BoxShadow(
-            color: SubscriptionPlansScreen.primaryColor.withOpacity(0.24),
+            color: SubscriptionPlansScreen.primaryColor.withValues(alpha: 0.24),
             blurRadius: 22,
             offset: const Offset(0, 12),
           ),
@@ -158,7 +158,7 @@ class _PremiumHero extends StatelessWidget {
             child: Icon(
               Icons.workspace_premium_rounded,
               size: 120,
-              color: Colors.white.withOpacity(0.10),
+              color: Colors.white.withValues(alpha: 0.10),
             ),
           ),
           Column(
@@ -168,7 +168,7 @@ class _PremiumHero extends StatelessWidget {
                 width: 46,
                 height: 46,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.16),
+                  color: Colors.white.withValues(alpha: 0.16),
                   borderRadius: BorderRadius.circular(18),
                 ),
                 child: const Icon(
@@ -179,7 +179,9 @@ class _PremiumHero extends StatelessWidget {
               ),
               const SizedBox(height: 18),
               Text(
-                isPremium ? 'You’re Premium' : 'Unlock Premium',
+                isPremium
+                    ? 'subscription.you_are_premium'.tr()
+                    : 'subscription.unlock_premium'.tr(),
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 28,
@@ -190,10 +192,10 @@ class _PremiumHero extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 isPremium
-                    ? 'Your account already has unlimited access and premium discovery benefits.'
-                    : 'Save more places, boost your discovery experience, and unlock advanced local features.',
+                    ? 'subscription.premium_active_body'.tr()
+                    : 'subscription.premium_unlock_body'.tr(),
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.88),
+                  color: Colors.white.withValues(alpha: 0.88),
                   fontSize: 14,
                   height: 1.4,
                   fontWeight: FontWeight.w600,
@@ -204,12 +206,14 @@ class _PremiumHero extends StatelessWidget {
                 children: [
                   _HeroMiniStat(
                     icon: Icons.bookmark_rounded,
-                    label: isPremium ? 'Unlimited pins' : 'More pins',
+                    label: isPremium
+                        ? 'subscription.unlimited_pins'.tr()
+                        : 'subscription.more_pins'.tr(),
                   ),
                   const SizedBox(width: 10),
-                  const _HeroMiniStat(
+                  _HeroMiniStat(
                     icon: Icons.auto_awesome_rounded,
-                    label: 'Better reach',
+                    label: 'subscription.better_reach'.tr(),
                   ),
                 ],
               ),
@@ -225,10 +229,7 @@ class _HeroMiniStat extends StatelessWidget {
   final IconData icon;
   final String label;
 
-  const _HeroMiniStat({
-    required this.icon,
-    required this.label,
-  });
+  const _HeroMiniStat({required this.icon, required this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -236,20 +237,16 @@ class _HeroMiniStat extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.15),
+          color: Colors.white.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(99),
           border: Border.all(
-            color: Colors.white.withOpacity(0.16),
+            color: Colors.white.withValues(alpha: 0.16),
           ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              color: Colors.white,
-              size: 15,
-            ),
+            Icon(icon, color: Colors.white, size: 15),
             const SizedBox(width: 6),
             Flexible(
               child: Text(
@@ -299,7 +296,7 @@ class _PlanCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cardBorderColor = isFeatured
-        ? SubscriptionPlansScreen.primaryColor.withOpacity(0.35)
+        ? SubscriptionPlansScreen.primaryColor.withValues(alpha: 0.35)
         : SubscriptionPlansScreen.borderColor;
 
     return Container(
@@ -313,7 +310,7 @@ class _PlanCard extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isFeatured ? 0.055 : 0.028),
+            color: Colors.black.withValues(alpha: isFeatured ? 0.055 : 0.028),
             blurRadius: isFeatured ? 20 : 12,
             offset: Offset(0, isFeatured ? 10 : 6),
           ),
@@ -432,7 +429,7 @@ class _PlanCard extends StatelessWidget {
                           : SubscriptionPlansScreen.textColor,
                       disabledBackgroundColor: isFeatured
                           ? SubscriptionPlansScreen.primaryColor
-                              .withOpacity(0.16)
+                              .withValues(alpha: 0.16)
                           : const Color(0xFFEDEBE6),
                       disabledForegroundColor:
                           SubscriptionPlansScreen.mutedText,
@@ -474,18 +471,18 @@ class _RecommendedRibbon extends StatelessWidget {
           topRight: Radius.circular(27),
         ),
       ),
-      child: const Row(
+      child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
+          const Icon(
             Icons.local_fire_department_rounded,
             color: SubscriptionPlansScreen.primaryColor,
             size: 16,
           ),
-          SizedBox(width: 6),
+          const SizedBox(width: 6),
           Text(
-            'MOST POPULAR',
-            style: TextStyle(
+            'subscription.recommended'.tr(),
+            style: const TextStyle(
               color: SubscriptionPlansScreen.primaryColor,
               fontSize: 11.5,
               fontWeight: FontWeight.w900,
@@ -520,11 +517,7 @@ class _PlanIcon extends StatelessWidget {
             : const Color(0xFFEDEBE6),
         borderRadius: BorderRadius.circular(18),
       ),
-      child: Icon(
-        icon,
-        color: color,
-        size: 25,
-      ),
+      child: Icon(icon, color: color, size: 25),
     );
   }
 }
@@ -540,9 +533,9 @@ class _CurrentBadge extends StatelessWidget {
         color: SubscriptionPlansScreen.softPrimary,
         borderRadius: BorderRadius.circular(99),
       ),
-      child: const Text(
-        'Current',
-        style: TextStyle(
+      child: Text(
+        'subscription.current'.tr(),
+        style: const TextStyle(
           color: SubscriptionPlansScreen.primaryColor,
           fontSize: 11,
           fontWeight: FontWeight.w900,
@@ -556,10 +549,7 @@ class _FeatureRow extends StatelessWidget {
   final String text;
   final Color color;
 
-  const _FeatureRow({
-    required this.text,
-    required this.color,
-  });
+  const _FeatureRow({required this.text, required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -569,14 +559,10 @@ class _FeatureRow extends StatelessWidget {
           width: 22,
           height: 22,
           decoration: BoxDecoration(
-            color: color.withOpacity(0.10),
+            color: color.withValues(alpha: 0.10),
             shape: BoxShape.circle,
           ),
-          child: Icon(
-            Icons.check_rounded,
-            color: color,
-            size: 16,
-          ),
+          child: Icon(Icons.check_rounded, color: color, size: 16),
         ),
         const SizedBox(width: 11),
         Expanded(
@@ -606,23 +592,21 @@ class _PaymentNote extends StatelessWidget {
       decoration: BoxDecoration(
         color: SubscriptionPlansScreen.cardColor,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(
-          color: SubscriptionPlansScreen.borderColor,
-        ),
+        border: Border.all(color: SubscriptionPlansScreen.borderColor),
       ),
-      child: const Row(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
+          const Icon(
             Icons.lock_outline_rounded,
             color: SubscriptionPlansScreen.primaryColor,
             size: 20,
           ),
-          SizedBox(width: 10),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Payments open through Paymob. In demo mode, premium is activated after you confirm payment completion.',
-              style: TextStyle(
+              'subscription.payment_note'.tr(),
+              style: const TextStyle(
                 color: SubscriptionPlansScreen.mutedText,
                 height: 1.35,
                 fontSize: 12.5,

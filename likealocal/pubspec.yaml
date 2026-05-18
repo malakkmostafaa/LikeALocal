@@ -56,6 +56,9 @@ dependencies:
   url_launcher: ^6.3.2
   speech_to_text: ^7.3.0
 
+  # Localization
+  easy_localization: ^3.0.7
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -66,6 +69,7 @@ flutter:
 
   assets:
     - .env
+    - assets/translations/
   # assets:
   #   - assets/images/
   #   - assets/icons/

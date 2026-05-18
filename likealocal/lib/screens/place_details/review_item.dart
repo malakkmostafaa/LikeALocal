@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -56,7 +57,7 @@ class _ReviewItemState extends State<ReviewItem> {
 
     if (text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please write a review')),
+        SnackBar(content: Text('review.write'.tr())),
       );
       return;
     }
@@ -79,7 +80,7 @@ class _ReviewItemState extends State<ReviewItem> {
       widget.onReviewUpdated?.call();
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Review updated')),
+        SnackBar(content: Text('review.updated'.tr())),
       );
     } catch (e) {
       if (!mounted) return;
@@ -99,18 +100,18 @@ class _ReviewItemState extends State<ReviewItem> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
           ),
-          title: const Text('Delete review?'),
-          content: const Text('This action cannot be undone.'),
+          title: Text('review.delete_title'.tr()),
+          content: Text('review.delete_confirm'.tr()),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
+              child: Text('common.cancel'.tr()),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text(
-                'Delete',
-                style: TextStyle(color: Colors.red),
+              child: Text(
+                'common.delete'.tr(),
+                style: const TextStyle(color: Colors.red),
               ),
             ),
           ],
@@ -134,7 +135,7 @@ class _ReviewItemState extends State<ReviewItem> {
       widget.onReviewUpdated?.call();
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Review deleted')),
+        SnackBar(content: Text('review.deleted'.tr())),
       );
     } catch (e) {
       if (!mounted) return;
@@ -315,7 +316,7 @@ class _ReviewItemState extends State<ReviewItem> {
                               color: Colors.white,
                             ),
                           )
-                        : const Text('Save'),
+                        : Text('common.save'.tr()),
                   ),
                 ] else ...[
                   TextButton.icon(
@@ -327,7 +328,7 @@ class _ReviewItemState extends State<ReviewItem> {
                             });
                           },
                     icon: const Icon(Icons.edit_outlined, size: 18),
-                    label: const Text('Edit'),
+                    label: Text('common.edit'.tr()),
                   ),
                   TextButton.icon(
                     onPressed: isLoading ? null : _deleteReview,

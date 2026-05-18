@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
@@ -70,7 +71,7 @@ class _SocialPlaceCardState extends State<SocialPlaceCard> {
           children: [
             ListTile(
               leading: const Icon(Icons.info_outline),
-              title: const Text('View Details'),
+              title: Text('social_card.view_details'.tr()),
               onTap: () {
                 Navigator.pop(context);
                 _openDetails();
@@ -78,7 +79,7 @@ class _SocialPlaceCardState extends State<SocialPlaceCard> {
             ),
             ListTile(
               leading: const Icon(Icons.map_outlined),
-              title: const Text('View on Map'),
+              title: Text('social_card.view_on_map'.tr()),
               onTap: () {
                 Navigator.pop(context);
                 _openMap();
@@ -86,14 +87,14 @@ class _SocialPlaceCardState extends State<SocialPlaceCard> {
             ),
             ListTile(
               leading: const Icon(Icons.flag_outlined, color: Colors.red),
-              title: const Text(
-                'Report',
-                style: TextStyle(color: Colors.red),
+              title: Text(
+                'social_card.report'.tr(),
+                style: const TextStyle(color: Colors.red),
               ),
               onTap: () {
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Report submitted for review')),
+                  SnackBar(content: Text('social_card.report_submitted'.tr())),
                 );
               },
             ),

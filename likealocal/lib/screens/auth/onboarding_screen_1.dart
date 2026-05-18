@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import '../../services/user_service.dart';
 import 'onboarding_screen_2.dart';
@@ -31,7 +32,7 @@ class _OnboardingScreen1State extends State<OnboardingScreen1> {
   Future<void> _nextStep() async {
     if (selectedPreferences.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please select at least one interest")),
+        SnackBar(content: Text('onboarding.select_one_interest'.tr())),
       );
       return;
     }
@@ -53,7 +54,7 @@ class _OnboardingScreen1State extends State<OnboardingScreen1> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: $e")),
+          SnackBar(content: Text('common.error_prefix'.tr(namedArgs: {'error': e.toString()}))),
         );
       }
     } finally {
@@ -102,24 +103,24 @@ class _OnboardingScreen1State extends State<OnboardingScreen1> {
                         ],
                       ),
                       const SizedBox(height: 30),
-                      const Text(
-                        "Personalize Your Experience",
-                        style: TextStyle(
-                          fontSize: 32, 
+                      Text(
+                        'onboarding.personalize_title'.tr(),
+                        style: const TextStyle(
+                          fontSize: 32,
                           fontWeight: FontWeight.w900,
                           letterSpacing: -0.5,
                         ),
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        "Tell us what you're interested in so we can tailor the app for you.",
+                        'onboarding.personalize_subtitle'.tr(),
                         style: TextStyle(color: Colors.grey.shade600, fontSize: 16, height: 1.4),
                       ),
                       const SizedBox(height: 30),
-                      
-                      const Text(
-                        "Your Interests",
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+
+                      Text(
+                        'onboarding.your_interests'.tr(),
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 12),
                       Wrap(
@@ -182,9 +183,9 @@ class _OnboardingScreen1State extends State<OnboardingScreen1> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text(
-                                  "Max Distance",
-                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                                Text(
+                                  'onboarding.max_distance'.tr(),
+                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                                 ),
                                 Text(
                                   "${maxDistance.toInt()} km",
@@ -216,9 +217,9 @@ class _OnboardingScreen1State extends State<OnboardingScreen1> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text(
-                                  "Price Range",
-                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                                Text(
+                                  'onboarding.price_range'.tr(),
+                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                                 ),
                                 Text(
                                   List.filled(priceRange, '\$').join(''),
@@ -290,14 +291,14 @@ class _OnboardingScreen1State extends State<OnboardingScreen1> {
                             height: 24, 
                             child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3)
                           )
-                        : const Text(
-                            "Continue", 
-                            style: TextStyle(
-                              fontSize: 18, 
-                              fontWeight: FontWeight.bold, 
+                        : Text(
+                            'common.continue_btn'.tr(),
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
                               color: Colors.white,
                               letterSpacing: 0.5,
-                            )
+                            ),
                           ),
                   ),
                 ),

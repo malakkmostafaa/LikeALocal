@@ -47,6 +47,35 @@ service cloud.firestore {
       allow read: if true;
       allow create: if request.auth != null && request.auth.uid == userId;
       allow update, delete: if request.auth != null && request.auth.uid == userId;
+
+      // Pinned places: only the owner can read/write their own pins.
+      match /pins/{placeId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // Trivia daily scores: only the owner can read/write their own score docs.
+      match /trivia_scores/{dateKey} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    // Daily trivia questions: shared content for all users today.
+    // Any signed-in user can read; create is allowed only if the doc
+    // doesn't already exist (first user of the day generates it).
+    // Nobody updates or deletes — questions are immutable for the day.
+    match /daily_trivia/{dateKey} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update, delete: if false;
+    }
+
+    // Trivia monthly leaderboard.
+    // Everyone signed-in can read (so they can see rankings).
+    // Each user can only create/update their own row (uid == doc id).
+    match /leaderboards/trivia/{monthKey}/{uid} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null && request.auth.uid == uid;
+      allow delete: if false;
     }
 
     // Default: deny all other writes and reads (be explicit for safety)

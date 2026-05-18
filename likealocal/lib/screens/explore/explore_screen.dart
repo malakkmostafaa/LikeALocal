@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
@@ -111,8 +112,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
         if (!mounted) return;
 
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Location permission denied or disabled.'),
+          SnackBar(
+            content: Text('explore.location_denied'.tr()),
           ),
         );
         return;
@@ -149,8 +150,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
               errorMsg == 'error_no_match' ||
               errorMsg == 'error_audio') {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('I did not catch that. Try speaking again.'),
+              SnackBar(
+                content: Text('explore.didnt_catch'.tr()),
               ),
             );
             return;
@@ -158,7 +159,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Voice search error: $errorMsg'),
+              content: Text('explore.voice_error'.tr(namedArgs: {'error': errorMsg})),
             ),
           );
         },
@@ -196,8 +197,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Speech recognition is not available on this device.'),
+        SnackBar(
+          content: Text('explore.speech_not_available'.tr()),
         ),
       );
       return;
@@ -235,7 +236,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
         if (correctedQuery.toLowerCase() != words.toLowerCase() && mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Searching for "$correctedQuery"'),
+              content: Text('explore.searching_for'.tr(namedArgs: {'query': correctedQuery})),
               duration: const Duration(seconds: 1),
             ),
           );
@@ -570,15 +571,15 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   String _feedTitle() {
-    if (_showNearby) return 'Places Near You';
-    if (_showForYou) return 'Picked For You';
-    if (_showNewestFirst) return 'Newest Places';
+    if (_showNearby) return 'explore.nearby'.tr();
+    if (_showForYou) return 'explore.for_you'.tr();
+    if (_showNewestFirst) return 'explore.explore_feed'.tr();
 
     if (_selectedCategory != null || _selectedBudgetLevel != null) {
-      return 'Filtered Places';
+      return 'explore.explore_feed'.tr();
     }
 
-    return 'Explore Feed';
+    return 'explore.explore_feed'.tr();
   }
 
   String _sortLabel(ExploreSortMode mode) {
@@ -643,10 +644,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
                       const SizedBox(height: 18),
                       Row(
                         children: [
-                          const Expanded(
+                          Expanded(
                             child: Text(
-                              'Filter places',
-                              style: TextStyle(
+                              'explore.filter_places'.tr(),
+                              style: const TextStyle(
                                 color: textColor,
                                 fontSize: 23,
                                 fontWeight: FontWeight.w900,
@@ -661,17 +662,17 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         ],
                       ),
                       const SizedBox(height: 6),
-                      const Text(
-                        'Refine your feed by category, budget, and sorting preference.',
-                        style: TextStyle(
+                      Text(
+                        'explore.filter_subtitle'.tr(),
+                        style: const TextStyle(
                           color: mutedText,
                           height: 1.35,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                       const SizedBox(height: 22),
-                      const _FilterSectionTitle(
-                        title: 'Categories',
+                      _FilterSectionTitle(
+                        title: 'explore.categories_title'.tr(),
                         icon: Icons.category_rounded,
                       ),
                       const SizedBox(height: 12),
@@ -680,7 +681,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         runSpacing: 10,
                         children: [
                           _ModalPill(
-                            label: 'All',
+                            label: 'explore.all_filter'.tr(),
                             selected: tempCategory == null,
                             onTap: () {
                               setModalState(() => tempCategory = null);
@@ -702,14 +703,14 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         ],
                       ),
                       const SizedBox(height: 24),
-                      const _FilterSectionTitle(
-                        title: 'Budget',
+                      _FilterSectionTitle(
+                        title: 'explore.budget_title'.tr(),
                         icon: Icons.payments_rounded,
                       ),
                       const SizedBox(height: 8),
-                      const Text(
-                        'Choose the maximum budget level you want to see.',
-                        style: TextStyle(
+                      Text(
+                        'explore.budget_subtitle'.tr(),
+                        style: const TextStyle(
                           color: mutedText,
                           fontSize: 12.5,
                           fontWeight: FontWeight.w600,
@@ -721,7 +722,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         runSpacing: 10,
                         children: [
                           _ModalPill(
-                            label: 'Any',
+                            label: 'explore.any_filter'.tr(),
                             selected: tempBudget == null,
                             onTap: () {
                               setModalState(() => tempBudget = null);
@@ -744,8 +745,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         ],
                       ),
                       const SizedBox(height: 24),
-                      const _FilterSectionTitle(
-                        title: 'Sort by',
+                      _FilterSectionTitle(
+                        title: 'explore.sort_by'.tr(),
                         icon: Icons.sort_rounded,
                       ),
                       const SizedBox(height: 12),
@@ -783,9 +784,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                   borderRadius: BorderRadius.circular(18),
                                 ),
                               ),
-                              child: const Text(
-                                'Reset',
-                                style: TextStyle(
+                              child: Text(
+                                'explore.reset'.tr(),
+                                style: const TextStyle(
                                   fontWeight: FontWeight.w900,
                                 ),
                               ),
@@ -1108,7 +1109,14 @@ class _ExploreHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Good ${DateTime.now().hour < 12 ? 'morning' : DateTime.now().hour < 17 ? 'afternoon' : 'evening'}, $firstName 👋',
+                  'explore.greeting'.tr(namedArgs: {
+                    'time_of_day': DateTime.now().hour < 12
+                        ? 'explore.morning'.tr()
+                        : DateTime.now().hour < 17
+                            ? 'explore.afternoon'.tr()
+                            : 'explore.evening'.tr(),
+                    'name': firstName,
+                  }),
                   style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.w900,
@@ -1118,8 +1126,8 @@ class _ExploreHeader extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'Discover local gems tonight',
+                Text(
+                  'explore.subtitle'.tr(),
                   style: TextStyle(
                     fontSize: 15,
                     color: mutedText,
@@ -1135,7 +1143,7 @@ class _ExploreHeader extends StatelessWidget {
           icon: Icons.notifications_none_rounded,
           onTap: () {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Notifications coming soon')),
+              SnackBar(content: Text('home.notifications_soon'.tr())),
             );
           },
         ),
@@ -1144,7 +1152,7 @@ class _ExploreHeader extends StatelessWidget {
           icon: Icons.chat_bubble_outline_rounded,
           onTap: () {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Member chat coming soon')),
+              SnackBar(content: Text('explore.member_chat_soon'.tr())),
             );
           },
         ),
@@ -1213,21 +1221,21 @@ class _QuickFilterStrip extends StatelessWidget {
       child: Row(
         children: [
           _QuickFilterChip(
-            label: 'For You',
+            label: 'explore.for_you'.tr(),
             isSelected: showForYou,
             icon: Icons.auto_awesome_rounded,
             onTap: onForYouTap,
           ),
           const SizedBox(width: 8),
           _QuickFilterChip(
-            label: 'Near Me',
+            label: 'explore.nearby'.tr(),
             isSelected: showNearby,
             icon: Icons.near_me_rounded,
             onTap: onNearbyTap,
           ),
           const SizedBox(width: 8),
           _QuickFilterChip(
-            label: 'Newest',
+            label: 'explore.explore_feed'.tr(),
             isSelected: showNewestFirst,
             icon: Icons.schedule_rounded,
             onTap: onNewestTap,
@@ -1657,19 +1665,19 @@ class _EmptyExploreState extends StatelessWidget {
               color: _ExploreScreenState.primaryColor.withOpacity(0.88),
             ),
             const SizedBox(height: 12),
-            const Text(
-              'No places found',
-              style: TextStyle(
+            Text(
+              'explore.no_places_match'.tr(),
+              style: const TextStyle(
                 color: _ExploreScreenState.textColor,
                 fontWeight: FontWeight.w900,
                 fontSize: 18,
               ),
             ),
             const SizedBox(height: 6),
-            const Text(
-              'Try changing your search, budget, or category filters.',
+            Text(
+              'explore.no_places_match'.tr(),
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 color: _ExploreScreenState.mutedText,
                 height: 1.35,
               ),
@@ -1685,9 +1693,9 @@ class _EmptyExploreState extends StatelessWidget {
                   borderRadius: BorderRadius.circular(18),
                 ),
               ),
-              child: const Text(
-                'Reset Filters',
-                style: TextStyle(fontWeight: FontWeight.w900),
+              child: Text(
+                'map_screen.clear_filters'.tr(),
+                style: const TextStyle(fontWeight: FontWeight.w900),
               ),
             ),
           ],

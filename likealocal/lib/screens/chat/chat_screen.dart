@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -54,9 +55,9 @@ class _ChatScreenState extends State<ChatScreen> {
         backgroundColor: bgColor,
         foregroundColor: textColor,
         elevation: 0,
-        title: const Text(
-          'LikeALocal Assistant',
-          style: TextStyle(fontWeight: FontWeight.w900),
+        title: Text(
+          'chat.title'.tr(),
+          style: const TextStyle(fontWeight: FontWeight.w900),
         ),
         actions: [
           Consumer<ChatProvider>(
@@ -64,7 +65,7 @@ class _ChatScreenState extends State<ChatScreen> {
               if (chat.messages.isEmpty) return const SizedBox.shrink();
               return IconButton(
                 icon: const Icon(Icons.refresh_rounded),
-                tooltip: 'New chat',
+                tooltip: 'chat.new_chat'.tr(),
                 onPressed: chat.clear,
               );
             },
@@ -134,20 +135,20 @@ class _EmptyState extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 18),
-            const Text(
-              'Ask me anything about Cairo',
+            Text(
+              'chat.empty_title'.tr(),
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w900,
                 color: _ChatScreenState.textColor,
               ),
             ),
             const SizedBox(height: 6),
-            const Text(
-              'Places to try, neighborhoods to explore, or how to use the app.',
+            Text(
+              'chat.empty_subtitle'.tr(),
               textAlign: TextAlign.center,
-              style: TextStyle(color: _ChatScreenState.mutedText),
+              style: const TextStyle(color: _ChatScreenState.mutedText),
             ),
           ],
         ),
@@ -262,7 +263,7 @@ class _Composer extends StatelessWidget {
                 textInputAction: TextInputAction.send,
                 onSubmitted: (_) => onSend(),
                 decoration: InputDecoration(
-                  hintText: 'Ask about Cairo or this app...',
+                  hintText: 'chat.hint'.tr(),
                   filled: true,
                   fillColor: Colors.white,
                   contentPadding: const EdgeInsets.symmetric(

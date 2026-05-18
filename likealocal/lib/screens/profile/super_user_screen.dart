@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import '../../models/user_model.dart';
 import '../../utils/badge_system.dart';
@@ -46,9 +47,9 @@ class _SuperUserScreenState extends State<SuperUserScreen> {
         elevation: 0,
         backgroundColor: Colors.transparent,
         foregroundColor: Colors.black,
-        title: const Text(
-          "Super User",
-          style: TextStyle(fontWeight: FontWeight.bold),
+        title: Text(
+          'super_user.title'.tr(),
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
       ),
       body: SingleChildScrollView(
@@ -64,7 +65,7 @@ class _SuperUserScreenState extends State<SuperUserScreen> {
               decoration: BoxDecoration(
                 color: const Color(0xFFFAEBE1), // Light sandy orange
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: primaryColor.withOpacity(0.2)),
+                border: Border.all(color: primaryColor.withValues(alpha: 0.2)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -74,7 +75,7 @@ class _SuperUserScreenState extends State<SuperUserScreen> {
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: primaryColor.withOpacity(0.15),
+                          color: primaryColor.withValues(alpha: 0.15),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(Icons.workspace_premium,
@@ -85,9 +86,9 @@ class _SuperUserScreenState extends State<SuperUserScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              "Super User Progress",
-                              style: TextStyle(
+                            Text(
+                              'super_user.progress_title'.tr(),
+                              style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.black87,
@@ -95,7 +96,7 @@ class _SuperUserScreenState extends State<SuperUserScreen> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              "${(progress * 100).toInt()}% complete",
+                              'super_user.percent_complete'.tr(namedArgs: {'percent': '${(progress * 100).toInt()}'}),
                               style: TextStyle(
                                 fontSize: 14,
                                 color: Colors.grey.shade700,
@@ -125,9 +126,9 @@ class _SuperUserScreenState extends State<SuperUserScreen> {
             // ========================
             // PROGRESS TRACKER
             // ========================
-            const Text(
-              "Progress Tracker",
-              style: TextStyle(
+            Text(
+              'super_user.progress_tracker'.tr(),
+              style: const TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
               ),
@@ -136,7 +137,7 @@ class _SuperUserScreenState extends State<SuperUserScreen> {
 
             _buildTrackerRow(
               icon: Icons.place_outlined,
-              label: "Places Added",
+              label: 'super_user.places_added'.tr(),
               current: widget.user.placesAdded,
               target: 50,
               color: primaryColor,
@@ -144,7 +145,7 @@ class _SuperUserScreenState extends State<SuperUserScreen> {
             const SizedBox(height: 20),
             _buildTrackerRow(
               icon: Icons.star_outline,
-              label: "Reviews Written",
+              label: 'super_user.reviews_written'.tr(),
               current: widget.user.reviewsCount,
               target: 100,
               color: primaryColor,
@@ -163,9 +164,9 @@ class _SuperUserScreenState extends State<SuperUserScreen> {
             // ========================
             // EARNED BADGES
             // ========================
-            const Text(
-              "Earned Badges",
-              style: TextStyle(
+            Text(
+              'super_user.earned_badges'.tr(),
+              style: const TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
               ),
@@ -247,7 +248,7 @@ class _SuperUserScreenState extends State<SuperUserScreen> {
     if (!badge.isEarned) {
       return Container(
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.6),
+          color: Colors.white.withValues(alpha: 0.6),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Column(
@@ -262,7 +263,7 @@ class _SuperUserScreenState extends State<SuperUserScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              badge.title,
+              'badge.${badge.id}'.tr(),
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 12,
@@ -281,7 +282,7 @@ class _SuperUserScreenState extends State<SuperUserScreen> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: primaryColor.withOpacity(0.05),
+            color: primaryColor.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -298,7 +299,7 @@ class _SuperUserScreenState extends State<SuperUserScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4.0),
             child: Text(
-              badge.title,
+              'badge.${badge.id}'.tr(),
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 12,
@@ -309,7 +310,7 @@ class _SuperUserScreenState extends State<SuperUserScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            "Earned \u2713",
+            'super_user.earned'.tr(),
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w600,

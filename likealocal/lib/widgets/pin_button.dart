@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -50,7 +51,7 @@ class _PinButtonState extends State<PinButton> {
 
     if (FirebaseAuth.instance.currentUser == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please log in first')),
+        SnackBar(content: Text('pin.login_required'.tr())),
       );
       return;
     }
@@ -65,7 +66,7 @@ class _PinButtonState extends State<PinButton> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(nowPinned ? 'Saved to pins' : 'Removed from pins'),
+          content: Text(nowPinned ? 'pin.saved'.tr() : 'pin.removed'.tr()),
           duration: const Duration(seconds: 1),
         ),
       );
@@ -75,7 +76,7 @@ class _PinButtonState extends State<PinButton> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not update pin: $e')),
+        SnackBar(content: Text('pin.error'.tr(namedArgs: {'error': e.toString()}))),
       );
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -90,25 +91,24 @@ class _PinButtonState extends State<PinButton> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
-          title: const Text(
-            'Pin limit reached',
-            style: TextStyle(fontWeight: FontWeight.w900),
+          title: Text(
+            'pin.limit_title'.tr(),
+            style: const TextStyle(fontWeight: FontWeight.w900),
           ),
           content: Text(
-            "You've reached your ${PinService.freePinLimit}-pin limit on the "
-            'Free plan. Upgrade to Premium for unlimited pins.',
+            'pin.limit_message'.tr(namedArgs: {'limit': PinService.freePinLimit.toString()}),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel'),
+              child: Text('common.cancel'.tr()),
             ),
             FilledButton(
               style: FilledButton.styleFrom(
                 backgroundColor: widget.activeColor,
               ),
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Upgrade'),
+              child: Text('common.upgrade'.tr()),
             ),
           ],
         );

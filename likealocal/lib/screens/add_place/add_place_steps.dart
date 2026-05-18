@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as path;
 
@@ -36,37 +37,37 @@ class AddPlaceMainInfoStep extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const StepTitle(
+          StepTitle(
             icon: Icons.place_rounded,
-            title: 'Main information',
-            subtitle: 'Tell locals what this place is and where to find it.',
+            title: 'add_place.section_details'.tr(),
+            subtitle: 'add_place.subtitle'.tr(),
           ),
           const SizedBox(height: 22),
           SectionCard(
             children: [
               LabeledField(
-                label: 'Place name',
+                label: 'add_place.name_hint'.tr(),
                 child: TextField(
                   controller: nameController,
                   decoration: AddPlaceInputs.decoration(
-                    'e.g. Souq El-Attarine',
+                    'add_place.name_hint'.tr(),
                   ),
                 ),
               ),
               const SizedBox(height: 16),
               LabeledField(
-                label: 'Description',
+                label: 'add_place.description_hint'.tr(),
                 child: TextField(
                   controller: descriptionController,
                   maxLines: 4,
                   decoration: AddPlaceInputs.decoration(
-                    'What makes this place worth visiting?',
+                    'add_place.description_hint'.tr(),
                   ),
                 ),
               ),
               const SizedBox(height: 16),
               LabeledField(
-                label: 'Category',
+                label: 'add_place.section_details'.tr(),
                 child: Wrap(
                   spacing: 10,
                   runSpacing: 10,
@@ -132,7 +133,7 @@ class AddPlaceMainInfoStep extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               LabeledField(
-                label: 'Budget',
+                label: 'add_place.section_details'.tr(),
                 child: Wrap(
                   spacing: 10,
                   runSpacing: 10,
@@ -189,9 +190,9 @@ class AddPlaceMainInfoStep extends StatelessWidget {
           const SizedBox(height: 22),
           SectionCard(
             children: [
-              const Text(
-                'Location',
-                style: TextStyle(
+              Text(
+                'add_place.section_location'.tr(),
+                style: const TextStyle(
                   color: AddPlaceColors.text,
                   fontSize: 17,
                   fontWeight: FontWeight.w900,
@@ -204,7 +205,7 @@ class AddPlaceMainInfoStep extends StatelessWidget {
                     child: TextField(
                       controller: latController,
                       keyboardType: TextInputType.number,
-                      decoration: AddPlaceInputs.decoration('Latitude'),
+                      decoration: AddPlaceInputs.decoration('add_place.lat_hint'.tr()),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -212,7 +213,7 @@ class AddPlaceMainInfoStep extends StatelessWidget {
                     child: TextField(
                       controller: lngController,
                       keyboardType: TextInputType.number,
-                      decoration: AddPlaceInputs.decoration('Longitude'),
+                      decoration: AddPlaceInputs.decoration('add_place.lng_hint'.tr()),
                     ),
                   ),
                 ],
@@ -224,7 +225,7 @@ class AddPlaceMainInfoStep extends StatelessWidget {
                 child: OutlinedButton.icon(
                   onPressed: onPickLocation,
                   icon: const Icon(Icons.map_rounded),
-                  label: const Text('Pick from Map'),
+                  label: Text('add_place.pick_from_map'.tr()),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AddPlaceColors.primary,
                     side: const BorderSide(color: AddPlaceColors.primary),
@@ -267,20 +268,20 @@ class AddPlaceLocalDetailsStep extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const StepTitle(
+          StepTitle(
             icon: Icons.lightbulb_rounded,
-            title: 'Local details',
-            subtitle: 'Add tips and dishes to make the post more useful.',
+            title: 'place.tips_title'.tr(),
+            subtitle: 'add_place.description_hint'.tr(),
           ),
           const SizedBox(height: 22),
           SectionCard(
             children: [
               Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'Local tips',
-                      style: TextStyle(
+                      'place.tips_title'.tr(),
+                      style: const TextStyle(
                         color: AddPlaceColors.text,
                         fontSize: 17,
                         fontWeight: FontWeight.w900,
@@ -290,7 +291,7 @@ class AddPlaceLocalDetailsStep extends StatelessWidget {
                   TextButton.icon(
                     onPressed: onAddTip,
                     icon: const Icon(Icons.add_rounded, size: 18),
-                    label: const Text('Add'),
+                    label: Text('common.ok'.tr()),
                   ),
                 ],
               ),
@@ -329,10 +330,10 @@ class AddPlaceLocalDetailsStep extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'Recommended dishes',
-                      style: TextStyle(
+                      'place.local_favorites'.tr(),
+                      style: const TextStyle(
                         color: AddPlaceColors.text,
                         fontSize: 17,
                         fontWeight: FontWeight.w900,
@@ -342,7 +343,7 @@ class AddPlaceLocalDetailsStep extends StatelessWidget {
                   TextButton.icon(
                     onPressed: onAddDish,
                     icon: const Icon(Icons.add_rounded, size: 18),
-                    label: const Text('Add'),
+                    label: Text('common.ok'.tr()),
                   ),
                 ],
               ),
@@ -380,14 +381,14 @@ class AddPlaceLocalDetailsStep extends StatelessWidget {
                       const SizedBox(height: 10),
                       TextField(
                         controller: dish.name,
-                        decoration: AddPlaceInputs.decoration('Dish name'),
+                        decoration: AddPlaceInputs.decoration('add_place.name_hint'.tr()),
                       ),
                       const SizedBox(height: 10),
                       TextField(
                         controller: dish.description,
                         maxLines: 2,
                         decoration: AddPlaceInputs.decoration(
-                          'Short description',
+                          'add_place.description_hint'.tr(),
                         ),
                       ),
                     ],
@@ -453,17 +454,17 @@ class AddPlaceMediaStep extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const StepTitle(
+          StepTitle(
             icon: Icons.photo_library_rounded,
-            title: 'Photos and videos',
-            subtitle: 'Attach media to make the place more visual.',
+            title: 'add_place.section_photos'.tr(),
+            subtitle: 'add_place.subtitle'.tr(),
           ),
           const SizedBox(height: 22),
           SectionCard(
             children: [
-              const Text(
-                'Photos',
-                style: TextStyle(
+              Text(
+                'add_place.section_photos'.tr(),
+                style: const TextStyle(
                   color: AddPlaceColors.text,
                   fontSize: 17,
                   fontWeight: FontWeight.w900,
@@ -476,7 +477,7 @@ class AddPlaceMediaStep extends StatelessWidget {
                     child: ElevatedButton.icon(
                       onPressed: onPickImages,
                       icon: const Icon(Icons.photo_library_rounded),
-                      label: const Text('Multiple'),
+                      label: Text('add_place.pick_multiple'.tr()),
                       style: AddPlaceButtons.primary(),
                     ),
                   ),
@@ -485,7 +486,7 @@ class AddPlaceMediaStep extends StatelessWidget {
                     child: ElevatedButton.icon(
                       onPressed: onPickSingleImage,
                       icon: const Icon(Icons.add_photo_alternate_rounded),
-                      label: const Text('One'),
+                      label: Text('add_place.pick_one'.tr()),
                       style: AddPlaceButtons.primary(),
                     ),
                   ),
@@ -529,9 +530,9 @@ class AddPlaceMediaStep extends StatelessWidget {
           const SizedBox(height: 22),
           SectionCard(
             children: [
-              const Text(
-                'Videos',
-                style: TextStyle(
+              Text(
+                'add_place.section_photos'.tr(),
+                style: const TextStyle(
                   color: AddPlaceColors.text,
                   fontSize: 17,
                   fontWeight: FontWeight.w900,
@@ -553,7 +554,7 @@ class AddPlaceMediaStep extends StatelessWidget {
                 child: ElevatedButton.icon(
                   onPressed: onPickVideos,
                   icon: const Icon(Icons.videocam_rounded),
-                  label: const Text('Pick a Video'),
+                  label: Text('add_place.pick_from_map'.tr()),
                   style: AddPlaceButtons.primary(),
                 ),
               ),

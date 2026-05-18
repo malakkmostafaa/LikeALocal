@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
@@ -43,7 +44,7 @@ class _OnboardingScreen2State extends State<OnboardingScreen2> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not pick image: $e')),
+        SnackBar(content: Text('add_place.image_pick_failed'.tr(namedArgs: {'error': e.toString()}))),
       );
     }
   }
@@ -56,10 +57,8 @@ class _OnboardingScreen2State extends State<OnboardingScreen2> {
       setState(() => isLoading = false);
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Profile image upload is not available offline. You can skip and add it later.',
-          ),
+        SnackBar(
+          content: Text('edit_profile.image_offline'.tr()),
         ),
       );
 
@@ -99,7 +98,7 @@ class _OnboardingScreen2State extends State<OnboardingScreen2> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: $e")),
+          SnackBar(content: Text('common.error_prefix'.tr(namedArgs: {'error': e.toString()}))),
         );
       }
     } finally {
@@ -154,9 +153,9 @@ class _OnboardingScreen2State extends State<OnboardingScreen2> {
                 ],
               ),
               const SizedBox(height: 30),
-              const Text(
-                'Add a Profile Picture',
-                style: TextStyle(
+              Text(
+                'onboarding.profile_pic_title'.tr(),
+                style: const TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.w900,
                   letterSpacing: -0.5,
@@ -165,7 +164,7 @@ class _OnboardingScreen2State extends State<OnboardingScreen2> {
               ),
               const SizedBox(height: 12),
               Text(
-                'Let others know who they are connecting with. You can always change this later.',
+                'onboarding.profile_pic_subtitle'.tr(),
                 style: TextStyle(
                   color: Colors.grey.shade600,
                   fontSize: 16,
@@ -281,8 +280,8 @@ class _OnboardingScreen2State extends State<OnboardingScreen2> {
                         )
                       : Text(
                           _imageFile == null
-                              ? 'Save & Finish'
-                              : 'Upload & Finish',
+                              ? 'onboarding.save_and_finish'.tr()
+                              : 'onboarding.upload_and_finish'.tr(),
                           style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -298,9 +297,9 @@ class _OnboardingScreen2State extends State<OnboardingScreen2> {
                 height: 52,
                 child: TextButton(
                   onPressed: isLoading ? null : _skip,
-                  child: const Text(
-                    'Skip for now',
-                    style: TextStyle(
+                  child: Text(
+                    'onboarding.skip_for_now'.tr(),
+                    style: const TextStyle(
                       fontSize: 16,
                       color: Colors.grey,
                       fontWeight: FontWeight.w600,

@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:like_a_local/screens/chat/chat_screen.dart';
 import 'package:provider/provider.dart';
@@ -209,10 +210,10 @@ class _HomeScreenState extends State<HomeScreen> {
                           creators: creators,
                         ),
                       ),
-                    const SliverToBoxAdapter(
+                    SliverToBoxAdapter(
                       child: _SectionHeader(
-                        title: 'Latest local posts',
-                        subtitle: 'Fresh recommendations from the community',
+                        title: 'home.latest_title'.tr(),
+                        subtitle: 'home.latest_subtitle'.tr(),
                       ),
                     ),
                     SliverPadding(
@@ -291,9 +292,9 @@ class _HomeHeader extends StatelessWidget {
                   icon: Icons.notifications_none_rounded,
                   onTap: () {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Notifications coming soon'),
-                        duration: Duration(seconds: 1),
+                      SnackBar(
+                        content: Text('home.notifications_soon'.tr()),
+                        duration: const Duration(seconds: 1),
                       ),
                     );
                   },
@@ -302,7 +303,7 @@ class _HomeHeader extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             Text(
-              'Hey, $firstName',
+              'home.greeting'.tr(namedArgs: {'name': firstName}),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
@@ -313,8 +314,8 @@ class _HomeHeader extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 6),
-            const Text(
-              'Trusted local recommendations, curated for you.',
+            Text(
+              'home.subtitle'.tr(),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
@@ -399,9 +400,9 @@ class _RecommendedPlacesSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _SectionHeader(
-            title: 'Recommended for You',
-            subtitle: 'Based on your preferences and activity',
+          _SectionHeader(
+            title: 'home.recommended_title'.tr(),
+            subtitle: 'home.recommended_subtitle'.tr(),
           ),
           SizedBox(
             height: 235,

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -146,12 +147,12 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
   bool validateCurrentStep() {
     if (currentStep == 0) {
       if (nameController.text.trim().isEmpty) {
-        showErrorDialog('Place name is required.');
+        showErrorDialog('add_place.name_required'.tr());
         return false;
       }
 
       if (descriptionController.text.trim().isEmpty) {
-        showErrorDialog('Description is required.');
+        showErrorDialog('add_place.description_required'.tr());
         return false;
       }
 
@@ -159,7 +160,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
       final lng = double.tryParse(lngController.text);
 
       if (lat == null || lng == null) {
-        showErrorDialog('Please choose a valid location.');
+        showErrorDialog('add_place.invalid_coords'.tr());
         return false;
       }
     }
@@ -226,7 +227,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
       }
     } catch (_) {
       if (!mounted) return;
-      showErrorDialog('Failed to pick images.');
+      showErrorDialog('add_place.multi_pick_failed'.tr());
     }
   }
 
@@ -249,7 +250,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
 
       if (!await file.exists()) {
         if (!mounted) return;
-        showErrorDialog('Selected image was not found.');
+        showErrorDialog('add_place.image_unavailable'.tr());
         return;
       }
 
@@ -262,7 +263,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
       });
     } catch (_) {
       if (!mounted) return;
-      showErrorDialog('Failed to pick image.');
+      showErrorDialog('add_place.image_pick_failed'.tr(namedArgs: {'error': ''}));
     }
   }
 
@@ -273,9 +274,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
       final isOffline = context.read<ConnectivityProvider>().isOffline;
 
       if (isOffline) {
-        showErrorDialog(
-          'Video uploads are not available offline. Please reconnect and try again.',
-        );
+        showErrorDialog('add_place.multi_pick_failed'.tr());
         return;
       }
 
@@ -292,7 +291,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
 
       if (!await file.exists()) {
         if (!mounted) return;
-        showErrorDialog('Selected video file was not found.');
+        showErrorDialog('add_place.image_unavailable'.tr());
         return;
       }
 
@@ -301,14 +300,12 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
       if (!mounted) return;
 
       if (fileSize == 0) {
-        showErrorDialog('Selected video file is empty.');
+        showErrorDialog('add_place.image_unavailable'.tr());
         return;
       }
 
       if (fileSize > 200 * 1024 * 1024) {
-        showErrorDialog(
-          'Video is too large. Please choose a video under 200MB.',
-        );
+        showErrorDialog('add_place.image_unavailable'.tr());
         return;
       }
 
@@ -317,7 +314,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
       if (!mounted) return;
 
       if (copied == null) {
-        showErrorDialog('Could not prepare the selected video for upload.');
+        showErrorDialog('add_place.image_unavailable'.tr());
         return;
       }
 
@@ -326,7 +323,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
       });
     } catch (e) {
       if (!mounted) return;
-      showErrorDialog('Failed to pick video: $e');
+      showErrorDialog('add_place.image_pick_failed'.tr(namedArgs: {'error': e.toString()}));
     }
   }
 
@@ -495,7 +492,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
     final lng = double.tryParse(lngController.text);
 
     if (lat == null || lng == null) {
-      showErrorDialog('Please choose a valid location.');
+      showErrorDialog('add_place.invalid_coords'.tr());
       return;
     }
 
@@ -508,9 +505,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
         removedVideos.isNotEmpty;
 
     if (isOffline && hasMediaChanges) {
-      showErrorDialog(
-        'Media uploads are not available offline. Please reconnect and try again.',
-      );
+      showErrorDialog('add_place.multi_pick_failed'.tr());
       return;
     }
 
@@ -560,7 +555,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
         if (!mounted) return;
 
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Place updated successfully.')),
+          SnackBar(content: Text('add_place.added_success'.tr())),
         );
 
         Navigator.of(context).pop();
@@ -601,12 +596,12 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
           barrierDismissible: false,
           builder: (dialogContext) {
             return AlertDialog(
-              title: const Text('Success'),
-              content: const Text('Place added successfully.'),
+              title: Text('common.success'.tr()),
+              content: Text('add_place.added_success'.tr()),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: const Text('OK'),
+                  child: Text('common.ok'.tr()),
                 ),
               ],
             );
@@ -619,7 +614,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      showErrorDialog('Operation failed: ${e.toString()}');
+      showErrorDialog('common.error_prefix'.tr(namedArgs: {'error': e.toString()}));
     } finally {
       if (mounted) {
         setState(() => isLoading = false);
@@ -705,12 +700,12 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
           ),
-          title: const Text('Error'),
+          title: Text('common.error'.tr()),
           content: Text(message),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('OK'),
+              child: Text('common.ok'.tr()),
             ),
           ],
         );
@@ -720,7 +715,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final title = isEditing ? 'Edit Place' : 'Add New Place';
+    final title = isEditing ? 'common.edit'.tr() : 'add_place.title'.tr();
 
     return Scaffold(
       backgroundColor: AddPlaceColors.background,

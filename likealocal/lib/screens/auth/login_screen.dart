@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
 import 'signup_screen.dart';
@@ -20,7 +21,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> login() async {
     if (emailController.text.isEmpty || passwordController.text.isEmpty) {
-      showMessage('Please enter email and password');
+      showMessage('auth.enter_email_password'.tr());
       return;
     }
 
@@ -83,24 +84,24 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 32),
-                  const Text(
-                    'Welcome Back',
-                    style: TextStyle(
+                  Text(
+                    'auth.welcome_back'.tr(),
+                    style: const TextStyle(
                       fontSize: 30,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 6),
-                  const Text(
-                    'Log in to continue exploring',
-                    style: TextStyle(color: Colors.grey),
+                  Text(
+                    'auth.login_subtitle'.tr(),
+                    style: const TextStyle(color: Colors.grey),
                   ),
                   const SizedBox(height: 32),
                   TextField(
                     controller: emailController,
                     keyboardType: TextInputType.emailAddress,
                     decoration: InputDecoration(
-                      hintText: 'Email',
+                      hintText: 'auth.email'.tr(),
                       filled: true,
                       fillColor: const Color(0xFFEDEDE6),
                       border: OutlineInputBorder(
@@ -114,7 +115,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: passwordController,
                     obscureText: hidePassword,
                     decoration: InputDecoration(
-                      hintText: 'Password',
+                      hintText: 'auth.password'.tr(),
                       filled: true,
                       fillColor: const Color(0xFFEDEDE6),
                       suffixIcon: IconButton(
@@ -150,9 +151,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           ? const CircularProgressIndicator(
                               color: Colors.white,
                             )
-                          : const Text(
-                              'Log In',
-                              style: TextStyle(fontSize: 16),
+                          : Text(
+                              'auth.login'.tr(),
+                              style: const TextStyle(fontSize: 16),
                             ),
                     ),
                   ),
@@ -160,7 +161,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text("Don't have an account? "),
+                      Text('auth.no_account'.tr()),
                       GestureDetector(
                         onTap: () {
                           Navigator.push(
@@ -170,9 +171,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           );
                         },
-                        child: const Text(
-                          'Sign Up',
-                          style: TextStyle(
+                        child: Text(
+                          'auth.sign_up'.tr(),
+                          style: const TextStyle(
                             color: mainColor,
                             fontWeight: FontWeight.bold,
                           ),

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
@@ -146,7 +147,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
         Marker(
           markerId: const MarkerId('selected_location'),
           position: _selectedLocation!,
-          infoWindow: const InfoWindow(title: 'Selected location'),
+          infoWindow: InfoWindow(title: 'location_picker.selected_loc'.tr()),
         ),
       );
     }
@@ -159,7 +160,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
         Marker(
           markerId: const MarkerId('current_location'),
           position: _currentLocation!,
-          infoWindow: const InfoWindow(title: 'Current location'),
+          infoWindow: InfoWindow(title: 'location_picker.current_loc'.tr()),
           icon: BitmapDescriptor.defaultMarkerWithHue(
             BitmapDescriptor.hueAzure,
           ),
@@ -344,9 +345,9 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
         backgroundColor: bgColor,
         elevation: 0,
         foregroundColor: textColor,
-        title: const Text(
-          'Pick Location',
-          style: TextStyle(fontWeight: FontWeight.w900),
+        title: Text(
+          'location_picker.title'.tr(),
+          style: const TextStyle(fontWeight: FontWeight.w900),
         ),
       ),
       body: Stack(
@@ -399,13 +400,13 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
               children: [
                 _MapFab(
                   icon: Icons.my_location_rounded,
-                  tooltip: 'Use current location',
+                  tooltip: 'location_picker.use_current_tooltip'.tr(),
                   onTap: _isLoadingLocation ? null : _useCurrentLocation,
                 ),
                 const SizedBox(height: 10),
                 _MapFab(
                   icon: Icons.center_focus_strong_rounded,
-                  tooltip: 'Center selected location',
+                  tooltip: 'location_picker.center_tooltip'.tr(),
                   onTap: _selectedLocation == null
                       ? null
                       : () => _moveCamera(_selectedLocation!),
@@ -478,7 +479,7 @@ class _SearchCard extends StatelessWidget {
           onSubmitted: (_) => onSearch(),
           onChanged: onChanged,
           decoration: InputDecoration(
-            hintText: 'Search place, street, or area...',
+            hintText: 'location_picker.search_hint'.tr(),
             hintStyle: const TextStyle(
               color: _LocationPickerScreenState.mutedText,
               fontWeight: FontWeight.w500,
@@ -578,7 +579,7 @@ class _HelperCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        selectedAddress ?? 'Selected location',
+                        selectedAddress ?? 'location_picker.selected_loc'.tr(),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -669,7 +670,7 @@ class _ConfirmLocationButton extends StatelessWidget {
     return ElevatedButton.icon(
       onPressed: enabled ? onPressed : null,
       icon: const Icon(Icons.check_circle_rounded),
-      label: const Text('Confirm Location'),
+      label: Text('location_picker.confirm'.tr()),
       style: ElevatedButton.styleFrom(
         backgroundColor: _LocationPickerScreenState.primaryColor,
         foregroundColor: Colors.white,

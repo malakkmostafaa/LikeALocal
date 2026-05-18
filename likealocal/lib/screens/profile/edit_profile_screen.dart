@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -80,7 +81,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not pick image: $e')),
+        SnackBar(content: Text('add_place.image_pick_failed'.tr(namedArgs: {'error': e.toString()}))),
       );
     }
   }
@@ -102,8 +103,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Profile updated successfully'),
+        SnackBar(
+          content: Text('edit_profile.updated'.tr()),
         ),
       );
 
@@ -131,9 +132,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text(
-          'Edit Profile',
-          style: TextStyle(
+        title: Text(
+          'edit_profile.title'.tr(),
+          style: const TextStyle(
             color: Colors.black,
             fontWeight: FontWeight.bold,
           ),
@@ -216,9 +217,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             Center(
               child: TextButton(
                 onPressed: isLoading ? null : _pickImage,
-                child: const Text(
-                  'Change profile picture',
-                  style: TextStyle(
+                child: Text(
+                  'edit_profile.change_picture'.tr(),
+                  style: const TextStyle(
                     color: primaryColor,
                     fontWeight: FontWeight.w600,
                   ),
@@ -231,9 +232,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             // =====================
             // NAME
             // =====================
-            const Text(
-              'Name',
-              style: TextStyle(
+            Text(
+              'edit_profile.name'.tr(),
+              style: const TextStyle(
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -245,7 +246,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               enabled: !isLoading,
               textInputAction: TextInputAction.next,
               decoration: InputDecoration(
-                hintText: 'Your name',
+                hintText: 'edit_profile.name_hint'.tr(),
                 filled: true,
                 fillColor: Colors.white,
                 border: OutlineInputBorder(
@@ -260,9 +261,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             // =====================
             // BIO
             // =====================
-            const Text(
-              'Bio',
-              style: TextStyle(
+            Text(
+              'edit_profile.bio'.tr(),
+              style: const TextStyle(
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -274,7 +275,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               enabled: !isLoading,
               maxLines: 3,
               decoration: InputDecoration(
-                hintText: 'Tell people a little about yourself',
+                hintText: 'edit_profile.bio_hint'.tr(),
                 filled: true,
                 fillColor: Colors.white,
                 border: OutlineInputBorder(
@@ -289,9 +290,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             // =====================
             // PREFERENCES
             // =====================
-            const Text(
-              'Preferences',
-              style: TextStyle(
+            Text(
+              'edit_profile.preferences'.tr(),
+              style: const TextStyle(
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -355,7 +356,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Max Distance: ${maxDistance.toInt()} km',
+                    'edit_profile.max_distance_label'.tr(namedArgs: {'km': maxDistance.toInt().toString()}),
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                     ),
@@ -393,7 +394,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    "Price Range: ${List.filled(priceRange, '\$').join('')}",
+                    'edit_profile.price_range_label'.tr(namedArgs: {'dollars': List.filled(priceRange, '\$').join('')}),
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                     ),
@@ -444,9 +445,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           strokeWidth: 3,
                         ),
                       )
-                    : const Text(
-                        'Save Changes',
-                        style: TextStyle(
+                    : Text(
+                        'edit_profile.save_changes'.tr(),
+                        style: const TextStyle(
                           fontSize: 18,
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
