@@ -1,74 +1,175 @@
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../models/chat_message.dart';
+import '../models/chat_conversation.dart';
+import 'fcm_service.dart';
+import 'package:flutter/foundation.dart';
 
-/// Thin wrapper around the Gemini generative model, locked to the
-/// LikeALocal assistant persona via a system prompt.
 class ChatService {
-  static const String _basePrompt = '''
-You are LikeALocal's in-app assistant. LikeALocal is a mobile app that helps
-users discover hidden gems in Cairo, Egypt — restaurants, cafés, art spots,
-hangouts, neighborhoods, and similar local favorites — and save them as "pins".
+  final _db = FirebaseFirestore.instance;
 
-Stay focused on:
-- Recommending places, food, neighborhoods, and experiences in Cairo.
-- Helping users use the app's features: pinning places, the 5-pin free
-  tier limit, upgrading to Premium for unlimited pins, writing reviews,
-  exploring the feed, and the map view.
-- Travel etiquette, local tips, and short cultural context when useful.
-
-Personalization rules:
-- An APP CONTEXT block below may include the signed-in user's name, plan,
-  preferences, pinned places, and a list of PLACES AVAILABLE IN THE APP.
-- When recommending, prefer names from PLACES AVAILABLE IN THE APP. Quote
-  the exact place name so the user can find it inside the app.
-- Use the user's preferences and pinned places to tailor suggestions
-  (e.g., "since you like Cafés and pinned Garden Nook, try ...").
-- If no app place fits the question, say so plainly and suggest the user
-  explore the Explore feed — don't invent places that aren't listed.
-
-General rules:
-- If a question is unrelated to travel, Cairo, or this app, politely say
-  you can only help with LikeALocal topics and offer an example question.
-- Keep replies short and friendly (2–4 sentences unless the user asks for
-  detail). Use plain text, no markdown headers.
-- Never invent specific business hours, prices, or addresses you are not
-  sure about — say "check the place's page in the app" instead.
-''';
-
-  /// Sends [history] (oldest first) + the new user [message] and returns
-  /// the assistant's reply text. [appContext], when non-empty, is appended
-  /// to the system prompt so the model can personalize answers.
-  Future<String> sendMessage({
-    required List<({String role, String text})> history,
-    required String message,
-    String appContext = '',
+  // Get or create a chat between current user and another user about a place
+  Future<String> getOrCreateChat({
+    required String otherUserId,
+    required String placeId,
+    required String placeName,
   }) async {
-    final apiKey = dotenv.env['GEMINI_API_KEY'] ?? '';
+    final myId = FirebaseAuth.instance.currentUser!.uid;
 
-    final systemPrompt = appContext.trim().isEmpty
-        ? _basePrompt
-        : '$_basePrompt\n\n--- APP CONTEXT ---\n$appContext';
+    // Sort so the chatId is always the same regardless of who initiates
+    final sorted = [myId, otherUserId]..sort();
+    final chatId = '${sorted[0]}_${sorted[1]}_$placeId';
 
-    final model = GenerativeModel(
-      model: 'gemini-2.5-flash',
-      apiKey: apiKey,
-      systemInstruction: Content.system(systemPrompt),
-    );
+    final ref = _db.collection('chats').doc(chatId);
 
-    final chat = model.startChat(
-      history: history.map((m) {
-        return m.role == 'user'
-            ? Content.text(m.text)
-            : Content.model([TextPart(m.text)]);
-      }).toList(),
-    );
+    try {
+      final snap = await ref.get();
 
-    final response = await chat.sendMessage(Content.text(message));
-    final reply = response.text?.trim();
-
-    if (reply == null || reply.isEmpty) {
-      throw Exception('Empty response from Gemini.');
+      if (!snap.exists) {
+        // Use set with merge:false so the rule sees all fields atomically
+        await ref.set({
+          'participants': sorted, // ← must match sorted order
+          'placeId': placeId,
+          'placeName': placeName,
+          'lastMessage': '',
+          'lastMessageTime': FieldValue.serverTimestamp(),
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+    } catch (e) {
+      // If permission denied even on read (chat doesn't exist yet),
+      // try creating directly
+      if (e.toString().contains('permission-denied')) {
+        await ref.set({
+          'participants': sorted,
+          'placeId': placeId,
+          'placeName': placeName,
+          'lastMessage': '',
+          'lastMessageTime': FieldValue.serverTimestamp(),
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      } else {
+        rethrow;
+      }
     }
-    return reply;
+
+    return chatId;
+  }
+
+  Stream<List<ChatConversation>> getMyConversations() {
+    final myId = FirebaseAuth.instance.currentUser?.uid;
+    if (myId == null) return const Stream.empty();
+
+    return _db
+        .collection('chats')
+        .where('participants', arrayContains: myId)
+        .snapshots()
+        .handleError((e) {
+      // Log but don't crash — index may still be building
+      debugPrint('Chat stream error: $e');
+    }).map((s) {
+      final convos =
+          s.docs.map((d) => ChatConversation.fromMap(d.data(), d.id)).toList();
+      // Sort client-side while index builds
+      convos.sort((a, b) {
+        final aTime =
+            a.lastMessageTime ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final bTime =
+            b.lastMessageTime ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return bTime.compareTo(aTime);
+      });
+      return convos;
+    });
+  }
+
+  Stream<List<ChatMessage>> getMessages(String chatId) {
+    return _db
+        .collection('chats')
+        .doc(chatId)
+        .collection('messages')
+        .orderBy('createdAt', descending: false)
+        .snapshots()
+        .map((s) =>
+            s.docs.map((d) => ChatMessage.fromMap(d.data(), d.id)).toList());
+  }
+
+  Future<void> sendMessage({
+    required String chatId,
+    required String text,
+    required String receiverId,
+  }) async {
+    final myId = FirebaseAuth.instance.currentUser!.uid;
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return;
+
+    // Check receiver's chat availability
+    final receiverDoc = await _db.collection('users').doc(receiverId).get();
+    final receiverData = receiverDoc.data();
+    if (receiverData != null) {
+      final chatEnabled = receiverData['chatEnabled'] ?? true;
+      if (!chatEnabled) {
+        throw Exception('This user has disabled chat.');
+      }
+      final startHour = receiverData['chatStartHour'] as int?;
+      final endHour = receiverData['chatEndHour'] as int?;
+      if (startHour != null && endHour != null) {
+        final hour = DateTime.now().hour;
+        bool available;
+        if (startHour <= endHour) {
+          available = hour >= startHour && hour < endHour;
+        } else {
+          available = hour >= startHour || hour < endHour;
+        }
+        if (!available) {
+          final startLabel = _formatHour(startHour);
+          final endLabel = _formatHour(endHour);
+          throw Exception(
+              'This user only accepts messages between $startLabel and $endLabel.');
+        }
+      }
+    }
+
+    final batch = _db.batch();
+
+    final msgRef =
+        _db.collection('chats').doc(chatId).collection('messages').doc();
+    batch.set(msgRef, {
+      'senderId': myId,
+      'text': trimmed,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    batch.update(_db.collection('chats').doc(chatId), {
+      'lastMessage': trimmed,
+      'lastMessageTime': FieldValue.serverTimestamp(),
+    });
+
+    await batch.commit();
+
+    try {
+      await _db.collection('notifications').add({
+        'userId': receiverId,
+        'title': 'New message',
+        'body': trimmed.length > 60 ? '${trimmed.substring(0, 60)}…' : trimmed,
+        'type': 'message',
+        'read': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      debugPrint('ChatService: notification write failed: $e');
+    }
+
+    await FcmService.sendToUser(
+      recipientUid: receiverId,
+      title: 'New message',
+      body: trimmed.length > 60 ? '${trimmed.substring(0, 60)}…' : trimmed,
+      data: {'type': 'message', 'chatId': chatId},
+    );
+  }
+
+  String _formatHour(int hour) {
+    final period = hour < 12 ? 'AM' : 'PM';
+    final displayHour = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+    return '$displayHour $period';
   }
 }

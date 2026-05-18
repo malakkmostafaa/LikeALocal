@@ -15,7 +15,9 @@ import '../../services/user_service.dart';
 import '../../services/recommendation_service.dart';
 import '../../utils/categories.dart';
 import '../place/place_details_screen.dart';
+import '../chat/ai_chatbot_screen.dart';
 import '../chat/chat_screen.dart';
+import '../notifications/notifications_screen.dart';
 
 import 'widgets/place_card.dart';
 import 'widgets/search_bar_widget.dart';
@@ -888,7 +890,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const ChatScreen()),
+                MaterialPageRoute(builder: (_) => const AiChatbotScreen()),
               );
             },
             backgroundColor: primaryColor,
@@ -1134,8 +1136,9 @@ class _ExploreHeader extends StatelessWidget {
         _HeaderIconButton(
           icon: Icons.notifications_none_rounded,
           onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Notifications coming soon')),
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const NotificationsScreen()),
             );
           },
         ),
@@ -1143,8 +1146,9 @@ class _ExploreHeader extends StatelessWidget {
         _HeaderIconButton(
           icon: Icons.chat_bubble_outline_rounded,
           onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Member chat coming soon')),
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ChatScreen()),
             );
           },
         ),

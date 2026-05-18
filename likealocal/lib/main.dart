@@ -4,27 +4,34 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 
 import 'firebase_options.dart';
-
 import 'providers/connectivity_provider.dart';
 import 'widgets/offline_banner.dart';
-
 import 'providers/auth_provider.dart' as app_auth;
 import 'providers/user_provider.dart';
 import 'providers/place_provider.dart';
 import 'providers/review_provider.dart';
 import 'providers/location_provider.dart';
-import 'providers/pin_provider.dart';
 import 'providers/chat_provider.dart';
-
+import 'providers/notification_provider.dart';
+import 'providers/ai_provider.dart';
+import 'services/notification_service.dart';
+import 'services/reminder_geofence_service.dart';
+import 'providers/pin_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/main_navigation.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await dotenv.load(fileName: '.env');
+  try {
+    await dotenv.load(fileName: '.env');
+  } catch (_) {
+    // .env missing — AI chat needs GEMINI_API_KEY; copy .env.example to .env
+  }
 
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
@@ -35,6 +42,14 @@ Future<void> main() async {
     cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
   );
 
+  // Initialize local notifications + FCM handlers
+  await NotificationService.init();
+  await ReminderGeofenceService.initialize();
+
+  if (!kIsWeb) {
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  }
+
   runApp(
     MultiProvider(
       providers: [
@@ -44,10 +59,12 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => ReviewProvider()),
         ChangeNotifierProvider(create: (_) => PinProvider()),
         ChangeNotifierProvider(create: (_) => ChatProvider()),
+        ChangeNotifierProvider(create: (_) => AiChatProvider()),
         ChangeNotifierProvider(create: (_) => ConnectivityProvider()),
         ChangeNotifierProvider(
           create: (_) => LocationProvider()..fetchLocation(),
         ),
+        ChangeNotifierProvider(create: (_) => NotificationProvider()),
       ],
       child: const MyApp(),
     ),
@@ -69,7 +86,6 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
         scaffoldBackgroundColor: backgroundColor,
-        fontFamily: null,
         colorScheme: ColorScheme.fromSeed(
           seedColor: primaryColor,
           primary: primaryColor,
@@ -100,7 +116,6 @@ class MyApp extends StatelessWidget {
           child: child ?? const SizedBox.shrink(),
         );
       },
-
       home: const AuthGate(),
     );
   }
@@ -119,6 +134,8 @@ class AuthGate extends StatelessWidget {
         }
 
         if (snapshot.hasData && snapshot.data != null) {
+          // Save FCM token every time user is confirmed logged in
+          NotificationService.saveFcmToken();
           return const MainNavigation();
         }
 
@@ -135,9 +152,7 @@ class SplashLoadingScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Scaffold(
       body: Center(
-        child: CircularProgressIndicator(
-          color: MyApp.primaryColor,
-        ),
+        child: CircularProgressIndicator(color: MyApp.primaryColor),
       ),
     );
   }

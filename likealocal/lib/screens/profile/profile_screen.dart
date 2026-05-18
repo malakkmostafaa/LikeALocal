@@ -6,18 +6,20 @@ import 'package:like_a_local/providers/connectivity_provider.dart';
 import 'package:like_a_local/providers/pin_provider.dart';
 import 'package:like_a_local/providers/place_provider.dart';
 import 'package:like_a_local/providers/review_provider.dart';
-import 'package:like_a_local/screens/chat/chat_screen.dart';
-
 import 'package:provider/provider.dart';
 
 import '../../models/place.dart';
 import '../../models/user_model.dart';
+import '../../services/reminder_geofence_service.dart';
 import '../../services/place_service.dart';
 import 'edit_profile_screen.dart';
 import 'settings_screen.dart';
 import 'super_user_screen.dart';
 import 'subscription_plans_screen.dart';
 import '../place/place_details_screen.dart';
+import '../chat/ai_chatbot_screen.dart';
+import '../chat/chat_screen.dart';
+
 import '../add_place/add_place_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -110,11 +112,13 @@ class _ProfileActionsPanel extends StatelessWidget {
                 child: _ProfileActionTile(
                   icon: Icons.smart_toy_outlined,
                   title: 'AI Guide',
-                  subtitle: 'Local assistant',
+                  subtitle: 'Ask me anything',
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const ChatScreen()),
+                      MaterialPageRoute(
+                        builder: (_) => const AiChatbotScreen(),
+                      ),
                     );
                   },
                 ),
@@ -365,6 +369,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (_selectedTab == 1) {
       return _SavedPinsSection(
         key: const ValueKey('saved_pins'),
+        uid: uid,
+        onOpenPlace: _openPlaceDetails,
+      );
+    }
+
+    if (_selectedTab == 2) {
+      return _RemindersSection(
+        key: const ValueKey('reminders'),
         uid: uid,
         onOpenPlace: _openPlaceDetails,
       );
@@ -1143,8 +1155,9 @@ class _ShortcutGrid extends StatelessWidget {
                   icon: Icons.smart_toy_outlined,
                   title: 'AI Guide',
                   onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('AI Guide coming soon')),
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const AiChatbotScreen()),
                     );
                   },
                 ),
@@ -1155,10 +1168,13 @@ class _ShortcutGrid extends StatelessWidget {
                   icon: Icons.send_outlined,
                   title: 'Messages',
                   onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Messages coming soon')),
-                    );
-                  },
+                      // Navigate to the Chats tab (index 4 in MainNavigation)
+                      // Simplest approach: push the screen directly
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const ChatScreen()),
+                      );
+                    },
                 ),
               ),
             ],
@@ -1255,7 +1271,7 @@ class _ProfileTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final labels = ['Places', 'Pins', 'Reviews'];
+    final labels = ['Places', 'Pins', 'Reminders', 'Reviews'];
 
     return Container(
       padding: const EdgeInsets.all(5),
@@ -1299,7 +1315,7 @@ class _ProfileTabs extends StatelessWidget {
                     color: selected
                         ? _ProfileScreenState.primaryColor
                         : _ProfileScreenState.textColor.withOpacity(0.55),
-                    fontSize: 13,
+                    fontSize: 12,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -1497,6 +1513,317 @@ class _PinnedPlaceTileState extends State<_PinnedPlaceTile> {
     );
   }
 }
+
+
+
+class _ReminderTestingHelpCard extends StatefulWidget {
+  const _ReminderTestingHelpCard();
+
+  @override
+  State<_ReminderTestingHelpCard> createState() =>
+      _ReminderTestingHelpCardState();
+}
+
+class _ReminderTestingHelpCardState extends State<_ReminderTestingHelpCard> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: _ProfileScreenState.cardColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _ProfileScreenState.borderColor),
+      ),
+      child: Column(
+        children: [
+          InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: () => setState(() => _expanded = !_expanded),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                children: [
+                  const Icon(Icons.help_outline_rounded,
+                      color: _ProfileScreenState.primaryColor, size: 20),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Text(
+                      'Testing at home (already at the place?)',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
+                        color: _ProfileScreenState.textColor,
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    _expanded
+                        ? Icons.expand_less_rounded
+                        : Icons.expand_more_rounded,
+                    color: _ProfileScreenState.mutedText,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_expanded) ...[
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
+              child: Text(
+                'Geofences only fire when you enter the 300 m zone. If you\'re already home, use one of these:\n\n'
+                '1. Tap the flask icon on a reminder to preview the alert instantly.\n\n'
+                '2. Real geofence test (emulator): Android Studio → More (⋯) → Location → set a point far away, wait ~30 s, then set your home coordinates again with the app closed.\n\n'
+                '3. Real geofence test (phone): enable Developer options → mock location, use a fake GPS app to jump away (~500 m), then back home.',
+                style: TextStyle(
+                  fontSize: 12,
+                  height: 1.45,
+                  color: _ProfileScreenState.mutedText.withOpacity(0.95),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _RemindersSection extends StatelessWidget {
+  final String uid;
+  final ValueChanged<Place> onOpenPlace;
+
+  const _RemindersSection({
+    super.key,
+    required this.uid,
+    required this.onOpenPlace,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('reminders')
+          .orderBy('createdAt', descending: true)
+          .snapshots(),
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const _SectionLoadingCard();
+        }
+
+        final docs = snap.data?.docs ?? [];
+
+        if (docs.isEmpty) {
+          return const _EmptySectionCard(
+            icon: Icons.notifications_none_rounded,
+            title: 'No reminders set',
+            message:
+                'Open any place and tap "Set a reminder" to get notified when you\'re nearby.',
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: _ProfileScreenState.softPrimary,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                    color: _ProfileScreenState.primaryColor.withOpacity(0.2)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.notifications_active_rounded,
+                      color: _ProfileScreenState.primaryColor, size: 18),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'You\'ll be notified when you\'re within 300m of these places.',
+                      style: TextStyle(
+                        color: _ProfileScreenState.primaryColor.withOpacity(0.85),
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const _ReminderTestingHelpCard(),
+            ...docs.map((doc) {
+              final data = doc.data();
+              final placeId = data['placeId']?.toString() ?? doc.id;
+              final placeName = data['placeName']?.toString() ?? 'Unknown place';
+              final lat = (data['lat'] as num?)?.toDouble() ?? 0.0;
+              final lng = (data['lng'] as num?)?.toDouble() ?? 0.0;
+              final radius = (data['radiusMeters'] as num?)?.toInt() ?? 300;
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 14),
+                decoration: BoxDecoration(
+                  color: _ProfileScreenState.cardColor,
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(color: _ProfileScreenState.borderColor),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.026),
+                      blurRadius: 13,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(28),
+                  onTap: () async {
+                    try {
+                      final d = await FirebaseFirestore.instance
+                          .collection('places')
+                          .doc(placeId)
+                          .get();
+                      if (!context.mounted) return;
+                      if (d.exists && d.data() != null) {
+                        onOpenPlace(Place.fromMap(d.data()!, d.id));
+                      }
+                    } catch (_) {}
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 52,
+                          height: 52,
+                          decoration: BoxDecoration(
+                            color: _ProfileScreenState.softPrimary,
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          child: const Icon(
+                            Icons.notifications_active_rounded,
+                            color: _ProfileScreenState.primaryColor,
+                            size: 26,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                placeName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: _ProfileScreenState.textColor,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              const SizedBox(height: 5),
+                              Row(
+                                children: [
+                                  const Icon(Icons.location_on_rounded,
+                                      color: _ProfileScreenState.mutedText,
+                                      size: 14),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}',
+                                    style: const TextStyle(
+                                      color: _ProfileScreenState.mutedText,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: _ProfileScreenState.primaryColor
+                                      .withOpacity(0.09),
+                                  borderRadius: BorderRadius.circular(99),
+                                ),
+                                child: Text(
+                                  'Notify within ${radius}m',
+                                  style: const TextStyle(
+                                    color: _ProfileScreenState.primaryColor,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.science_outlined,
+                              color: _ProfileScreenState.primaryColor),
+                          tooltip: 'Test reminder alert',
+                          onPressed: () async {
+                            await ReminderGeofenceService.triggerTestNotification(
+                              placeId: placeId,
+                              placeName: placeName,
+                            );
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Test notification sent — check your notification tray.',
+                                  ),
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                            }
+                          },
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.notifications_off_rounded,
+                              color: _ProfileScreenState.mutedText),
+                          tooltip: 'Remove reminder',
+                          onPressed: () async {
+                            final placeId =
+                                data['placeId'] as String? ?? doc.id;
+                            await FirebaseFirestore.instance
+                                .collection('users')
+                                .doc(uid)
+                                .collection('reminders')
+                                .doc(doc.id)
+                                .delete();
+                            await ReminderGeofenceService.unregisterReminder(
+                                placeId);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Reminder removed'),
+                                  duration: Duration(seconds: 1),
+                                ),
+                              );
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ],
+        );
+      },
+    );
+  }
+}
+
 
 class _MyReviewsSection extends StatefulWidget {
   final String uid;

@@ -9,6 +9,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_local_notifications: ^18.0.1
+  flutter_markdown: ^0.7.3
+  googleapis_auth: ^1.6.0
 
   # State Management
   provider: ^6.1.1
@@ -26,6 +29,8 @@ dependencies:
 
   # Location
   geolocator: ^14.0.2
+  native_geofence: ^1.2.2
+  permission_handler: ^11.3.1
   geocoding: ^4.0.0
   flutter_map: ^6.0.0
   latlong2: ^0.9.0
@@ -66,6 +71,7 @@ flutter:
 
   assets:
     - .env
+    - assets/service_account.json
   # assets:
   #   - assets/images/
   #   - assets/icons/

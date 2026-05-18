@@ -1,10 +1,12 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 
 import '../map/place_map_screen.dart';
 import '../../models/place.dart';
+import '../../services/reminder_geofence_service.dart';
 import '../../providers/connectivity_provider.dart';
 import '../../providers/place_provider.dart';
 import '../../services/place_service.dart';
@@ -14,6 +16,10 @@ import '../../widgets/video_player_widget.dart';
 import '../add_place/add_place_screen.dart';
 import '../explore/widgets/post_user_header.dart';
 import '../map/map_screen.dart';
+import '../../providers/chat_provider.dart';
+import '../chat/conversation_screen.dart';
+import '../../services/ai_service.dart';
+import '../../models/user_model.dart';
 import '../place_details/review_form.dart';
 import '../place_details/reviews_list.dart';
 
@@ -46,16 +52,128 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
   static const Color borderColor = Color(0xFFEEDDD2);
   static const Color goldColor = Color(0xFFE5A11A);
 
+  // ── Reminder state ─────────────────────────────────────────
+  bool _hasReminder = false;
+  bool _isLoadingReminder = true;
+
   @override
   void initState() {
     super.initState();
-
+    _checkIfReminder();
     _recommendationService.trackViewPlace(
       widget.place.id,
       widget.place.category,
       budgetLevel: widget.place.budgetLevel,
     );
   }
+
+  // ── Reminder helpers ───────────────────────────────────────
+
+  Future<void> _checkIfReminder() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      if (mounted) setState(() => _isLoadingReminder = false);
+      return;
+    }
+
+    try {                                          // wrap in try/catch
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('reminders')
+          .doc(widget.place.id)
+          .get();
+
+      if (!mounted) return;
+      setState(() {
+        _hasReminder = doc.exists;
+        _isLoadingReminder = false;
+      });
+    } catch (e) {
+      debugPrint('Reminder check error: $e');      // this will tell you the real error
+      if (mounted) setState(() => _isLoadingReminder = false);
+    }
+  }
+
+  Future<void> _toggleReminder() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please log in first')),
+      );
+      return;
+    }
+
+    // Validate that the place has coordinates
+    if (widget.place.location.latitude == 0 && widget.place.location.longitude == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('This place has no location set — reminder unavailable'),
+        ),
+      );
+      return;
+    }
+
+    final previous = _hasReminder;
+    setState(() => _hasReminder = !_hasReminder);
+
+    try {
+      final docRef = FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('reminders')
+          .doc(widget.place.id);
+
+      if (_hasReminder) {
+        // Save reminder with all data needed for proximity check
+        await docRef.set({
+          'placeId': widget.place.id,
+          'placeName': widget.place.name,
+          'lat': widget.place.location.latitude,
+          'lng': widget.place.location.longitude,
+          'radiusMeters': 300, // notify when within 300m
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+        await ReminderGeofenceService.registerReminder(
+          placeId: widget.place.id,
+          placeName: widget.place.name,
+          lat: widget.place.location.latitude,
+          lng: widget.place.location.longitude,
+        );
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Reminder set! Allow location "All the time" to get alerts when the app is closed.',
+              ),
+              duration: Duration(seconds: 4),
+            ),
+          );
+        }
+      } else {
+        await docRef.delete();
+        await ReminderGeofenceService.unregisterReminder(widget.place.id);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Reminder removed'),
+              duration: Duration(seconds: 1),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _hasReminder = previous);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not update reminder: $e')),
+      );
+    }
+  }
+
+  // ──────────────────────────────────────────────────────────
 
   String _formatDistance(double meters) {
     if (meters < 1000) return '${meters.round()} m away';
@@ -162,6 +280,9 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
         return _OverviewSection(
           key: const ValueKey('overview'),
           place: place,
+          hasReminder: _hasReminder,
+          isLoadingReminder: _isLoadingReminder,
+          onToggleReminder: _toggleReminder,
         );
     }
   }
@@ -337,6 +458,111 @@ class _HeroHeader extends StatelessWidget {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Reminder button widget
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ReminderButton extends StatelessWidget {
+  final bool hasReminder;
+  final bool isLoading;
+  final VoidCallback onTap;
+
+  const _ReminderButton({
+    required this.hasReminder,
+    required this.isLoading,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const primaryColor = Color(0xFFE26D45);
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(24),
+      onTap: isLoading ? null : onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: hasReminder
+              ? primaryColor.withOpacity(0.10)
+              : Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: hasReminder
+                ? primaryColor.withOpacity(0.35)
+                : Colors.grey.shade200,
+          ),
+        ),
+        child: Row(
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.all(11),
+              decoration: BoxDecoration(
+                color: hasReminder ? primaryColor : Colors.grey.shade300,
+                shape: BoxShape.circle,
+              ),
+              child: isLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Icon(
+                      hasReminder
+                          ? Icons.notifications_active_rounded
+                          : Icons.notifications_none_rounded,
+                      color: Colors.white,
+                      size: 22,
+                    ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    hasReminder ? 'Reminder active' : 'Set a reminder',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    hasReminder
+                        ? 'You\'ll be notified when you\'re within 300m'
+                        : 'Get notified when you\'re near this place',
+                    style: const TextStyle(
+                      color: Color(0xFF777777),
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              hasReminder
+                  ? Icons.check_circle_rounded
+                  : Icons.add_circle_outline_rounded,
+              color: hasReminder ? primaryColor : Colors.grey,
+              size: 22,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// All widgets below are UNCHANGED from your original file
+// ─────────────────────────────────────────────────────────────────────────────
+
 class _HeroMedia extends StatelessWidget {
   final Place place;
 
@@ -428,7 +654,7 @@ class _PlaceIdentityBlock extends StatelessWidget {
               child: PostUserHeader(
                 userId: place.createdBy,
                 subtitle: 'Place Contributor',
-                onMorePressed: () {},
+                trailing: _ContributorChatTrailing(place: place),
               ),
             ),
             const SizedBox(height: 14),
@@ -569,10 +795,16 @@ class _DetailsTabBar extends StatelessWidget {
 
 class _OverviewSection extends StatelessWidget {
   final Place place;
+  final bool hasReminder;
+  final bool isLoadingReminder;
+  final VoidCallback onToggleReminder;
 
   const _OverviewSection({
     super.key,
     required this.place,
+    required this.hasReminder,
+    required this.isLoadingReminder,
+    required this.onToggleReminder,
   });
 
   @override
@@ -580,6 +812,12 @@ class _OverviewSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        _ReminderButton(
+          hasReminder: hasReminder,
+          isLoading: isLoadingReminder,
+          onTap: onToggleReminder,
+        ),
+        const SizedBox(height: 16),
         if (place.description.isNotEmpty) ...[
           _InfoCard(
             child: Text(
@@ -636,6 +874,8 @@ class _ReviewsSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const _SectionTitle('Reviews'),
+        const SizedBox(height: 12),
+        _AiReviewSummary(place: place),
         const SizedBox(height: 12),
         ReviewForm(placeId: place.id),
         const SizedBox(height: 16),
@@ -1204,7 +1444,6 @@ class _EmptyStateCard extends StatelessWidget {
 
 class _SectionTitle extends StatelessWidget {
   final String text;
-
   const _SectionTitle(this.text);
 
   @override
@@ -1221,6 +1460,437 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
+class _ContributorChatTrailing extends StatefulWidget {
+  final Place place;
+
+  const _ContributorChatTrailing({required this.place});
+
+  @override
+  State<_ContributorChatTrailing> createState() =>
+      _ContributorChatTrailingState();
+}
+
+class _ContributorChatTrailingState extends State<_ContributorChatTrailing> {
+  AppUser? _contributor;
+  bool _loadingContributor = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadContributor();
+  }
+
+  Future<void> _loadContributor() async {
+    if (widget.place.createdBy == null || widget.place.createdBy!.isEmpty) {
+      setState(() => _loadingContributor = false);
+      return;
+    }
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(widget.place.createdBy)
+          .get();
+      if (doc.exists && doc.data() != null) {
+        setState(() {
+          _contributor = AppUser.fromMap(doc.data()!);
+          _loadingContributor = false;
+        });
+      } else {
+        setState(() => _loadingContributor = false);
+      }
+    } catch (_) {
+      setState(() => _loadingContributor = false);
+    }
+  }
+
+  Future<void> _openChat() async {
+    const primary = Color(0xFFE26D45);
+
+    String subtitle = 'Ask the local who added this place';
+    if (_contributor != null) {
+      if (!_contributor!.chatEnabled) {
+        subtitle = 'This user has disabled chat';
+      } else if (_contributor!.chatStartHour != null &&
+          _contributor!.chatEndHour != null) {
+        final start = _formatHour(_contributor!.chatStartHour!);
+        final end = _formatHour(_contributor!.chatEndHour!);
+        if (!_contributor!.isChatAvailableNow) {
+          subtitle = 'Available $start – $end (currently unavailable)';
+        } else {
+          subtitle = 'Available $start – $end';
+        }
+      }
+    }
+
+    if (_contributor != null && !_contributor!.isChatAvailableNow) {
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text(
+            'Chat unavailable',
+            style: TextStyle(fontWeight: FontWeight.w900),
+          ),
+          content: Text(subtitle),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK', style: TextStyle(color: primary)),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    final chatProvider = context.read<ChatProvider>();
+    try {
+      final chatId = await chatProvider.openChat(
+        otherUserId: widget.place.createdBy!,
+        placeId: widget.place.id,
+        placeName: widget.place.name,
+      );
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ConversationScreen(
+            chatId: chatId,
+            otherUserId: widget.place.createdBy!,
+            placeName: widget.place.name,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not open chat: $e')),
+      );
+    }
+  }
+
+  String _formatHour(int hour) {
+    final period = hour < 12 ? 'AM' : 'PM';
+    final h = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+    return '$h $period';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const primary = Color(0xFFE26D45);
+    final myId = FirebaseAuth.instance.currentUser?.uid;
+
+    if (widget.place.createdBy == null || widget.place.createdBy!.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    if (widget.place.createdBy == myId) return const SizedBox.shrink();
+    if (_loadingContributor) {
+      return const Padding(
+        padding: EdgeInsets.all(12),
+        child: SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2, color: primary),
+        ),
+      );
+    }
+
+    return IconButton(
+      tooltip: 'Chat with contributor',
+      onPressed: _openChat,
+      icon: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: primary.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Icon(Icons.chat_rounded, color: primary, size: 22),
+      ),
+    );
+  }
+}
+
+class _ChatWithContributorButton extends StatefulWidget {
+  final Place place;
+  const _ChatWithContributorButton({required this.place});
+
+  @override
+  State<_ChatWithContributorButton> createState() =>
+      _ChatWithContributorButtonState();
+}
+
+class _ChatWithContributorButtonState
+    extends State<_ChatWithContributorButton> {
+  AppUser? _contributor;
+  bool _loadingContributor = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadContributor();
+  }
+
+  Future<void> _loadContributor() async {
+    if (widget.place.createdBy == null || widget.place.createdBy!.isEmpty) {
+      setState(() => _loadingContributor = false);
+      return;
+    }
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(widget.place.createdBy)
+          .get();
+      if (doc.exists && doc.data() != null) {
+        setState(() {
+          _contributor = AppUser.fromMap(doc.data()!);
+          _loadingContributor = false;
+        });
+      } else {
+        setState(() => _loadingContributor = false);
+      }
+    } catch (_) {
+      setState(() => _loadingContributor = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final myId = FirebaseAuth.instance.currentUser?.uid;
+    if (widget.place.createdBy == null || widget.place.createdBy!.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    if (widget.place.createdBy == myId) return const SizedBox.shrink();
+    if (_loadingContributor) return const SizedBox.shrink();
+
+    const primary = Color(0xFFE26D45);
+    const muted = Color(0xFF777777);
+
+    String subtitle = 'Ask the local who added this place';
+    Color subtitleColor = muted;
+
+    if (_contributor != null) {
+      if (!_contributor!.chatEnabled) {
+        subtitle = 'This user has disabled chat';
+        subtitleColor = Colors.red.shade400;
+      } else if (_contributor!.chatStartHour != null &&
+          _contributor!.chatEndHour != null) {
+        final start = _formatHour(_contributor!.chatStartHour!);
+        final end = _formatHour(_contributor!.chatEndHour!);
+        if (!_contributor!.isChatAvailableNow) {
+          subtitle = 'Available $start – $end (currently unavailable)';
+          subtitleColor = Colors.orange.shade700;
+        } else {
+          subtitle = 'Available $start – $end';
+        }
+      }
+    }
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(24),
+      onTap: () async {
+        if (_contributor != null && !_contributor!.isChatAvailableNow) {
+          showDialog(
+            context: context,
+            builder: (_) => AlertDialog(
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20)),
+              title: const Text('Chat unavailable',
+                  style: TextStyle(fontWeight: FontWeight.w900)),
+              content: Text(subtitle),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child:
+                      const Text('OK', style: TextStyle(color: primary)),
+                ),
+              ],
+            ),
+          );
+          return;
+        }
+
+        final chatProvider = context.read<ChatProvider>();
+        try {
+          final chatId = await chatProvider.openChat(
+            otherUserId: widget.place.createdBy!,
+            placeId: widget.place.id,
+            placeName: widget.place.name,
+          );
+          if (!context.mounted) return;
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ConversationScreen(
+                chatId: chatId,
+                otherUserId: widget.place.createdBy!,
+                placeName: widget.place.name,
+              ),
+            ),
+          );
+        } catch (e) {
+          if (!context.mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not open chat: $e')),
+          );
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: primary.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: primary.withOpacity(0.18)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(11),
+              decoration:
+                  const BoxDecoration(color: primary, shape: BoxShape.circle),
+              child: const Icon(Icons.chat_rounded, color: Colors.white),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Chat with contributor',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w900, fontSize: 16)),
+                  const SizedBox(height: 4),
+                  Text(subtitle,
+                      style: TextStyle(color: subtitleColor, fontSize: 13)),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatHour(int hour) {
+    final period = hour < 12 ? 'AM' : 'PM';
+    final h = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+    return '$h $period';
+  }
+}
+
+class _AiReviewSummary extends StatefulWidget {
+  final Place place;
+  const _AiReviewSummary({required this.place});
+
+  @override
+  State<_AiReviewSummary> createState() => _AiReviewSummaryState();
+}
+
+class _AiReviewSummaryState extends State<_AiReviewSummary> {
+  String? _summary;
+  bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.place.reviewCount > 0) _loadSummary();
+  }
+
+  Future<void> _loadSummary() async {
+    setState(() => _loading = true);
+
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('places')
+          .doc(widget.place.id)
+          .collection('reviews')
+          .orderBy('createdAt', descending: true)
+          .limit(10)
+          .get();
+
+      final texts = snap.docs
+          .map((d) => d.data()['text']?.toString() ?? '')
+          .where((s) => s.isNotEmpty)
+          .toList();
+
+      if (!mounted || texts.isEmpty) {
+        setState(() => _loading = false);
+        return;
+      }
+
+      final result = await AiService().summarizeReviews(
+        placeName: widget.place.name,
+        reviews: texts,
+      );
+
+      if (mounted) setState(() { _summary = result; _loading = false; });
+    } catch (e) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.place.reviewCount == 0) return const SizedBox.shrink();
+
+    if (_loading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, color: Color(0xFFE26D45)),
+            ),
+            SizedBox(width: 8),
+            Text('Summarizing reviews…',
+                style: TextStyle(color: Colors.grey)),
+          ],
+        ),
+      );
+    }
+
+    if (_summary == null) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFBE8DF).withOpacity(0.5),
+        borderRadius: BorderRadius.circular(20),
+        border:
+            Border.all(color: const Color(0xFFE26D45).withOpacity(0.15)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.auto_awesome_rounded,
+              color: Color(0xFFE26D45), size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('AI Summary',
+                    style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFFE26D45))),
+                const SizedBox(height: 6),
+                Text(_summary!,
+                    style: const TextStyle(
+                        height: 1.5, color: Color(0xFF444444))),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 class _DetailsTabData {
   final String label;
   final IconData icon;

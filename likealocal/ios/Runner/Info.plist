@@ -59,6 +59,14 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>LikeALocal uses your location to notify you when you are near places on your reminder list.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>LikeALocal uses your location to notify you when you are near places on your reminder list.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
