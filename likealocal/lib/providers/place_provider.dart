@@ -75,7 +75,8 @@ class PlaceProvider extends ChangeNotifier {
     List<String> localVideoPaths = const [],
     required bool isOffline,
   }) async {
-    if (isOffline && (localImagePaths.isNotEmpty || localVideoPaths.isNotEmpty)) {
+    if (isOffline &&
+        (localImagePaths.isNotEmpty || localVideoPaths.isNotEmpty)) {
       throw Exception(
         'Media uploads are not available offline. Please reconnect.',
       );
@@ -123,7 +124,33 @@ class PlaceProvider extends ChangeNotifier {
       throw Exception('Deleting places is not available offline.');
     }
 
-    await _placeService.deletePlace(place.id, place.createdBy ?? '');
+    final oldPlaces = List<Place>.from(_places);
+
+    // Optimistically remove from UI immediately.
+    _places = _places.where((p) => p.id != place.id).toList();
+    _loadedFromCache = false;
+    _error = null;
+
+    await _saveToCache(_places);
+    notifyListeners();
+
+    try {
+      await _placeService.deletePlace(place.id, place.createdBy ?? '');
+
+      // Make sure cache remains clean after successful delete.
+      _places = _places.where((p) => p.id != place.id).toList();
+      await _saveToCache(_places);
+      notifyListeners();
+    } catch (e) {
+      // Roll back if delete fails.
+      _places = oldPlaces;
+      _error = e.toString();
+
+      await _saveToCache(_places);
+      notifyListeners();
+
+      rethrow;
+    }
   }
 
   List<Place> placesByUser(String uid) {

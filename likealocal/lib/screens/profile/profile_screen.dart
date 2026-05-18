@@ -1157,7 +1157,8 @@ class _ShortcutGrid extends StatelessWidget {
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const AiChatbotScreen()),
+                      MaterialPageRoute(
+                          builder: (_) => const AiChatbotScreen()),
                     );
                   },
                 ),
@@ -1168,13 +1169,13 @@ class _ShortcutGrid extends StatelessWidget {
                   icon: Icons.send_outlined,
                   title: 'Messages',
                   onTap: () {
-                      // Navigate to the Chats tab (index 4 in MainNavigation)
-                      // Simplest approach: push the screen directly
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const ChatScreen()),
-                      );
-                    },
+                    // Navigate to the Chats tab (index 4 in MainNavigation)
+                    // Simplest approach: push the screen directly
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ChatScreen()),
+                    );
+                  },
                 ),
               ),
             ],
@@ -1514,84 +1515,6 @@ class _PinnedPlaceTileState extends State<_PinnedPlaceTile> {
   }
 }
 
-
-
-class _ReminderTestingHelpCard extends StatefulWidget {
-  const _ReminderTestingHelpCard();
-
-  @override
-  State<_ReminderTestingHelpCard> createState() =>
-      _ReminderTestingHelpCardState();
-}
-
-class _ReminderTestingHelpCardState extends State<_ReminderTestingHelpCard> {
-  bool _expanded = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: _ProfileScreenState.cardColor,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _ProfileScreenState.borderColor),
-      ),
-      child: Column(
-        children: [
-          InkWell(
-            borderRadius: BorderRadius.circular(20),
-            onTap: () => setState(() => _expanded = !_expanded),
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Row(
-                children: [
-                  const Icon(Icons.help_outline_rounded,
-                      color: _ProfileScreenState.primaryColor, size: 20),
-                  const SizedBox(width: 10),
-                  const Expanded(
-                    child: Text(
-                      'Testing at home (already at the place?)',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 13,
-                        color: _ProfileScreenState.textColor,
-                      ),
-                    ),
-                  ),
-                  Icon(
-                    _expanded
-                        ? Icons.expand_less_rounded
-                        : Icons.expand_more_rounded,
-                    color: _ProfileScreenState.mutedText,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          if (_expanded) ...[
-            const Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
-              child: Text(
-                'Geofences only fire when you enter the 300 m zone. If you\'re already home, use one of these:\n\n'
-                '1. Tap the flask icon on a reminder to preview the alert instantly.\n\n'
-                '2. Real geofence test (emulator): Android Studio → More (⋯) → Location → set a point far away, wait ~30 s, then set your home coordinates again with the app closed.\n\n'
-                '3. Real geofence test (phone): enable Developer options → mock location, use a fake GPS app to jump away (~500 m), then back home.',
-                style: TextStyle(
-                  fontSize: 12,
-                  height: 1.45,
-                  color: _ProfileScreenState.mutedText.withOpacity(0.95),
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
 class _RemindersSection extends StatelessWidget {
   final String uid;
   final ValueChanged<Place> onOpenPlace;
@@ -1648,7 +1571,8 @@ class _RemindersSection extends StatelessWidget {
                     child: Text(
                       'You\'ll be notified when you\'re within 300m of these places.',
                       style: TextStyle(
-                        color: _ProfileScreenState.primaryColor.withOpacity(0.85),
+                        color:
+                            _ProfileScreenState.primaryColor.withOpacity(0.85),
                         fontSize: 12.5,
                         fontWeight: FontWeight.w600,
                         height: 1.35,
@@ -1658,11 +1582,12 @@ class _RemindersSection extends StatelessWidget {
                 ],
               ),
             ),
-            const _ReminderTestingHelpCard(),
+            // const _ReminderTestingHelpCard(),
             ...docs.map((doc) {
               final data = doc.data();
               final placeId = data['placeId']?.toString() ?? doc.id;
-              final placeName = data['placeName']?.toString() ?? 'Unknown place';
+              final placeName =
+                  data['placeName']?.toString() ?? 'Unknown place';
               final lat = (data['lat'] as num?)?.toDouble() ?? 0.0;
               final lng = (data['lng'] as num?)?.toDouble() ?? 0.0;
               final radius = (data['radiusMeters'] as num?)?.toInt() ?? 300;
@@ -1766,27 +1691,6 @@ class _RemindersSection extends StatelessWidget {
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.science_outlined,
-                              color: _ProfileScreenState.primaryColor),
-                          tooltip: 'Test reminder alert',
-                          onPressed: () async {
-                            await ReminderGeofenceService.triggerTestNotification(
-                              placeId: placeId,
-                              placeName: placeName,
-                            );
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Test notification sent — check your notification tray.',
-                                  ),
-                                  duration: Duration(seconds: 2),
-                                ),
-                              );
-                            }
-                          },
-                        ),
-                        IconButton(
                           icon: const Icon(Icons.notifications_off_rounded,
                               color: _ProfileScreenState.mutedText),
                           tooltip: 'Remove reminder',
@@ -1823,7 +1727,6 @@ class _RemindersSection extends StatelessWidget {
     );
   }
 }
-
 
 class _MyReviewsSection extends StatefulWidget {
   final String uid;

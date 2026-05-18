@@ -76,7 +76,8 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
       return;
     }
 
-    try {                                          // wrap in try/catch
+    try {
+      // wrap in try/catch
       final doc = await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
@@ -90,7 +91,8 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
         _isLoadingReminder = false;
       });
     } catch (e) {
-      debugPrint('Reminder check error: $e');      // this will tell you the real error
+      debugPrint(
+          'Reminder check error: $e'); // this will tell you the real error
       if (mounted) setState(() => _isLoadingReminder = false);
     }
   }
@@ -105,10 +107,12 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
     }
 
     // Validate that the place has coordinates
-    if (widget.place.location.latitude == 0 && widget.place.location.longitude == 0) {
+    if (widget.place.location.latitude == 0 &&
+        widget.place.location.longitude == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('This place has no location set — reminder unavailable'),
+          content:
+              Text('This place has no location set — reminder unavailable'),
         ),
       );
       return;
@@ -575,16 +579,7 @@ class _HeroMedia extends StatelessWidget {
     final hasImage = place.images.isNotEmpty && place.images.first.isNotEmpty;
 
     if (!hasImage) {
-      return Container(
-        color: _PlaceDetailsScreenState.softPrimary,
-        child: const Center(
-          child: Icon(
-            Icons.image_rounded,
-            size: 78,
-            color: _PlaceDetailsScreenState.primaryColor,
-          ),
-        ),
-      );
+      return _PlaceHeroFallback(place: place);
     }
 
     return Hero(
@@ -605,6 +600,107 @@ class _HeroMedia extends StatelessWidget {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _PlaceHeroFallback extends StatelessWidget {
+  final Place place;
+
+  const _PlaceHeroFallback({
+    required this.place,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: _PlaceDetailsScreenState.softPrimary,
+      child: Stack(
+        children: [
+          Positioned(
+            right: -32,
+            top: -32,
+            child: Icon(
+              Icons.location_city_rounded,
+              size: 170,
+              color: _PlaceDetailsScreenState.primaryColor.withOpacity(0.10),
+            ),
+          ),
+          Positioned(
+            left: -40,
+            bottom: -40,
+            child: Container(
+              width: 150,
+              height: 150,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.32),
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 28),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 82,
+                    height: 82,
+                    decoration: BoxDecoration(
+                      color: _PlaceDetailsScreenState.cardColor,
+                      borderRadius: BorderRadius.circular(30),
+                      border: Border.all(
+                        color: _PlaceDetailsScreenState.borderColor,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: _PlaceDetailsScreenState.primaryColor
+                              .withOpacity(0.13),
+                          blurRadius: 20,
+                          offset: const Offset(0, 9),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.storefront_rounded,
+                      color: _PlaceDetailsScreenState.primaryColor,
+                      size: 40,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    place.name.trim().isEmpty ? 'Local place' : place.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: _PlaceDetailsScreenState.textColor,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    place.category.trim().isEmpty
+                        ? 'No photo added yet'
+                        : place.category,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: _PlaceDetailsScreenState.mutedText,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1703,8 +1799,7 @@ class _ChatWithContributorButtonState
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child:
-                      const Text('OK', style: TextStyle(color: primary)),
+                  child: const Text('OK', style: TextStyle(color: primary)),
                 ),
               ],
             ),
@@ -1758,8 +1853,8 @@ class _ChatWithContributorButtonState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text('Chat with contributor',
-                      style: TextStyle(
-                          fontWeight: FontWeight.w900, fontSize: 16)),
+                      style:
+                          TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
                   const SizedBox(height: 4),
                   Text(subtitle,
                       style: TextStyle(color: subtitleColor, fontSize: 13)),
@@ -1825,7 +1920,11 @@ class _AiReviewSummaryState extends State<_AiReviewSummary> {
         reviews: texts,
       );
 
-      if (mounted) setState(() { _summary = result; _loading = false; });
+      if (mounted)
+        setState(() {
+          _summary = result;
+          _loading = false;
+        });
     } catch (e) {
       if (mounted) setState(() => _loading = false);
     }
@@ -1847,8 +1946,7 @@ class _AiReviewSummaryState extends State<_AiReviewSummary> {
                   strokeWidth: 2, color: Color(0xFFE26D45)),
             ),
             SizedBox(width: 8),
-            Text('Summarizing reviews…',
-                style: TextStyle(color: Colors.grey)),
+            Text('Summarizing reviews…', style: TextStyle(color: Colors.grey)),
           ],
         ),
       );
@@ -1862,8 +1960,7 @@ class _AiReviewSummaryState extends State<_AiReviewSummary> {
       decoration: BoxDecoration(
         color: const Color(0xFFFBE8DF).withOpacity(0.5),
         borderRadius: BorderRadius.circular(20),
-        border:
-            Border.all(color: const Color(0xFFE26D45).withOpacity(0.15)),
+        border: Border.all(color: const Color(0xFFE26D45).withOpacity(0.15)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1877,12 +1974,11 @@ class _AiReviewSummaryState extends State<_AiReviewSummary> {
               children: [
                 const Text('AI Summary',
                     style: TextStyle(
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFFE26D45))),
+                        fontWeight: FontWeight.w900, color: Color(0xFFE26D45))),
                 const SizedBox(height: 6),
                 Text(_summary!,
-                    style: const TextStyle(
-                        height: 1.5, color: Color(0xFF444444))),
+                    style:
+                        const TextStyle(height: 1.5, color: Color(0xFF444444))),
               ],
             ),
           ),
@@ -1891,6 +1987,7 @@ class _AiReviewSummaryState extends State<_AiReviewSummary> {
     );
   }
 }
+
 class _DetailsTabData {
   final String label;
   final IconData icon;

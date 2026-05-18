@@ -10,7 +10,7 @@ import '../../models/place.dart';
 import '../../models/user_model.dart';
 import '../../providers/location_provider.dart';
 import '../../providers/user_provider.dart';
-import '../../services/place_service.dart';
+import '../../providers/place_provider.dart';
 import '../../services/user_service.dart';
 import '../../services/recommendation_service.dart';
 import '../../utils/categories.dart';
@@ -41,11 +41,10 @@ class ExploreScreen extends StatefulWidget {
 
 class _ExploreScreenState extends State<ExploreScreen> {
   final TextEditingController _searchController = TextEditingController();
-  final PlaceService _placeService = PlaceService();
+
   final RecommendationService _recommendationService = RecommendationService();
   final ScrollController _scrollController = ScrollController();
 
-  late final Stream<List<Place>> _placesStream;
   List<Place> _latestPlaces = [];
   final stt.SpeechToText _speech = stt.SpeechToText();
 
@@ -78,11 +77,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
   static const Color borderColor = Color(0xFFEEDDD2);
 
   @override
+  @override
   void initState() {
     super.initState();
-    _placesStream = _placeService.getPlaces();
+
     _loadRecommendationProfile();
     _initSpeech();
+
     _scrollController.addListener(() {
       final shouldShow = _scrollController.offset > 420;
 
@@ -101,6 +102,35 @@ class _ExploreScreenState extends State<ExploreScreen> {
     _scrollController.dispose();
     _speech.stop();
     super.dispose();
+  }
+
+  int _compareSuperUserPriority(Place a, Place b) {
+    final aIsSuper = _creators[a.createdBy]?.isSuperUser == true;
+    final bIsSuper = _creators[b.createdBy]?.isSuperUser == true;
+
+    if (aIsSuper && !bIsSuper) return -1;
+    if (!aIsSuper && bIsSuper) return 1;
+
+    return 0;
+  }
+
+  void _sortDefaultExploreFeed(List<Place> places) {
+    places.sort((a, b) {
+      final superCompare = _compareSuperUserPriority(a, b);
+
+      if (superCompare != 0) return superCompare;
+
+      final ratingCompare = b.rating.compareTo(a.rating);
+      if (ratingCompare != 0) return ratingCompare;
+
+      final reviewCompare = b.reviewCount.compareTo(a.reviewCount);
+      if (reviewCompare != 0) return reviewCompare;
+
+      final aTime = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final bTime = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+
+      return bTime.compareTo(aTime);
+    });
   }
 
   Future<void> _toggleNearby() async {
@@ -387,7 +417,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
       }
     }
 
-    if (_showForYou || _sortMode == ExploreSortMode.recommended) {
+    if (_showForYou) {
       filtered.sort((a, b) {
         final scoreA = _recommendationScore(a, user);
         final scoreB = _recommendationScore(b, user);
@@ -400,6 +430,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
     if (_showNewestFirst || _sortMode == ExploreSortMode.newest) {
       filtered.sort((a, b) {
+        final superCompare = _compareSuperUserPriority(a, b);
+        if (superCompare != 0) return superCompare;
+
         final aTime = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
         final bTime = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
 
@@ -412,8 +445,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
     switch (_sortMode) {
       case ExploreSortMode.rating:
         filtered.sort((a, b) {
-          final ratingCompare = b.rating.compareTo(a.rating);
+          final superCompare = _compareSuperUserPriority(a, b);
+          if (superCompare != 0) return superCompare;
 
+          final ratingCompare = b.rating.compareTo(a.rating);
           if (ratingCompare != 0) return ratingCompare;
 
           return b.reviewCount.compareTo(a.reviewCount);
@@ -422,8 +457,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
       case ExploreSortMode.mostReviewed:
         filtered.sort((a, b) {
-          final reviewCompare = b.reviewCount.compareTo(a.reviewCount);
+          final superCompare = _compareSuperUserPriority(a, b);
+          if (superCompare != 0) return superCompare;
 
+          final reviewCompare = b.reviewCount.compareTo(a.reviewCount);
           if (reviewCompare != 0) return reviewCompare;
 
           return b.rating.compareTo(a.rating);
@@ -432,8 +469,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
       case ExploreSortMode.budgetLowToHigh:
         filtered.sort((a, b) {
-          final budgetCompare = a.budgetLevel.compareTo(b.budgetLevel);
+          final superCompare = _compareSuperUserPriority(a, b);
+          if (superCompare != 0) return superCompare;
 
+          final budgetCompare = a.budgetLevel.compareTo(b.budgetLevel);
           if (budgetCompare != 0) return budgetCompare;
 
           return b.rating.compareTo(a.rating);
@@ -442,8 +481,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
       case ExploreSortMode.budgetHighToLow:
         filtered.sort((a, b) {
-          final budgetCompare = b.budgetLevel.compareTo(a.budgetLevel);
+          final superCompare = _compareSuperUserPriority(a, b);
+          if (superCompare != 0) return superCompare;
 
+          final budgetCompare = b.budgetLevel.compareTo(a.budgetLevel);
           if (budgetCompare != 0) return budgetCompare;
 
           return b.rating.compareTo(a.rating);
@@ -451,6 +492,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
         break;
 
       case ExploreSortMode.recommended:
+        _sortDefaultExploreFeed(filtered);
+        break;
+
       case ExploreSortMode.newest:
         break;
     }
@@ -511,7 +555,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
     final isSuper = _creators[place.createdBy]?.isSuperUser == true;
 
     if (isSuper) {
-      score += 3;
+      score += 9;
     }
 
     score += place.rating;
@@ -858,7 +902,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
   Widget build(BuildContext context) {
     final userProvider = context.watch<UserProvider>();
     final user = userProvider.user;
+    final placeProvider = context.watch<PlaceProvider>();
+    final allPlaces = placeProvider.places;
+    _latestPlaces = allPlaces;
 
+    if (allPlaces.isNotEmpty) {
+      _loadCreators(allPlaces);
+    }
     return Scaffold(
       backgroundColor: bgColor,
       floatingActionButton: Column(
@@ -900,20 +950,12 @@ class _ExploreScreenState extends State<ExploreScreen> {
       ),
       body: SafeArea(
         bottom: false,
-        child: StreamBuilder<List<Place>>(
-          stream: _placesStream,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting &&
-                !snapshot.hasData) {
+        child: Builder(
+          builder: (context) {
+            if (placeProvider.isLoading && allPlaces.isEmpty) {
               return const Center(
                 child: CircularProgressIndicator(color: primaryColor),
               );
-            }
-
-            final allPlaces = snapshot.data ?? [];
-            _latestPlaces = allPlaces;
-            if (allPlaces.isNotEmpty) {
-              _loadCreators(allPlaces);
             }
 
             final filtered = _filterPlaces(allPlaces, user);
@@ -1112,7 +1154,7 @@ class _ExploreHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Good ${DateTime.now().hour < 12 ? 'morning' : DateTime.now().hour < 17 ? 'afternoon' : 'evening'}, $firstName 👋',
+                  'Good ${DateTime.now().hour < 12 ? 'morning' : DateTime.now().hour < 17 ? 'afternoon' : 'evening'}, $firstName',
                   style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.w900,
@@ -1218,6 +1260,13 @@ class _QuickFilterStrip extends StatelessWidget {
       physics: const BouncingScrollPhysics(),
       child: Row(
         children: [
+          _QuickFilterChip(
+            label: 'Newest',
+            isSelected: showNewestFirst,
+            icon: Icons.schedule_rounded,
+            onTap: onNewestTap,
+          ),
+          const SizedBox(width: 8),
           _QuickFilterChip(
             label: 'For You',
             isSelected: showForYou,
