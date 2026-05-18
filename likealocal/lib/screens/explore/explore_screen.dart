@@ -1230,12 +1230,6 @@ class _QuickFilterStrip extends StatelessWidget {
             onTap: onNearbyTap,
           ),
           const SizedBox(width: 8),
-          _QuickFilterChip(
-            label: 'Newest',
-            isSelected: showNewestFirst,
-            icon: Icons.schedule_rounded,
-            onTap: onNewestTap,
-          ),
         ],
       ),
     );

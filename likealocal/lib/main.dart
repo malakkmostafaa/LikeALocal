@@ -16,6 +16,7 @@ import 'providers/place_provider.dart';
 import 'providers/review_provider.dart';
 import 'providers/location_provider.dart';
 import 'providers/chat_provider.dart';
+import 'providers/trivia_provider.dart';
 import 'providers/notification_provider.dart';
 import 'providers/ai_provider.dart';
 import 'services/notification_service.dart';
@@ -23,6 +24,7 @@ import 'services/reminder_geofence_service.dart';
 import 'providers/pin_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/main_navigation.dart';
+import 'services/incoming_notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -61,6 +63,7 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => ChatProvider()),
         ChangeNotifierProvider(create: (_) => AiChatProvider()),
         ChangeNotifierProvider(create: (_) => ConnectivityProvider()),
+        ChangeNotifierProvider(create: (_) => TriviaProvider()),
         ChangeNotifierProvider(
           create: (_) => LocationProvider()..fetchLocation(),
         ),
@@ -136,6 +139,8 @@ class AuthGate extends StatelessWidget {
         if (snapshot.hasData && snapshot.data != null) {
           // Save FCM token every time user is confirmed logged in
           NotificationService.saveFcmToken();
+          ReminderGeofenceService.syncFromFirestore(); // ← ADD THIS
+          IncomingNotificationService.start();
           return const MainNavigation();
         }
 

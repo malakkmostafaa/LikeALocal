@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:like_a_local/screens/explore/widgets/place_map_preview.dart';
+import 'package:like_a_local/screens/map/place_map_screen.dart';
 
 import '../../../models/place.dart';
 import '../../../widgets/pin_button.dart';
@@ -31,7 +32,7 @@ class PlaceCard extends StatelessWidget {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => MapScreen(initialPlace: place),
+        builder: (_) => PlaceMapScreen(place: place),
       ),
     );
   }
@@ -162,8 +163,9 @@ class PlaceCard extends StatelessWidget {
                         children: [
                           _smallChip(
                             icon: Icons.category_rounded,
-                            label:
-                                place.category.isEmpty ? 'General' : place.category,
+                            label: place.category.isEmpty
+                                ? 'General'
+                                : place.category,
                             color: primaryColor,
                             bg: lightPrimary,
                           ),
@@ -238,4 +240,3 @@ class PlaceCard extends StatelessWidget {
     );
   }
 }
-

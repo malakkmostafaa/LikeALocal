@@ -10,6 +10,7 @@ import 'map/map_screen.dart';
 //import 'chat/chat_screen.dart';
 import 'profile/profile_screen.dart';
 import 'notifications/notifications_screen.dart';
+import 'game/game_screen.dart';
 import '../providers/notification_provider.dart';
 import '../widgets/notification_bell.dart';
 
@@ -40,6 +41,7 @@ class _MainNavigationState extends State<MainNavigation> {
 
   final List<Widget> screens = const [
     ExploreScreen(),
+    GameScreen(),
     AddPlaceScreen(),
     MapScreen(),
     //ChatScreen(),
@@ -50,10 +52,11 @@ class _MainNavigationState extends State<MainNavigation> {
   Widget build(BuildContext context) {
     return Scaffold(
       // Notification bell persists across all tabs via the AppBar overlay
-      body: IndexedStack(       // remove the Stack wrapper entirely
-          index: currentIndex,
-          children: screens,
-        ),
+      body: IndexedStack(
+        // remove the Stack wrapper entirely
+        index: currentIndex,
+        children: screens,
+      ),
 
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: currentIndex,
@@ -69,13 +72,17 @@ class _MainNavigationState extends State<MainNavigation> {
             label: 'Explore',
           ),
           BottomNavigationBarItem(
+            icon: Icon(Icons.sports_esports_rounded),
+            label: 'Game',
+          ),
+          BottomNavigationBarItem(
             icon: Icon(Icons.add_circle_outline_rounded),
             label: 'Add',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.map_rounded),
             label: 'Map',
-           ),
+          ),
           // BottomNavigationBarItem(
           //   icon: Icon(Icons.chat_bubble_outline_rounded),
           //   label: 'Chats',
