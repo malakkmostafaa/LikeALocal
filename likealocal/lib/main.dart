@@ -124,8 +124,15 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class AuthGate extends StatelessWidget {
+class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
+
+  @override
+  State<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<AuthGate> {
+  String? _lastUid;
 
   @override
   Widget build(BuildContext context) {
@@ -136,12 +143,22 @@ class AuthGate extends StatelessWidget {
           return const SplashLoadingScreen();
         }
 
-        if (snapshot.hasData && snapshot.data != null) {
-          // Save FCM token every time user is confirmed logged in
-          NotificationService.saveFcmToken();
-          ReminderGeofenceService.syncFromFirestore(); // ← ADD THIS
-          IncomingNotificationService.start();
+        final user = snapshot.data;
+
+        if (user != null) {
+          if (_lastUid != user.uid) {
+            _lastUid = user.uid;
+            NotificationService.saveFcmToken();
+            ReminderGeofenceService.syncFromFirestore();
+            IncomingNotificationService.start();
+          }
           return const MainNavigation();
+        }
+
+        if (_lastUid != null) {
+          _lastUid = null;
+          context.read<UserProvider>().clear(); // ← clears stale name
+          IncomingNotificationService.stop();
         }
 
         return const LoginScreen();

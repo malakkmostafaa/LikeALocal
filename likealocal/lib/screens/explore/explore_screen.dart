@@ -919,7 +919,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
             final filtered = _filterPlaces(allPlaces, user);
             final trending = _getTrending(allPlaces);
 
-            final firstName = user?.name.split(' ').first ?? 'there';
+            final firstName = (user != null && user.name.trim().isNotEmpty)
+                ? user.name.split(' ').first
+                : 'there';
 
             final showTrending = _searchQuery.isEmpty &&
                 _selectedCategory == null &&

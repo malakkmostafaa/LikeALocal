@@ -66,6 +66,6 @@ class BadgeSystem {
   }
 
   static bool checkAndDetermineSuperUser(AppUser user) {
-    return user.placesAdded >= 50 && user.reviewsCount >= 100;
+    return user.placesAdded >= 50 && user.reviewsCount >= 100; 
   }
 }

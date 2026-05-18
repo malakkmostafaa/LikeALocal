@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
@@ -29,10 +30,16 @@ class UserProvider extends ChangeNotifier {
     _init();
   }
 
+  StreamSubscription<AppUser?>? _userStreamSub; // ← add this field
+
   Future<void> _init() async {
     await _loadFromCache();
+    _startListening();
+  }
 
-    _userService.currentUserStream().listen(
+  void _startListening() {
+    _userStreamSub?.cancel();
+    _userStreamSub = _userService.currentUserStream().listen(
       (AppUser? user) {
         _user = user;
         _isLoading = false;
@@ -40,6 +47,11 @@ class UserProvider extends ChangeNotifier {
 
         if (user != null) {
           _saveToCache(user);
+          if (!user.isSuperUser &&
+              user.placesAdded >= 1 &&
+              user.reviewsCount >= 1) {
+            _userService.updateCurrentUser({'isSuperUser': true});
+          }
         } else {
           _clearCache();
         }
@@ -52,6 +64,21 @@ class UserProvider extends ChangeNotifier {
         notifyListeners();
       },
     );
+  }
+
+  void clear() {
+    _userStreamSub?.cancel();
+    _user = null;
+    _isLoading = false;
+    _clearCache();
+    notifyListeners();
+    _startListening(); // ← restart stream for new user
+  }
+
+  @override
+  void dispose() {
+    _userStreamSub?.cancel();
+    super.dispose();
   }
 
   Future<void> updateProfile({
