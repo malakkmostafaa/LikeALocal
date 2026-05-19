@@ -48,8 +48,8 @@ class UserProvider extends ChangeNotifier {
         if (user != null) {
           _saveToCache(user);
           if (!user.isSuperUser &&
-              user.placesAdded >= 1 &&
-              user.reviewsCount >= 1) {
+              user.placesAdded >= 50 &&
+              user.reviewsCount >= 100) {
             _userService.updateCurrentUser({'isSuperUser': true});
           }
         } else {
